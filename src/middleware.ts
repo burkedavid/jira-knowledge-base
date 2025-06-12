@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
 export async function middleware(request: NextRequest) {
-  // Allow access to login page and auth API routes
+  // Allow access to login page, auth API routes, and health check
   if (
     request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/api/auth') ||
+    request.nextUrl.pathname.startsWith('/api/health') ||
     request.nextUrl.pathname.startsWith('/_next') ||
-    request.nextUrl.pathname.startsWith('/favicon.ico')
+    request.nextUrl.pathname.startsWith('/favicon.ico') ||
+    request.nextUrl.pathname.startsWith('/robots.txt') ||
+    request.nextUrl.pathname.startsWith('/manifest.json')
   ) {
     return NextResponse.next()
   }
