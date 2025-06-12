@@ -15,20 +15,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check if user has a valid token
-  const token = await getToken({ 
-    req: request, 
-    secret: process.env.NEXTAUTH_SECRET 
-  })
+  try {
+    // Check if user has a valid token
+    const token = await getToken({ 
+      req: request, 
+      secret: process.env.NEXTAUTH_SECRET 
+    })
 
-  // If no token, redirect to login
-  if (!token) {
+    // If no token, redirect to login
+    if (!token) {
+      const loginUrl = new URL('/login', request.url)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    // If authenticated, continue
+    return NextResponse.next()
+  } catch (error) {
+    console.error('Middleware error:', error)
+    // If there's an error with authentication, redirect to login
     const loginUrl = new URL('/login', request.url)
     return NextResponse.redirect(loginUrl)
   }
-
-  // If authenticated, continue
-  return NextResponse.next()
 }
 
 export const config = {
