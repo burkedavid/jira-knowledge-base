@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server'
 
-export async function GET() {
+// Force this route to be dynamic
+export const dynamic = 'force-dynamic'
+
+export async function GET(request: Request) {
   try {
+    console.log('Health check endpoint called:', {
+      url: request.url,
+      method: request.method,
+      timestamp: new Date().toISOString()
+    })
+
     // Basic health check
     const health = {
       status: 'ok',
@@ -16,15 +25,23 @@ export async function GET() {
         hasAwsCredentials: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
         isVercel: process.env.VERCEL === '1',
         vercelEnv: process.env.VERCEL_ENV,
+        ci: process.env.CI,
       },
       build: {
         buildTime: new Date().toISOString(),
         version: '1.0.0'
+      },
+      request: {
+        url: request.url,
+        method: request.method,
+        userAgent: request.headers.get('user-agent'),
       }
     }
 
+    console.log('Health check response:', health)
     return NextResponse.json(health)
   } catch (error) {
+    console.error('Health check error:', error)
     return NextResponse.json(
       { 
         status: 'error', 
