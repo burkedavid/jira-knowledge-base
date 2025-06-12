@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "node scripts/switch-database.js postgresql && prisma generate && next build",
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "next lint",
@@ -12,6 +12,9 @@
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "db:switch:sqlite": "node scripts/switch-database.js sqlite && npm run db:generate",
+    "db:switch:postgresql": "node scripts/switch-database.js postgresql && npm run db:generate",
+    "dev:local": "node scripts/switch-database.js sqlite && npm run db:generate && npm run db:push && npm run dev",
     "auth:setup": "node scripts/create-auth-users.js",
     "auth:reset": "node scripts/reset-auth-users.js"
   },
