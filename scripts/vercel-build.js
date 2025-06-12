@@ -14,83 +14,81 @@ console.log('Environment variables:', {
   NODE_ENV: process.env.NODE_ENV
 });
 
+const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma');
+console.log('📁 Schema path:', schemaPath);
+
+if (!fs.existsSync(schemaPath)) {
+  console.error('❌ Schema file not found:', schemaPath);
+  process.exit(1);
+}
+
 if (isVercel) {
   console.log('🔄 Configuring for Vercel (PostgreSQL)...');
   
-  // Verify environment variables first
-  console.log('🔍 Checking environment variables...');
-  console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
-  console.log('DATABASE_URL preview:', process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + '...' : 'undefined');
-  console.log('NEXTAUTH_SECRET exists:', !!process.env.NEXTAUTH_SECRET);
-  console.log('NEXTAUTH_URL exists:', !!process.env.NEXTAUTH_URL);
+  // Verify critical environment variables
+  const requiredEnvVars = ['DATABASE_URL', 'NEXTAUTH_SECRET'];
+  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
   
-  if (!process.env.DATABASE_URL) {
-    console.error('❌ DATABASE_URL not found in environment variables');
-    console.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('DATABASE')));
+  if (missingVars.length > 0) {
+    console.error('❌ Missing required environment variables:', missingVars);
+    console.error('Available DATABASE vars:', Object.keys(process.env).filter(key => key.includes('DATABASE')));
+    console.error('Available NEXTAUTH vars:', Object.keys(process.env).filter(key => key.includes('NEXTAUTH')));
     process.exit(1);
   }
   
-  if (!process.env.NEXTAUTH_SECRET) {
-    console.error('❌ NEXTAUTH_SECRET not found in environment variables');
-    console.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('NEXTAUTH')));
-    process.exit(1);
-  }
+  console.log('✅ Required environment variables found');
+  console.log('DATABASE_URL preview:', process.env.DATABASE_URL.substring(0, 20) + '...');
   
-  console.log('✅ Environment variables verified');
-  
-  // Switch to PostgreSQL
-  const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma');
-  console.log('📁 Schema path:', schemaPath);
-  
-  if (!fs.existsSync(schemaPath)) {
-    console.error('❌ Schema file not found:', schemaPath);
-    process.exit(1);
-  }
-  
+  // Read and update schema
   let schema = fs.readFileSync(schemaPath, 'utf8');
   console.log('📖 Current schema provider:', schema.match(/provider = "(\w+)"/)?.[1] || 'unknown');
   
-  // Replace SQLite with PostgreSQL
-  const originalSchema = schema;
-  schema = schema.replace(
-    /provider = "sqlite"/g,
-    'provider = "postgresql"'
-  );
-  
-  if (schema === originalSchema) {
-    console.log('⚠️ No SQLite provider found to replace, schema might already be PostgreSQL');
+  // Ensure we're using PostgreSQL
+  if (schema.includes('provider = "sqlite"')) {
+    schema = schema.replace(/provider = "sqlite"/g, 'provider = "postgresql"');
+    fs.writeFileSync(schemaPath, schema);
+    console.log('🔄 Switched from SQLite to PostgreSQL');
+  } else if (schema.includes('provider = "postgresql"')) {
+    console.log('✅ Already using PostgreSQL');
   } else {
-    console.log('🔄 Replaced SQLite with PostgreSQL');
+    console.error('❌ Unknown database provider in schema');
+    process.exit(1);
   }
-  
-  fs.writeFileSync(schemaPath, schema);
-  console.log('✅ Schema updated');
-  
-  // Verify the change
-  const updatedSchema = fs.readFileSync(schemaPath, 'utf8');
-  console.log('📖 Updated schema provider:', updatedSchema.match(/provider = "(\w+)"/)?.[1] || 'unknown');
   
 } else {
   console.log('🔄 Configuring for local development (SQLite)...');
   
-  // Switch to SQLite
-  const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma');
+  // Read and update schema for local development
   let schema = fs.readFileSync(schemaPath, 'utf8');
   
-  // Replace PostgreSQL with SQLite
-  schema = schema.replace(
-    /provider = "postgresql"/g,
-    'provider = "sqlite"'
-  );
-  
-  fs.writeFileSync(schemaPath, schema);
-  console.log('✅ Switched to SQLite');
+  if (schema.includes('provider = "postgresql"')) {
+    schema = schema.replace(/provider = "postgresql"/g, 'provider = "sqlite"');
+    fs.writeFileSync(schemaPath, schema);
+    console.log('🔄 Switched from PostgreSQL to SQLite');
+  } else if (schema.includes('provider = "sqlite"')) {
+    console.log('✅ Already using SQLite');
+  }
 }
+
+// Verify the final schema state
+const finalSchema = fs.readFileSync(schemaPath, 'utf8');
+const finalProvider = finalSchema.match(/provider = "(\w+)"/)?.[1] || 'unknown';
+console.log('📖 Final schema provider:', finalProvider);
 
 try {
   console.log('📦 Generating Prisma client...');
   execSync('npx prisma generate', { stdio: 'inherit' });
   console.log('✅ Prisma client generated');
+  
+  if (isVercel) {
+    console.log('🗄️ Running database migrations...');
+    try {
+      execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+      console.log('✅ Database migrations completed');
+    } catch (migrateError) {
+      console.warn('⚠️ Migration failed, continuing with build:', migrateError.message);
+    }
+  }
   
   console.log('🏗️ Building Next.js application...');
   execSync('npx next build', { stdio: 'inherit' });
