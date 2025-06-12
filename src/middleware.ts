@@ -15,24 +15,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Temporarily allow all access to debug the 404 issue
-  // TODO: Re-enable authentication after fixing routing
-  return NextResponse.next()
-
   // Check if user has a valid token
-  // const token = await getToken({ 
-  //   req: request, 
-  //   secret: process.env.NEXTAUTH_SECRET 
-  // })
+  const token = await getToken({ 
+    req: request, 
+    secret: process.env.NEXTAUTH_SECRET 
+  })
 
   // If no token, redirect to login
-  // if (!token) {
-  //   const loginUrl = new URL('/login', request.url)
-  //   return NextResponse.redirect(loginUrl)
-  // }
+  if (!token) {
+    const loginUrl = new URL('/login', request.url)
+    return NextResponse.redirect(loginUrl)
+  }
 
   // If authenticated, continue
-  // return NextResponse.next()
+  return NextResponse.next()
 }
 
 export const config = {
