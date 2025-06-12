@@ -1,0 +1,16 @@
+{
+  "name": "RAG Knowledge Base",
+  "short_name": "RAG KB",
+  "description": "AI-powered requirements analysis and knowledge management platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+} 
