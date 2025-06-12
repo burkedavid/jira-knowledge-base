@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 
-// Force this route to be dynamic
+// Force this route to be dynamic and configure runtime
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const revalidate = 0
 
 export async function GET(request: Request) {
   try {
@@ -39,20 +41,38 @@ export async function GET(request: Request) {
     }
 
     console.log('Health check response:', health)
-    return NextResponse.json(health)
+    
+    // Add explicit headers to prevent caching
+    return new NextResponse(JSON.stringify(health), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   } catch (error) {
     console.error('Health check error:', error)
-    return NextResponse.json(
-      { 
-        status: 'error', 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString(),
-        environment: {
-          nodeEnv: process.env.NODE_ENV,
-          isVercel: process.env.VERCEL === '1',
-        }
-      }, 
-      { status: 500 }
-    )
+    
+    const errorResponse = {
+      status: 'error', 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+      environment: {
+        nodeEnv: process.env.NODE_ENV,
+        isVercel: process.env.VERCEL === '1',
+      }
+    }
+    
+    return new NextResponse(JSON.stringify(errorResponse), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    })
   }
 } 
