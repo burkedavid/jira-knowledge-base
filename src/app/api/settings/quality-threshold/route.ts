@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth'
 import fs from 'fs/promises'
 import path from 'path'
 
+export const dynamic = 'force-dynamic'
+
 const SETTINGS_FILE = path.join(process.cwd(), 'data', 'product-context.json')
 
 export async function GET() {

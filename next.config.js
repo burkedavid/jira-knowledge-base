@@ -8,7 +8,20 @@ const nextConfig = {
     config.resolve.alias.encoding = false;
     return config;
   },
-
+  // Force dynamic rendering for API routes that use authentication
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+    ];
+  },
 }
 
 module.exports = nextConfig 
