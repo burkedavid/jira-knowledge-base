@@ -17,20 +17,7 @@ console.log('Environment variables:', {
 if (isVercel) {
   console.log('🔄 Configuring for Vercel (PostgreSQL)...');
   
-  // Switch to PostgreSQL
-  const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma');
-  let schema = fs.readFileSync(schemaPath, 'utf8');
-  
-  // Replace SQLite with PostgreSQL
-  schema = schema.replace(
-    /provider = "sqlite"/g,
-    'provider = "postgresql"'
-  );
-  
-  fs.writeFileSync(schemaPath, schema);
-  console.log('✅ Switched to PostgreSQL');
-  
-  // Verify environment variables
+  // Verify environment variables first
   console.log('🔍 Checking environment variables...');
   console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
   console.log('DATABASE_URL preview:', process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + '...' : 'undefined');
@@ -50,6 +37,39 @@ if (isVercel) {
   }
   
   console.log('✅ Environment variables verified');
+  
+  // Switch to PostgreSQL
+  const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma');
+  console.log('📁 Schema path:', schemaPath);
+  
+  if (!fs.existsSync(schemaPath)) {
+    console.error('❌ Schema file not found:', schemaPath);
+    process.exit(1);
+  }
+  
+  let schema = fs.readFileSync(schemaPath, 'utf8');
+  console.log('📖 Current schema provider:', schema.match(/provider = "(\w+)"/)?.[1] || 'unknown');
+  
+  // Replace SQLite with PostgreSQL
+  const originalSchema = schema;
+  schema = schema.replace(
+    /provider = "sqlite"/g,
+    'provider = "postgresql"'
+  );
+  
+  if (schema === originalSchema) {
+    console.log('⚠️ No SQLite provider found to replace, schema might already be PostgreSQL');
+  } else {
+    console.log('🔄 Replaced SQLite with PostgreSQL');
+  }
+  
+  fs.writeFileSync(schemaPath, schema);
+  console.log('✅ Schema updated');
+  
+  // Verify the change
+  const updatedSchema = fs.readFileSync(schemaPath, 'utf8');
+  console.log('📖 Updated schema provider:', updatedSchema.match(/provider = "(\w+)"/)?.[1] || 'unknown');
+  
 } else {
   console.log('🔄 Configuring for local development (SQLite)...');
   
@@ -79,5 +99,6 @@ try {
   console.log('🎉 Build process completed successfully!');
 } catch (error) {
   console.error('❌ Build failed:', error.message);
+  console.error('Error details:', error);
   process.exit(1);
 } 
