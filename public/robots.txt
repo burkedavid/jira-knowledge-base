@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 
+# Updated for deployment trigger
 Sitemap: https://your-domain.vercel.app/sitemap.xml 
