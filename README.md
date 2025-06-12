@@ -147,8 +147,9 @@ npm install
 Create `.env` file with your configuration:
 
 ```env
-# Database
+# Database (SQLite for local development)
 DATABASE_URL="file:./dev.db"
+# For PostgreSQL (production): DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require"
 
 # AWS Bedrock (Required for AI features)
 AWS_ACCESS_KEY_ID=your-aws-access-key
@@ -222,6 +223,67 @@ npm run auth:reset
 - **Embeddings**: ~$0.0001 per 1K tokens (very affordable)
 - **Claude 4**: Pay-per-use, optimized prompts for efficiency
 - **Caching**: Vector embeddings cached in database
+
+## 🚀 Production Deployment (Vercel + Neon PostgreSQL)
+
+### **Prerequisites**
+- **Vercel Account**: For hosting the Next.js application
+- **Neon PostgreSQL**: For production database (free tier available)
+- **AWS Account**: For Bedrock AI services
+
+### **Step 1: Database Setup**
+1. Create a [Neon PostgreSQL](https://neon.tech) database
+2. Copy your connection string (format: `postgresql://username:password@host:port/database?sslmode=require`)
+
+### **Step 2: Vercel Deployment**
+1. **Import from GitHub**: Connect your repository to Vercel
+2. **Framework Preset**: Select "Next.js"
+3. **Environment Variables**: Add these in Vercel project settings:
+   ```
+   DATABASE_URL=postgresql://your-neon-connection-string
+   AWS_ACCESS_KEY_ID=your-aws-access-key
+   AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+   AWS_REGION=us-east-1
+   NEXTAUTH_SECRET=your-generated-secret-key
+   NEXTAUTH_URL=https://your-vercel-domain.vercel.app
+   JIRA_BASE_URL=https://your-company.atlassian.net
+   JIRA_EMAIL=your-email@company.com
+   JIRA_API_TOKEN=your-jira-token
+   JIRA_PROJECT_KEY=YOUR_PROJECT
+   ```
+
+### **Step 3: Database Migration**
+After deployment, initialize your production database:
+```bash
+# Generate Prisma client for PostgreSQL
+npx prisma generate
+
+# Deploy database schema
+npx prisma migrate deploy
+
+# Seed with demo accounts (optional)
+npm run auth:setup
+```
+
+### **Step 4: Verification**
+1. **Visit your Vercel URL**: Confirm the application loads
+2. **Test Authentication**: Login with demo accounts
+3. **Check Database**: Verify connection in application logs
+4. **Test AI Features**: Ensure AWS Bedrock integration works
+
+### **Environment Variables Reference**
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | ✅ |
+| `AWS_ACCESS_KEY_ID` | AWS access key for Bedrock | ✅ |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key for Bedrock | ✅ |
+| `AWS_REGION` | AWS region (us-east-1) | ✅ |
+| `NEXTAUTH_SECRET` | NextAuth secret key | ✅ |
+| `NEXTAUTH_URL` | Your production URL | ✅ |
+| `JIRA_BASE_URL` | Jira instance URL | ❌ |
+| `JIRA_EMAIL` | Jira user email | ❌ |
+| `JIRA_API_TOKEN` | Jira API token | ❌ |
+| `JIRA_PROJECT_KEY` | Jira project key | ❌ |
 
 ## 📊 Complete Import Workflow
 
