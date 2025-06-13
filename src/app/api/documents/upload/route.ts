@@ -12,56 +12,102 @@ interface DocumentUploadResult {
   errors: string[]
 }
 
+// Add timeout wrapper for long-running operations
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+    )
+  ])
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData()
-    const files = formData.getAll('files') as File[]
-    const category = formData.get('category') as string || 'general'
-    const generateEmbeddings = formData.get('generateEmbeddings') === 'true'
-
-    if (!files || files.length === 0) {
-      return NextResponse.json(
-        { error: 'No files provided' },
-        { status: 400 }
-      )
-    }
-
-    const results: DocumentUploadResult[] = []
-    const errors: string[] = []
-
-    for (const file of files) {
-      try {
-        const result = await processDocumentFile(file, category, generateEmbeddings)
-        results.push(result)
-      } catch (error) {
-        const errorMessage = `Failed to process ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
-        errors.push(errorMessage)
-        console.error(errorMessage, error)
-      }
-    }
-
-    // Calculate totals for frontend display
-    const totalEmbeddingsGenerated = results.reduce((sum, result) => sum + result.embeddingsGenerated, 0)
-    const totalSectionsProcessed = results.reduce((sum, result) => sum + result.sectionsProcessed, 0)
-
-    return NextResponse.json({
-      success: true,
-      results,
-      totalProcessed: results.length,
-      documentsCreated: results.length,
-      embeddingsGenerated: totalEmbeddingsGenerated,
-      sectionsProcessed: totalSectionsProcessed,
-      totalErrors: errors.length,
-      errors
-    })
-
+    // Add timeout for the entire request processing
+    return await withTimeout(processUploadRequest(request), 55000) // 55 seconds, leaving 5s buffer
   } catch (error) {
     console.error('Error in document upload:', error)
+    
+    // Ensure we always return JSON, even for unexpected errors
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     return NextResponse.json(
-      { error: 'Failed to process document upload' },
+      { 
+        success: false,
+        error: errorMessage,
+        totalProcessed: 0,
+        documentsCreated: 0,
+        embeddingsGenerated: 0,
+        errors: [errorMessage]
+      },
       { status: 500 }
     )
   }
+}
+
+async function processUploadRequest(request: NextRequest) {
+  const formData = await request.formData()
+  const files = formData.getAll('files') as File[]
+  const category = formData.get('category') as string || 'general'
+  const generateEmbeddings = formData.get('generateEmbeddings') === 'true'
+
+  if (!files || files.length === 0) {
+    return NextResponse.json(
+      { 
+        success: false,
+        error: 'No files provided',
+        totalProcessed: 0,
+        documentsCreated: 0,
+        embeddingsGenerated: 0,
+        errors: ['No files provided']
+      },
+      { status: 400 }
+    )
+  }
+
+  // Limit the number of files per request to prevent timeouts
+  if (files.length > 25) {
+    return NextResponse.json(
+      { 
+        success: false,
+        error: `Too many files in single request. Maximum 25 files allowed, received ${files.length}. Please use chunked upload for large batches.`,
+        totalProcessed: 0,
+        documentsCreated: 0,
+        embeddingsGenerated: 0,
+        errors: [`Too many files: ${files.length} > 25`]
+      },
+      { status: 400 }
+    )
+  }
+
+  const results: DocumentUploadResult[] = []
+  const errors: string[] = []
+
+  for (const file of files) {
+    try {
+      const result = await processDocumentFile(file, category, generateEmbeddings)
+      results.push(result)
+    } catch (error) {
+      const errorMessage = `Failed to process ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      errors.push(errorMessage)
+      console.error(errorMessage, error)
+    }
+  }
+
+  // Calculate totals for frontend display
+  const totalEmbeddingsGenerated = results.reduce((sum, result) => sum + result.embeddingsGenerated, 0)
+  const totalSectionsProcessed = results.reduce((sum, result) => sum + result.sectionsProcessed, 0)
+
+  return NextResponse.json({
+    success: true,
+    results,
+    totalProcessed: results.length,
+    documentsCreated: results.length,
+    embeddingsGenerated: totalEmbeddingsGenerated,
+    sectionsProcessed: totalSectionsProcessed,
+    totalErrors: errors.length,
+    errors
+  })
 }
 
 async function processDocumentFile(

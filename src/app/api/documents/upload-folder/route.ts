@@ -17,160 +17,215 @@ interface FolderUploadResult {
   }>
 }
 
+// Add timeout wrapper for long-running operations
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+    )
+  ])
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData()
-    const files = formData.getAll('files') as File[]
-    const category = formData.get('category') as string || 'general'
-    const generateEmbeddings = formData.get('generateEmbeddings') === 'true'
-    const folderPath = formData.get('folderPath') as string || ''
-
-    if (!files || files.length === 0) {
-      return NextResponse.json(
-        { error: 'No files provided' },
-        { status: 400 }
-      )
-    }
-
-    const result: FolderUploadResult = {
-      totalFiles: files.length,
-      processedFiles: 0,
-      skippedFiles: 0,
-      errors: [],
-      documents: []
-    }
-
-    // Filter supported files
-    const supportedExtensions = ['.md', '.html', '.htm', '.txt']
-    const supportedFiles = files.filter(file => {
-      const ext = path.extname(file.name).toLowerCase()
-      return supportedExtensions.includes(ext)
-    })
-
-    result.skippedFiles = files.length - supportedFiles.length
-
-    // Process each supported file
-    for (const file of supportedFiles) {
-      try {
-        const fileName = file.name
-        const fileExtension = path.extname(fileName).toLowerCase()
-        
-        // Read file content
-        const buffer = await file.arrayBuffer()
-        const content = new TextDecoder('utf-8').decode(buffer)
-        
-        if (!content.trim()) {
-          result.errors.push(`${fileName}: File is empty`)
-          continue
-        }
-
-        // Extract title from filename (remove extension)
-        const title = path.basename(fileName, fileExtension)
-        
-        // Process content based on file type
-        const { processedContent, sections } = await processFileContent(content, fileExtension, title)
-        
-        // Check if document already exists
-        const existingDoc = await prisma.document.findFirst({
-          where: { 
-            OR: [
-              { title },
-              { fileName }
-            ]
-          }
-        })
-
-        let documentId: string
-
-        if (existingDoc) {
-          // Update existing document
-          await prisma.document.update({
-            where: { id: existingDoc.id },
-            data: {
-              content: processedContent,
-              type: getDocumentType(fileExtension),
-              fileName,
-              fileSize: buffer.byteLength,
-              metadata: JSON.stringify({ category, folderPath }),
-              updatedAt: new Date()
-            }
-          })
-          documentId = existingDoc.id
-        } else {
-          // Create new document
-          const document = await prisma.document.create({
-            data: {
-              title,
-              content: processedContent,
-              type: getDocumentType(fileExtension),
-              fileName,
-              fileSize: buffer.byteLength,
-              metadata: JSON.stringify({ category, folderPath })
-            }
-          })
-          documentId = document.id
-        }
-
-        let embeddingsGenerated = 0
-
-        // Generate embeddings if requested
-        if (generateEmbeddings) {
-          try {
-            // Generate embedding for the full document
-            await embedContent(processedContent, documentId, 'document')
-            embeddingsGenerated++
-
-            // Generate embeddings for each section if we have them
-            for (const section of sections) {
-              if (section.content.trim().length > 50) { // Only embed substantial sections
-                await embedContent(
-                  `${section.title}\n\n${section.content}`,
-                  `${documentId}_section_${section.order}`,
-                  'document_section'
-                )
-                embeddingsGenerated++
-              }
-            }
-          } catch (error) {
-            console.error('Error generating embeddings for', fileName, ':', error)
-            result.errors.push(`${fileName}: Failed to generate embeddings`)
-          }
-        }
-
-        result.documents.push({
-          documentId,
-          title,
-          fileName,
-          sectionsProcessed: sections.length,
-          embeddingsGenerated
-        })
-
-        result.processedFiles++
-
-      } catch (error) {
-        const errorMessage = `${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
-        result.errors.push(errorMessage)
-        console.error('Error processing file:', errorMessage, error)
-      }
-    }
-
-    // Calculate total embeddings for frontend display
-    const totalEmbeddingsGenerated = result.documents.reduce((sum, doc) => sum + doc.embeddingsGenerated, 0)
-
-    return NextResponse.json({
-      success: true,
-      ...result,
-      documentsCreated: result.processedFiles,
-      embeddingsGenerated: totalEmbeddingsGenerated
-    })
-
+    // Add timeout for the entire request processing
+    return await withTimeout(processFolderUploadRequest(request), 55000) // 55 seconds, leaving 5s buffer
   } catch (error) {
     console.error('Error in folder upload:', error)
+    
+    // Ensure we always return JSON, even for unexpected errors
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     return NextResponse.json(
-      { error: 'Failed to process folder upload' },
+      { 
+        success: false,
+        error: errorMessage,
+        totalFiles: 0,
+        processedFiles: 0,
+        skippedFiles: 0,
+        documentsCreated: 0,
+        embeddingsGenerated: 0,
+        errors: [errorMessage],
+        documents: []
+      },
       { status: 500 }
     )
   }
+}
+
+async function processFolderUploadRequest(request: NextRequest) {
+  const formData = await request.formData()
+  const files = formData.getAll('files') as File[]
+  const category = formData.get('category') as string || 'general'
+  const generateEmbeddings = formData.get('generateEmbeddings') === 'true'
+  const folderPath = formData.get('folderPath') as string || ''
+
+  if (!files || files.length === 0) {
+    return NextResponse.json(
+      { 
+        success: false,
+        error: 'No files provided',
+        totalFiles: 0,
+        processedFiles: 0,
+        skippedFiles: 0,
+        documentsCreated: 0,
+        embeddingsGenerated: 0,
+        errors: ['No files provided'],
+        documents: []
+      },
+      { status: 400 }
+    )
+  }
+
+  // Limit the number of files per request to prevent timeouts
+  if (files.length > 25) {
+    return NextResponse.json(
+      { 
+        success: false,
+        error: `Too many files in single request. Maximum 25 files allowed, received ${files.length}. Please use chunked upload for large batches.`,
+        totalFiles: files.length,
+        processedFiles: 0,
+        skippedFiles: 0,
+        documentsCreated: 0,
+        embeddingsGenerated: 0,
+        errors: [`Too many files: ${files.length} > 25`],
+        documents: []
+      },
+      { status: 400 }
+    )
+  }
+
+  const result: FolderUploadResult = {
+    totalFiles: files.length,
+    processedFiles: 0,
+    skippedFiles: 0,
+    errors: [],
+    documents: []
+  }
+
+  // Filter supported files
+  const supportedExtensions = ['.md', '.html', '.htm', '.txt']
+  const supportedFiles = files.filter(file => {
+    const ext = path.extname(file.name).toLowerCase()
+    return supportedExtensions.includes(ext)
+  })
+
+  result.skippedFiles = files.length - supportedFiles.length
+
+  // Process each supported file
+  for (const file of supportedFiles) {
+    try {
+      const fileName = file.name
+      const fileExtension = path.extname(fileName).toLowerCase()
+      
+      // Read file content
+      const buffer = await file.arrayBuffer()
+      const content = new TextDecoder('utf-8').decode(buffer)
+      
+      if (!content.trim()) {
+        result.errors.push(`${fileName}: File is empty`)
+        continue
+      }
+
+      // Extract title from filename (remove extension)
+      const title = path.basename(fileName, fileExtension)
+      
+      // Process content based on file type
+      const { processedContent, sections } = await processFileContent(content, fileExtension, title)
+      
+      // Check if document already exists
+      const existingDoc = await prisma.document.findFirst({
+        where: { 
+          OR: [
+            { title },
+            { fileName }
+          ]
+        }
+      })
+
+      let documentId: string
+
+      if (existingDoc) {
+        // Update existing document
+        await prisma.document.update({
+          where: { id: existingDoc.id },
+          data: {
+            content: processedContent,
+            type: getDocumentType(fileExtension),
+            fileName,
+            fileSize: buffer.byteLength,
+            metadata: JSON.stringify({ category, folderPath }),
+            updatedAt: new Date()
+          }
+        })
+        documentId = existingDoc.id
+      } else {
+        // Create new document
+        const document = await prisma.document.create({
+          data: {
+            title,
+            content: processedContent,
+            type: getDocumentType(fileExtension),
+            fileName,
+            fileSize: buffer.byteLength,
+            metadata: JSON.stringify({ category, folderPath })
+          }
+        })
+        documentId = document.id
+      }
+
+      let embeddingsGenerated = 0
+
+      // Generate embeddings if requested
+      if (generateEmbeddings) {
+        try {
+          // Generate embedding for the full document
+          await embedContent(processedContent, documentId, 'document')
+          embeddingsGenerated++
+
+          // Generate embeddings for each section if we have them
+          for (const section of sections) {
+            if (section.content.trim().length > 50) { // Only embed substantial sections
+              await embedContent(
+                `${section.title}\n\n${section.content}`,
+                `${documentId}_section_${section.order}`,
+                'document_section'
+              )
+              embeddingsGenerated++
+            }
+          }
+        } catch (error) {
+          console.error('Error generating embeddings for', fileName, ':', error)
+          result.errors.push(`${fileName}: Failed to generate embeddings`)
+        }
+      }
+
+      result.documents.push({
+        documentId,
+        title,
+        fileName,
+        sectionsProcessed: sections.length,
+        embeddingsGenerated
+      })
+
+      result.processedFiles++
+
+    } catch (error) {
+      const errorMessage = `${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      result.errors.push(errorMessage)
+      console.error('Error processing file:', errorMessage, error)
+    }
+  }
+
+  // Calculate total embeddings for frontend display
+  const totalEmbeddingsGenerated = result.documents.reduce((sum, doc) => sum + doc.embeddingsGenerated, 0)
+
+  return NextResponse.json({
+    success: true,
+    ...result,
+    documentsCreated: result.processedFiles,
+    embeddingsGenerated: totalEmbeddingsGenerated
+  })
 }
 
 // Reuse the same processing functions from the single file upload

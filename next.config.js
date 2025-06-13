@@ -8,6 +8,13 @@ const nextConfig = {
     config.resolve.alias.encoding = false;
     return config;
   },
+  // Configure API routes for larger uploads
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb',
+    },
+    responseLimit: false,
+  },
   // Force dynamic rendering for API routes that use authentication
   async headers() {
     return [

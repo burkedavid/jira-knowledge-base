@@ -670,6 +670,14 @@ function DocumentUploadTab() {
   const [generateEmbeddings, setGenerateEmbeddings] = useState(true)
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  // New state for chunked upload progress
+  const [chunkProgress, setChunkProgress] = useState<{
+    currentChunk: number
+    totalChunks: number
+    processedFiles: number
+    totalFiles: number
+    errors: string[]
+  } | null>(null)
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedFiles(event.target.files)
@@ -717,6 +725,108 @@ function DocumentUploadTab() {
     }
   }
 
+  // New chunked upload function
+  const uploadFilesInChunks = async (files: File[], chunkSize: number = 20) => {
+    const totalFiles = files.length
+    const totalChunks = Math.ceil(totalFiles / chunkSize)
+    let processedFiles = 0
+    const allErrors: string[] = []
+    const allResults: any[] = []
+
+    setChunkProgress({
+      currentChunk: 0,
+      totalChunks,
+      processedFiles: 0,
+      totalFiles,
+      errors: []
+    })
+
+    for (let i = 0; i < totalFiles; i += chunkSize) {
+      const chunk = files.slice(i, i + chunkSize)
+      const currentChunk = Math.floor(i / chunkSize) + 1
+
+      setChunkProgress(prev => prev ? {
+        ...prev,
+        currentChunk,
+        processedFiles
+      } : null)
+
+      try {
+        const formData = new FormData()
+        
+        // Add files from current chunk
+        chunk.forEach(file => {
+          formData.append('files', file)
+        })
+        
+        formData.append('category', category)
+        formData.append('generateEmbeddings', generateEmbeddings.toString())
+
+        const endpoint = uploadMode === 'folder' ? '/api/documents/upload-folder' : '/api/documents/upload'
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: formData
+        })
+
+        let result
+        try {
+          const responseText = await response.text()
+          result = JSON.parse(responseText)
+        } catch (parseError) {
+          throw new Error(`Server returned invalid response: ${response.status} ${response.statusText}`)
+        }
+        
+        if (!response.ok) {
+          throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        // Accumulate results
+        allResults.push(result)
+        processedFiles += result.totalProcessed || chunk.length
+        
+        if (result.errors && result.errors.length > 0) {
+          allErrors.push(...result.errors)
+        }
+
+        // Update progress
+        setChunkProgress(prev => prev ? {
+          ...prev,
+          processedFiles,
+          errors: allErrors
+        } : null)
+
+        // Small delay between chunks to prevent overwhelming the server
+        if (currentChunk < totalChunks) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+
+      } catch (error) {
+        const errorMessage = `Chunk ${currentChunk} failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        allErrors.push(errorMessage)
+        console.error('Chunk upload error:', error)
+        
+        setChunkProgress(prev => prev ? {
+          ...prev,
+          errors: [...prev.errors, errorMessage]
+        } : null)
+      }
+    }
+
+    // Combine all results for final display
+    const combinedResult = {
+      success: allResults.length > 0,
+      totalProcessed: processedFiles,
+      documentsCreated: allResults.reduce((sum, r) => sum + (r.documentsCreated || 0), 0),
+      embeddingsGenerated: allResults.reduce((sum, r) => sum + (r.embeddingsGenerated || 0), 0),
+      sectionsProcessed: allResults.reduce((sum, r) => sum + (r.sectionsProcessed || 0), 0),
+      errors: allErrors,
+      summary: `Processed ${processedFiles} files in ${totalChunks} chunks. ${allErrors.length > 0 ? `${allErrors.length} errors occurred.` : 'All files processed successfully.'}`
+    }
+
+    return combinedResult
+  }
+
   const handleUpload = async () => {
     if (!selectedFiles || selectedFiles.length === 0) {
       alert('Please select files to upload')
@@ -725,43 +835,61 @@ function DocumentUploadTab() {
 
     setIsUploading(true)
     setUploadProgress(null)
+    setChunkProgress(null)
 
     try {
-      const formData = new FormData()
+      const filesArray = Array.from(selectedFiles)
       
-      // Add all selected files
-      Array.from(selectedFiles).forEach(file => {
-        formData.append('files', file)
-      })
-      
-      formData.append('category', category)
-      formData.append('generateEmbeddings', generateEmbeddings.toString())
-
-      const endpoint = uploadMode === 'folder' ? '/api/documents/upload-folder' : '/api/documents/upload'
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: formData
-      })
-
-      const result = await response.json()
-      
-      if (response.ok) {
+      // Use chunked upload for large batches or folder uploads
+      if (filesArray.length > 10 || uploadMode === 'folder') {
+        const result = await uploadFilesInChunks(filesArray)
         setUploadProgress(result)
       } else {
-        throw new Error(result.error || 'Upload failed')
+        // Use original single request for small batches
+        const formData = new FormData()
+        
+        // Add all selected files
+        filesArray.forEach(file => {
+          formData.append('files', file)
+        })
+        
+        formData.append('category', category)
+        formData.append('generateEmbeddings', generateEmbeddings.toString())
+
+        const endpoint = uploadMode === 'folder' ? '/api/documents/upload-folder' : '/api/documents/upload'
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: formData
+        })
+
+        let result
+        try {
+          const responseText = await response.text()
+          result = JSON.parse(responseText)
+        } catch (parseError) {
+          throw new Error(`Server returned invalid response: ${response.status} ${response.statusText}`)
+        }
+        
+        if (!response.ok) {
+          throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        setUploadProgress(result)
       }
     } catch (error) {
       console.error('Upload error:', error)
       alert(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsUploading(false)
+      setChunkProgress(null)
     }
   }
 
   const resetUpload = () => {
     setSelectedFiles(null)
     setUploadProgress(null)
+    setChunkProgress(null)
     // Reset file input
     const fileInput = document.getElementById('file-input') as HTMLInputElement
     if (fileInput) fileInput.value = ''
@@ -924,7 +1052,10 @@ function DocumentUploadTab() {
             {isUploading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Uploading...
+                {chunkProgress ? 
+                  `Processing chunk ${chunkProgress.currentChunk}/${chunkProgress.totalChunks}...` : 
+                  'Uploading...'
+                }
               </>
             ) : (
               <>
@@ -934,6 +1065,63 @@ function DocumentUploadTab() {
             )}
           </button>
         </div>
+
+        {/* Chunked Upload Progress */}
+        {chunkProgress && (
+          <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">Upload Progress</h4>
+              <span className="text-sm text-blue-700 dark:text-blue-300">
+                {chunkProgress.processedFiles}/{chunkProgress.totalFiles} files
+              </span>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 mb-3">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ 
+                  width: `${(chunkProgress.processedFiles / chunkProgress.totalFiles) * 100}%` 
+                }}
+              ></div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-blue-700 dark:text-blue-300">Current Chunk:</span>
+                <span className="ml-2 font-medium text-blue-900 dark:text-blue-100">
+                  {chunkProgress.currentChunk}/{chunkProgress.totalChunks}
+                </span>
+              </div>
+              <div>
+                <span className="text-blue-700 dark:text-blue-300">Files Processed:</span>
+                <span className="ml-2 font-medium text-blue-900 dark:text-blue-100">
+                  {chunkProgress.processedFiles}
+                </span>
+              </div>
+            </div>
+            
+            {chunkProgress.errors.length > 0 && (
+              <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
+                <p className="text-sm text-red-700 dark:text-red-300 font-medium mb-1">
+                  {chunkProgress.errors.length} error(s) occurred:
+                </p>
+                <div className="max-h-20 overflow-y-auto">
+                  {chunkProgress.errors.slice(-3).map((error, index) => (
+                    <p key={index} className="text-xs text-red-600 dark:text-red-400">
+                      {error}
+                    </p>
+                  ))}
+                  {chunkProgress.errors.length > 3 && (
+                    <p className="text-xs text-red-500 dark:text-red-400 italic">
+                      ... and {chunkProgress.errors.length - 3} more errors
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Upload Progress/Results */}
         {uploadProgress && (

@@ -1,4 +1,12 @@
 {
   "framework": "nextjs",
-  "buildCommand": "npm run build"
+  "buildCommand": "npm run build",
+  "functions": {
+    "src/app/api/documents/upload/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/documents/upload-folder/route.ts": {
+      "maxDuration": 60
+    }
+  }
 } 
