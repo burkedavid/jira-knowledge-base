@@ -762,7 +762,7 @@ function DocumentUploadTab() {
         formData.append('category', category)
         formData.append('generateEmbeddings', generateEmbeddings.toString())
 
-        const endpoint = uploadMode === 'folder' ? '/api/documents/upload-folder' : '/api/documents/upload'
+        const endpoint = '/api/documents/upload'
         
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -856,7 +856,7 @@ function DocumentUploadTab() {
         formData.append('category', category)
         formData.append('generateEmbeddings', generateEmbeddings.toString())
 
-        const endpoint = uploadMode === 'folder' ? '/api/documents/upload-folder' : '/api/documents/upload'
+        const endpoint = '/api/documents/upload'
         
         const response = await fetch(endpoint, {
           method: 'POST',
