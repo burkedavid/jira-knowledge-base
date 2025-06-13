@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Database, Upload, FileText, Settings, CheckCircle, AlertCircle, Loader2, FolderOpen, File, Brain } from 'lucide-react'
+import { ArrowLeft, Database, Upload, FileText, Settings, CheckCircle, AlertCircle, Loader2, FolderOpen, File, Brain, Save, RotateCcw } from 'lucide-react'
 
 interface ImportJob {
   id: string
@@ -54,8 +54,68 @@ export default function ImportPage() {
     batchSize: 25,
     delayBetweenBatches: 1000
   })
+  const [isSaving, setIsSaving] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
-  // Load environment variables on component mount
+  // Save configuration to localStorage
+  const saveConfiguration = async () => {
+    setIsSaving(true)
+    try {
+      const configToSave = {
+        projectKey: formData.projectKey,
+        formData: {
+          ...formData,
+          apiToken: '' // Don't save API token for security
+        },
+        jqlMappings,
+        lastSaved: new Date()
+      }
+      
+      // Save to localStorage
+      localStorage.setItem(`jira-import-config-${formData.projectKey}`, JSON.stringify(configToSave))
+      
+      // Also call the API (for future database storage)
+      await fetch('/api/jira/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save-user-config',
+          ...configToSave
+        })
+      })
+      
+      setLastSaved(new Date())
+      setHasUnsavedChanges(false)
+    } catch (error) {
+      console.error('Failed to save configuration:', error)
+      alert('Failed to save configuration')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Load configuration from localStorage
+  const loadConfiguration = () => {
+    try {
+      const saved = localStorage.getItem(`jira-import-config-${formData.projectKey}`)
+      if (saved) {
+        const config = JSON.parse(saved)
+        setFormData(prev => ({
+          ...prev,
+          ...config.formData,
+          projectKey: formData.projectKey // Keep current project key
+        }))
+        setJqlMappings(config.jqlMappings || jqlMappings)
+        setLastSaved(new Date(config.lastSaved))
+        setHasUnsavedChanges(false)
+      }
+    } catch (error) {
+      console.error('Failed to load saved configuration:', error)
+    }
+  }
+
+  // Load environment variables and saved config on component mount
   useEffect(() => {
     const loadJiraConfig = async () => {
       try {
@@ -69,6 +129,21 @@ export default function ImportPage() {
             username: config.username,
             // Don't pre-fill API token for security
           }))
+          
+          // After setting project key, try to load saved config
+          setTimeout(() => {
+            const saved = localStorage.getItem(`jira-import-config-${config.projectKey}`)
+            if (saved) {
+              const savedConfig = JSON.parse(saved)
+              setFormData(prev => ({
+                ...prev,
+                ...savedConfig.formData,
+                projectKey: config.projectKey // Keep env project key
+              }))
+              setJqlMappings(savedConfig.jqlMappings || jqlMappings)
+              setLastSaved(new Date(savedConfig.lastSaved))
+            }
+          }, 100)
         }
       } catch (error) {
         console.error('Failed to load Jira config:', error)
@@ -179,6 +254,7 @@ export default function ImportPage() {
         }
         
         setJqlMappings(newMappings)
+        setHasUnsavedChanges(true)
       }
     } catch (error) {
       setExploreResult({
@@ -251,6 +327,13 @@ export default function ImportPage() {
         ? { ...mapping, [field]: value }
         : mapping
     ))
+    setHasUnsavedChanges(true)
+  }
+
+  // Track changes to form data
+  const updateFormData = (updates: Partial<typeof formData>) => {
+    setFormData(prev => ({ ...prev, ...updates }))
+    setHasUnsavedChanges(true)
   }
 
   return (
@@ -326,7 +409,7 @@ export default function ImportPage() {
                       type="url"
                       placeholder="https://your-company.atlassian.net"
                       value={formData.jiraUrl}
-                      onChange={(e) => setFormData({...formData, jiraUrl: e.target.value})}
+                      onChange={(e) => updateFormData({jiraUrl: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
@@ -338,7 +421,7 @@ export default function ImportPage() {
                       type="text"
                       placeholder="PROJ"
                       value={formData.projectKey}
-                      onChange={(e) => setFormData({...formData, projectKey: e.target.value})}
+                      onChange={(e) => updateFormData({projectKey: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
@@ -353,7 +436,7 @@ export default function ImportPage() {
                       type="email"
                       placeholder="your-email@company.com"
                       value={formData.username}
-                      onChange={(e) => setFormData({...formData, username: e.target.value})}
+                      onChange={(e) => updateFormData({username: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
@@ -365,9 +448,58 @@ export default function ImportPage() {
                       type="password"
                       placeholder="Your Jira API token"
                       value={formData.apiToken}
-                      onChange={(e) => setFormData({...formData, apiToken: e.target.value})}
+                      onChange={(e) => updateFormData({apiToken: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                     />
+                  </div>
+                </div>
+
+                {/* Save/Load Configuration */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-sm">
+                      {lastSaved ? (
+                        <span className="text-gray-600 dark:text-gray-400">
+                          Last saved: {lastSaved.toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 dark:text-gray-500">No saved configuration</span>
+                      )}
+                      {hasUnsavedChanges && (
+                        <span className="ml-2 text-orange-600 dark:text-orange-400 text-xs">
+                          • Unsaved changes
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      type="button"
+                      onClick={loadConfiguration}
+                      disabled={!lastSaved}
+                      className="flex items-center px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-1" />
+                      Load Saved
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveConfiguration}
+                      disabled={isSaving}
+                      className="flex items-center px-3 py-2 text-sm border border-blue-300 dark:border-blue-600 rounded-md text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-1" />
+                          Save Config
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -481,7 +613,7 @@ export default function ImportPage() {
                       <input
                         type="date"
                         value={formData.fromDate}
-                        onChange={(e) => setFormData({...formData, fromDate: e.target.value})}
+                        onChange={(e) => updateFormData({fromDate: e.target.value})}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
                       />
                     </div>
@@ -490,7 +622,7 @@ export default function ImportPage() {
                       <input
                         type="date"
                         value={formData.toDate}
-                        onChange={(e) => setFormData({...formData, toDate: e.target.value})}
+                        onChange={(e) => updateFormData({toDate: e.target.value})}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
                       />
                     </div>
@@ -510,7 +642,7 @@ export default function ImportPage() {
                       <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Batch Size</label>
                       <select 
                         value={formData.batchSize}
-                        onChange={(e) => setFormData({...formData, batchSize: parseInt(e.target.value)})}
+                        onChange={(e) => updateFormData({batchSize: parseInt(e.target.value)})}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
                       >
                         <option value="25">25 items per batch (Recommended)</option>
@@ -523,7 +655,7 @@ export default function ImportPage() {
                       <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Delay Between Batches</label>
                       <select 
                         value={formData.delayBetweenBatches}
-                        onChange={(e) => setFormData({...formData, delayBetweenBatches: parseInt(e.target.value)})}
+                        onChange={(e) => updateFormData({delayBetweenBatches: parseInt(e.target.value)})}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
                       >
                         <option value="1000">1 second (Recommended)</option>
