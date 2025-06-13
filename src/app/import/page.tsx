@@ -55,6 +55,29 @@ export default function ImportPage() {
     delayBetweenBatches: 1000
   })
 
+  // Load environment variables on component mount
+  useEffect(() => {
+    const loadJiraConfig = async () => {
+      try {
+        const response = await fetch('/api/jira/env-config')
+        if (response.ok) {
+          const config = await response.json()
+          setFormData(prev => ({
+            ...prev,
+            jiraUrl: config.jiraUrl,
+            projectKey: config.projectKey,
+            username: config.username,
+            // Don't pre-fill API token for security
+          }))
+        }
+      } catch (error) {
+        console.error('Failed to load Jira config:', error)
+      }
+    }
+    
+    loadJiraConfig()
+  }, [])
+
   // Poll for job status updates
   useEffect(() => {
     if (currentJob && (currentJob.status === 'pending' || currentJob.status === 'in_progress')) {
