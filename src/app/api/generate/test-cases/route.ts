@@ -455,6 +455,13 @@ export async function POST(request: NextRequest) {
     console.log('  - Test types:', testTypes)
     console.log('  - Model ID:', modelId)
 
+    console.log('🤖 About to call generateTestCases with:')
+    console.log('  - Story text length:', storyText.length)
+    console.log('  - Acceptance criteria length:', acceptanceCriteria.length)
+    console.log('  - Full context length:', fullContext.length)
+    console.log('  - Test types:', testTypes)
+    console.log('  - Model ID:', modelId)
+
     const testCases = await generateTestCases(
       storyText,
       acceptanceCriteria,
