@@ -169,6 +169,11 @@ async function semanticSearchWithDetails(
 }
 
 export async function POST(request: NextRequest) {
+  // Set a timeout for the entire request
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Request timeout after 4 minutes')), 240000) // 4 minutes
+  })
+
   try {
     console.log('🚀 Starting test case generation endpoint')
     
@@ -192,363 +197,388 @@ export async function POST(request: NextRequest) {
     console.log('  - industryContexts:', industryContexts)
     console.log('  - modelId:', modelId)
 
-    let userStory: any
-    let ragContext: string[] = []
+    // Wrap the main logic in a promise that can be timed out
+    const mainLogicPromise = async () => {
+      let userStory: any
+      let ragContext: string[] = []
 
-    if (userStoryId) {
-      console.log('📖 Fetching user story from database with ID:', userStoryId)
-      
-      // Get user story from database
-      userStory = await prisma.userStory.findUnique({
-        where: { id: userStoryId },
-      })
-
-      console.log('📖 Database user story result:', userStory)
-
-      if (!userStory) {
-        console.error('❌ User story not found in database')
-        return NextResponse.json(
-          { error: 'User story not found' },
-          { status: 404 }
-        )
-      }
-
-      console.log('🔍 User story title analysis:')
-      console.log('  - Title exists:', !!userStory.title)
-      console.log('  - Title type:', typeof userStory.title)
-      console.log('  - Title value:', userStory.title)
-      console.log('  - Title length:', userStory.title?.length)
-
-      // Use RAG semantic search to find relevant context
-      if (userStory.title && typeof userStory.title === 'string') {
-        console.log('🔍 Using RAG semantic search for relevant context...')
-        
-        // Create search query from user story
-        const searchQuery = `${userStory.title} ${userStory.description || ''} ${userStory.component || ''}`.trim()
-        console.log('  - Search query:', searchQuery)
+      if (userStoryId) {
+        console.log('📖 Fetching user story from database with ID:', userStoryId)
         
         try {
-          // Search for relevant defects (historical issues)
-          const relatedDefects = await semanticSearchWithDetails(
-            searchQuery,
-            ['defect'],
-            5, // limit
-            0.3 // threshold - lower for more results
-          )
-          console.log('🐛 Found related defects via semantic search:', relatedDefects.length)
-          
-          // Search for related user stories (similar functionality)
-          const relatedStories = await semanticSearchWithDetails(
-            searchQuery,
-            ['user_story'],
-            3, // limit
-            0.4 // threshold - slightly higher for user stories
-          )
-          console.log('📖 Found related user stories via semantic search:', relatedStories.length)
-          
-          // Search for existing test cases (testing patterns)
-          const relatedTestCases = await semanticSearchWithDetails(
-            searchQuery,
-            ['test_case'],
-            3, // limit
-            0.4 // threshold
-          )
-          console.log('🧪 Found related test cases via semantic search:', relatedTestCases.length)
-
-          // Search for related documentation (technical context and patterns)
-          const relatedDocs = await semanticSearchWithDetails(
-            searchQuery,
-            ['document'],
-            3, // limit
-            0.3 // threshold - lower for more results since docs are important
-          )
-          console.log('📚 Found related documentation via semantic search:', relatedDocs.length)
-          
-          // Build RAG context from semantic search results
-          ragContext = []
-          
-          if (relatedDefects.length > 0) {
-            ragContext.push('=== HISTORICAL DEFECTS (Learn from past issues) ===')
-            relatedDefects.forEach((defect: any, index: number) => {
-              ragContext.push(`Defect ${index + 1}: ${defect.entity.title}`)
-              ragContext.push(`Description: ${defect.entity.description}`)
-              ragContext.push(`Component: ${defect.entity.component || 'N/A'}`)
-              ragContext.push(`Severity: ${defect.entity.severity || 'N/A'}`)
-              if (defect.entity.stepsToReproduce) {
-                ragContext.push(`Steps to Reproduce: ${defect.entity.stepsToReproduce}`)
+          // Fetch user story with timeout
+          const userStoryPromise = prisma.userStory.findUnique({
+            where: { id: userStoryId },
+            include: {
+              testCases: {
+                select: {
+                  id: true,
+                  title: true,
+                  steps: true,
+                  priority: true
+                }
               }
-              ragContext.push('---')
-            })
-          }
-          
-          if (relatedStories.length > 0) {
-            ragContext.push('=== RELATED USER STORIES (Similar functionality) ===')
-            relatedStories.forEach((story: any, index: number) => {
-              ragContext.push(`Story ${index + 1}: ${story.entity.title}`)
-              ragContext.push(`Description: ${story.entity.description}`)
-              ragContext.push(`Component: ${story.entity.component || 'N/A'}`)
-              if (story.entity.acceptanceCriteria) {
-                ragContext.push(`Acceptance Criteria: ${story.entity.acceptanceCriteria}`)
-              }
-              ragContext.push('---')
-            })
-          }
-          
-          if (relatedTestCases.length > 0) {
-            ragContext.push('=== EXISTING TEST PATTERNS (Testing approaches) ===')
-            relatedTestCases.forEach((testCase: any, index: number) => {
-              ragContext.push(`Test Case ${index + 1}: ${testCase.entity.title}`)
-              ragContext.push(`Steps: ${testCase.entity.steps.substring(0, 200)}...`)
-              ragContext.push(`Priority: ${testCase.entity.priority || 'N/A'}`)
-              ragContext.push('---')
-            })
-          }
-
-          if (relatedDocs.length > 0) {
-            ragContext.push('=== TECHNICAL DOCUMENTATION (Domain knowledge and patterns) ===')
-            relatedDocs.forEach((doc: any, index: number) => {
-              ragContext.push(`Document ${index + 1}: ${doc.entity.title}`)
-              ragContext.push(`Content: ${(doc.entity.content || 'No content').substring(0, 300)}...`)
-              ragContext.push(`Type: ${doc.entity.type || 'Unknown'}`)
-              ragContext.push(`Source: Documentation Database (ID: ${doc.entity.id})`)
-              ragContext.push('---')
-            })
-          }
-          
-          console.log('📋 RAG context built with', ragContext.length, 'lines')
-          console.log('📋 RAG context preview:', ragContext.slice(0, 5).join('\n'))
-          
-        } catch (searchError) {
-          console.error('⚠️ Semantic search failed, falling back to basic search:', searchError)
-          
-          // Fallback to basic search if semantic search fails
-          const titleFirstWord = userStory.title.split(' ')[0]
-          const relatedDefects = await prisma.defect.findMany({
-            where: {
-              OR: [
-                { component: userStory.component },
-                { title: { contains: titleFirstWord } },
-              ],
-            },
-            take: 5,
-            orderBy: { createdAt: 'desc' },
+            }
           })
+
+          const userStoryTimeout = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Database query timeout')), 30000) // 30 seconds
+          })
+
+          userStory = await Promise.race([userStoryPromise, userStoryTimeout])
+
+          if (!userStory) {
+            console.error('❌ User story not found with ID:', userStoryId)
+            return NextResponse.json(
+              { error: 'User story not found' },
+              { status: 404 }
+            )
+          }
+
+          console.log('✅ User story found:', userStory.title)
+          console.log('  - Description length:', userStory.description?.length || 0)
+          console.log('  - Acceptance criteria length:', userStory.acceptanceCriteria?.length || 0)
+          console.log('  - Existing test cases:', userStory.testCases?.length || 0)
+
+          // Build RAG context with timeout protection
+          console.log('🔍 Building RAG context with semantic search...')
           
-          ragContext = relatedDefects.map((defect: any) => 
-            `Historical Defect: ${defect.title} - ${defect.description}`
+          try {
+            const searchTimeout = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Semantic search timeout')), 45000) // 45 seconds
+            })
+
+            const searchPromise = (async () => {
+              const searchQuery = `${userStory.title} ${userStory.description} ${userStory.acceptanceCriteria}`
+              console.log('  - Search query length:', searchQuery.length)
+              
+              // Perform semantic searches in parallel with reduced limits for speed
+              const [relatedDefects, relatedStories, relatedTestCases, relatedDocs] = await Promise.all([
+                semanticSearchWithDetails(searchQuery, ['defect'], 3, 0.75).catch(err => {
+                  console.warn('Defect search failed:', err.message)
+                  return []
+                }),
+                semanticSearchWithDetails(searchQuery, ['user_story'], 3, 0.75).catch(err => {
+                  console.warn('User story search failed:', err.message)
+                  return []
+                }),
+                semanticSearchWithDetails(searchQuery, ['test_case'], 3, 0.75).catch(err => {
+                  console.warn('Test case search failed:', err.message)
+                  return []
+                }),
+                semanticSearchWithDetails(searchQuery, ['document'], 2, 0.75).catch(err => {
+                  console.warn('Document search failed:', err.message)
+                  return []
+                })
+              ])
+
+              console.log('📊 RAG search results:')
+              console.log('  - Related defects:', relatedDefects.length)
+              console.log('  - Related stories:', relatedStories.length)
+              console.log('  - Related test cases:', relatedTestCases.length)
+              console.log('  - Related docs:', relatedDocs.length)
+
+              // Build context with size limits
+              if (relatedDefects.length > 0) {
+                ragContext.push('=== HISTORICAL DEFECTS (Risk patterns and common issues) ===')
+                relatedDefects.slice(0, 3).forEach((defect: any, index: number) => {
+                  ragContext.push(`Defect ${index + 1}: ${defect.entity.summary}`)
+                  ragContext.push(`Description: ${(defect.entity.description || 'No description').substring(0, 200)}...`)
+                  ragContext.push(`Component: ${defect.entity.component || 'Unknown'}`)
+                  ragContext.push(`Severity: ${defect.entity.severity || 'Unknown'}`)
+                  ragContext.push('---')
+                })
+              }
+
+              if (relatedStories.length > 0) {
+                ragContext.push('=== RELATED USER STORIES (Similar functionality patterns) ===')
+                relatedStories.slice(0, 3).forEach((story: any, index: number) => {
+                  ragContext.push(`Story ${index + 1}: ${story.entity.title}`)
+                  ragContext.push(`Description: ${(story.entity.description || 'No description').substring(0, 200)}...`)
+                  ragContext.push(`Component: ${story.entity.component || 'Unknown'}`)
+                  ragContext.push('---')
+                })
+              }
+
+              if (relatedTestCases.length > 0) {
+                ragContext.push('=== EXISTING TEST PATTERNS (Testing approaches) ===')
+                relatedTestCases.slice(0, 3).forEach((testCase: any, index: number) => {
+                  ragContext.push(`Test Case ${index + 1}: ${testCase.entity.title}`)
+                  ragContext.push(`Steps: ${testCase.entity.steps.substring(0, 200)}...`)
+                  ragContext.push(`Priority: ${testCase.entity.priority || 'N/A'}`)
+                  ragContext.push('---')
+                })
+              }
+
+              if (relatedDocs.length > 0) {
+                ragContext.push('=== TECHNICAL DOCUMENTATION (Domain knowledge and patterns) ===')
+                relatedDocs.slice(0, 2).forEach((doc: any, index: number) => {
+                  ragContext.push(`Document ${index + 1}: ${doc.entity.title}`)
+                  ragContext.push(`Content: ${(doc.entity.content || 'No content').substring(0, 300)}...`)
+                  ragContext.push(`Type: ${doc.entity.type || 'Unknown'}`)
+                  ragContext.push(`Source: Documentation Database (ID: ${doc.entity.id})`)
+                  ragContext.push('---')
+                })
+              }
+
+              console.log('📋 RAG context built with', ragContext.length, 'lines')
+              console.log('📋 RAG context preview:', ragContext.slice(0, 5).join('\n'))
+            })()
+
+            await Promise.race([searchPromise, searchTimeout])
+          } catch (searchError) {
+            const errorMsg = searchError instanceof Error ? searchError.message : 'Unknown search error'
+            console.warn('⚠️ RAG context building failed, continuing without context:', errorMsg)
+            ragContext = ['=== RAG CONTEXT UNAVAILABLE ===', 'Semantic search timed out or failed, generating test cases without historical context.']
+          }
+
+        } catch (dbError) {
+          const errorMsg = dbError instanceof Error ? dbError.message : 'Unknown database error'
+          console.error('💥 Database error:', dbError)
+          return NextResponse.json(
+            { error: 'Database connection failed', details: errorMsg },
+            { status: 500 }
           )
         }
-      } else {
-        console.log('⚠️ Skipping RAG search due to invalid title')
-      }
-    } else if (directUserStory) {
-      console.log('📝 Using direct user story from request')
-      console.log('  - Direct user story type:', typeof directUserStory)
-      console.log('  - Direct user story value:', directUserStory)
-      
-      // Use provided user story directly (for testing)
-      if (typeof directUserStory === 'string') {
-        userStory = {
-          id: 'direct-story',
-          title: directUserStory,
-          description: '',
-          acceptanceCriteria: 'Standard functionality',
-          component: 'Not specified',
-          priority: 'Medium',
-          jiraKey: 'N/A'
+
+      } else if (directUserStory) {
+        console.log('📝 Using direct user story from request')
+        console.log('  - Direct user story type:', typeof directUserStory)
+        console.log('  - Direct user story value:', directUserStory)
+        
+        // Use provided user story directly (for testing)
+        if (typeof directUserStory === 'string') {
+          userStory = {
+            id: 'direct-story',
+            title: directUserStory,
+            description: '',
+            acceptanceCriteria: 'Standard functionality',
+            component: 'Not specified',
+            priority: 'Medium',
+            jiraKey: 'N/A'
+          }
+        } else if (typeof directUserStory === 'object' && directUserStory !== null) {
+          userStory = {
+            id: directUserStory.id || 'direct-story',
+            title: directUserStory.title || 'Untitled',
+            description: directUserStory.description || '',
+            acceptanceCriteria: directUserStory.acceptanceCriteria || 'Standard functionality',
+            component: directUserStory.component || 'Not specified',
+            priority: directUserStory.priority || 'Medium',
+            jiraKey: directUserStory.jiraKey || 'N/A'
+          }
+        } else {
+          console.error('❌ Invalid directUserStory format')
+          return NextResponse.json(
+            { error: 'Invalid user story format' },
+            { status: 400 }
+          )
         }
-      } else if (typeof directUserStory === 'object' && directUserStory !== null) {
-        userStory = {
-          id: directUserStory.id || 'direct-story',
-          title: directUserStory.title || 'Untitled',
-          description: directUserStory.description || '',
-          acceptanceCriteria: directUserStory.acceptanceCriteria || 'Standard functionality',
-          component: directUserStory.component || 'Not specified',
-          priority: directUserStory.priority || 'Medium',
-          jiraKey: directUserStory.jiraKey || 'N/A'
-        }
+        
+        console.log('📝 Constructed user story object:', JSON.stringify(userStory, null, 2))
       } else {
-        console.error('❌ Invalid directUserStory format')
+        console.error('❌ No user story provided')
         return NextResponse.json(
-          { error: 'Invalid user story format' },
+          { error: 'User story ID or user story text is required' },
           { status: 400 }
         )
       }
-      
-      console.log('📝 Constructed user story object:', JSON.stringify(userStory, null, 2))
-    } else {
-      console.error('❌ No user story provided')
-      return NextResponse.json(
-        { error: 'User story ID or user story text is required' },
-        { status: 400 }
-      )
-    }
 
-    console.log('✅ Final user story object:')
-    console.log('  - ID:', userStory.id)
-    console.log('  - Title:', userStory.title)
-    console.log('  - Description:', userStory.description)
-    console.log('  - Acceptance Criteria:', userStory.acceptanceCriteria)
-    console.log('  - Component:', userStory.component)
-    console.log('  - Priority:', userStory.priority)
+      console.log('✅ Final user story object:')
+      console.log('  - ID:', userStory.id)
+      console.log('  - Title:', userStory.title)
+      console.log('  - Description:', userStory.description)
+      console.log('  - Acceptance Criteria:', userStory.acceptanceCriteria)
+      console.log('  - Component:', userStory.component)
+      console.log('  - Priority:', userStory.priority)
 
-    // Load product context for industry-specific test generation
-    console.log('🏭 Loading product context for industry-specific test generation...')
-    const productContext = await loadProductContext()
-    console.log('  - Product:', productContext.productName)
-    console.log('  - Industry:', productContext.industry)
-    console.log('  - User types:', productContext.userTypes.length)
-    console.log('  - Key features:', productContext.keyFeatures.length)
+      // Load product context for industry-specific test generation
+      console.log('🏭 Loading product context for industry-specific test generation...')
+      const productContext = await loadProductContext()
+      console.log('  - Product:', productContext.productName)
+      console.log('  - Industry:', productContext.industry)
+      console.log('  - User types:', productContext.userTypes.length)
+      console.log('  - Key features:', productContext.keyFeatures.length)
 
-    // Build industry context for AI with multiple contexts
-    const industryContextArray = [
-      `=== PRODUCT CONTEXT ===`,
-      `Product: ${productContext.productName}`,
-      `Industry: ${productContext.industry}`,
-      `Description: ${productContext.description}`,
-      ``,
-      `=== TARGET USERS & FIELD USAGE ===`,
-      `Primary Users: ${productContext.userTypes.join(', ')}`,
-      ``,
-      `Key Considerations for Real-World Usage:`,
-      `• Field teams often work in challenging environments (construction sites, industrial facilities)`,
-      `• Users may have limited technical expertise and need intuitive interfaces`,
-      `• Mobile/tablet usage is common for field inspections and data collection`,
-      `• Network connectivity may be intermittent in remote locations`,
-      `• Compliance and audit trails are critical for regulatory requirements`,
-      `• Integration with existing enterprise systems (ERP, CAD, etc.) is essential`,
-      `• Multi-user collaboration across different organizations and roles`,
-      `• Document version control is critical to prevent costly errors`,
-      ``,
-      `=== KEY PRODUCT FEATURES ===`,
-      productContext.keyFeatures.map((feature: string) => `• ${feature}`).join('\n'),
-      ``,
-      `=== SECURITY & COMPLIANCE REQUIREMENTS ===`,
-      productContext.securityStandards.map((standard: string) => `• ${standard}`).join('\n'),
-      ``,
-      `=== INDUSTRY-SPECIFIC TEST SCENARIOS ===`,
-      `Focus Areas: ${industryContexts.map((ctx: string) => ctx.toUpperCase()).join(', ')}`,
-      `Consider these real-world scenarios when generating test cases:`,
-      ``
-    ]
+      // Build industry context for AI with multiple contexts
+      const industryContextArray = [
+        `=== PRODUCT CONTEXT ===`,
+        `Product: ${productContext.productName}`,
+        `Industry: ${productContext.industry}`,
+        `Description: ${productContext.description}`,
+        ``,
+        `=== TARGET USERS & FIELD USAGE ===`,
+        `Primary Users: ${productContext.userTypes.join(', ')}`,
+        ``,
+        `Key Considerations for Real-World Usage:`,
+        `• Field teams often work in challenging environments (construction sites, industrial facilities)`,
+        `• Users may have limited technical expertise and need intuitive interfaces`,
+        `• Mobile/tablet usage is common for field inspections and data collection`,
+        `• Network connectivity may be intermittent in remote locations`,
+        `• Compliance and audit trails are critical for regulatory requirements`,
+        `• Integration with existing enterprise systems (ERP, CAD, etc.) is essential`,
+        `• Multi-user collaboration across different organizations and roles`,
+        `• Document version control is critical to prevent costly errors`,
+        ``,
+        `=== KEY PRODUCT FEATURES ===`,
+        productContext.keyFeatures.map((feature: string) => `• ${feature}`).join('\n'),
+        ``,
+        `=== SECURITY & COMPLIANCE REQUIREMENTS ===`,
+        productContext.securityStandards.map((standard: string) => `• ${standard}`).join('\n'),
+        ``,
+        `=== INDUSTRY-SPECIFIC TEST SCENARIOS ===`,
+        `Focus Areas: ${industryContexts.map((ctx: string) => ctx.toUpperCase()).join(', ')}`,
+        `Consider these real-world scenarios when generating test cases:`,
+        ``
+      ]
 
-    // Add scenarios for selected industry contexts (limit to prevent prompt overflow)
-    if (industryContexts.length === 0) {
-      // No industry contexts selected - use basic product context only
-      console.log('🎯 No industry contexts selected, using basic product context only')
-      industryContextArray.push(`--- BASIC TEST SCENARIOS ---`)
-      industryContextArray.push(`• Standard functionality testing based on acceptance criteria`)
-      industryContextArray.push(`• User interface and usability validation`)
-      industryContextArray.push(`• Data validation and error handling`)
-      industryContextArray.push(`• Basic integration and workflow testing`)
-      industryContextArray.push(``)
-    } else if (industryContexts.length > 3) {
-      // If more than 3 contexts selected, use comprehensive scenarios only
-      console.log('🎯 Multiple contexts selected, using comprehensive scenarios to prevent prompt overflow')
-      industryContextArray.push(`--- COMPREHENSIVE SCENARIOS (Multiple Contexts Selected) ---`)
-      industryContextArray.push(...getIndustryScenarios('comprehensive'))
-      industryContextArray.push(``)
-    } else {
-      // Use specific scenarios for 1-3 contexts
-      industryContexts.forEach((context: string) => {
-        industryContextArray.push(`--- ${context.toUpperCase()} SCENARIOS ---`)
-        industryContextArray.push(...getIndustryScenarios(context))
+      // Add scenarios for selected industry contexts (limit to prevent prompt overflow)
+      if (industryContexts.length === 0) {
+        // No industry contexts selected - use basic product context only
+        console.log('🎯 No industry contexts selected, using basic product context only')
+        industryContextArray.push(`--- BASIC TEST SCENARIOS ---`)
+        industryContextArray.push(`• Standard functionality testing based on acceptance criteria`)
+        industryContextArray.push(`• User interface and usability validation`)
+        industryContextArray.push(`• Data validation and error handling`)
+        industryContextArray.push(`• Basic integration and workflow testing`)
         industryContextArray.push(``)
-      })
-    }
+      } else if (industryContexts.length > 3) {
+        // If more than 3 contexts selected, use comprehensive scenarios only
+        console.log('🎯 Multiple contexts selected, using comprehensive scenarios to prevent prompt overflow')
+        industryContextArray.push(`--- COMPREHENSIVE SCENARIOS (Multiple Contexts Selected) ---`)
+        industryContextArray.push(...getIndustryScenarios('comprehensive'))
+        industryContextArray.push(``)
+      } else {
+        // Use specific scenarios for 1-3 contexts
+        industryContexts.forEach((context: string) => {
+          industryContextArray.push(`--- ${context.toUpperCase()} SCENARIOS ---`)
+          industryContextArray.push(...getIndustryScenarios(context))
+          industryContextArray.push(``)
+        })
+      }
 
-    // Combine RAG context with industry context
-    const fullContext = [...industryContextArray, ...ragContext]
+      // Combine RAG context with industry context
+      const fullContext = [...industryContextArray, ...ragContext]
 
-    // Generate test cases using Claude with enhanced context
-    console.log('🤖 Calling generateTestCases with enhanced RAG + Industry context:')
-    const storyText = userStory.title + '\n\n' + userStory.description
-    const acceptanceCriteria = userStory.acceptanceCriteria || 'No acceptance criteria provided'
-    
-    console.log('  - Story text:', storyText)
-    console.log('  - Acceptance criteria:', acceptanceCriteria)
-    console.log('  - Full context lines:', fullContext.length)
-    console.log('  - Industry context lines:', industryContextArray.length)
-    console.log('  - RAG context lines:', ragContext.length)
-    console.log('  - Test types:', testTypes)
-    console.log('  - Model ID:', modelId)
-
-    console.log('🤖 About to call generateTestCases with:')
-    console.log('  - Story text length:', storyText.length)
-    console.log('  - Acceptance criteria length:', acceptanceCriteria.length)
-    console.log('  - Full context lines:', fullContext.length)
-    console.log('  - Full context character count:', fullContext.join('\n').length)
-    console.log('  - Industry contexts selected:', industryContexts.length)
-    console.log('  - Test types:', testTypes)
-    console.log('  - Model ID:', modelId)
-    
-    // Log prompt size warning if too large
-    const totalPromptSize = storyText.length + acceptanceCriteria.length + fullContext.join('\n').length
-    if (totalPromptSize > 50000) {
-      console.warn('⚠️ Large prompt detected:', totalPromptSize, 'characters - may cause AI processing issues')
-    }
-
-    let testCases: string
-    try {
-      console.log('🔄 Calling generateTestCases function...')
-      testCases = await generateTestCases(
-        storyText,
-        acceptanceCriteria,
-        fullContext, // Pass enhanced context with industry + RAG
-        testTypes,
-        modelId
-      )
-      console.log('✅ generateTestCases completed successfully')
-    } catch (aiError) {
-      console.error('💥 AI Service Error in generateTestCases:')
-      console.error('  - Error type:', aiError instanceof Error ? aiError.constructor.name : typeof aiError)
-      console.error('  - Error message:', aiError instanceof Error ? aiError.message : aiError)
-      console.error('  - Error stack:', aiError instanceof Error ? aiError.stack : 'No stack trace')
-      console.error('  - Full error object:', aiError)
+      // Generate test cases using Claude with enhanced context
+      console.log('🤖 Calling generateTestCases with enhanced RAG + Industry context:')
+      const storyText = userStory.title + '\n\n' + userStory.description
+      const acceptanceCriteria = userStory.acceptanceCriteria || 'No acceptance criteria provided'
       
-      // Re-throw with more context
-      throw new Error(`AI service failed during test case generation: ${aiError instanceof Error ? aiError.message : 'Unknown error'}`)
+      console.log('  - Story text:', storyText)
+      console.log('  - Acceptance criteria:', acceptanceCriteria)
+      console.log('  - Full context lines:', fullContext.length)
+      console.log('  - Industry context lines:', industryContextArray.length)
+      console.log('  - RAG context lines:', ragContext.length)
+      console.log('  - Test types:', testTypes)
+      console.log('  - Model ID:', modelId)
+
+      console.log('🤖 About to call generateTestCases with:')
+      console.log('  - Story text length:', storyText.length)
+      console.log('  - Acceptance criteria length:', acceptanceCriteria.length)
+      console.log('  - Full context lines:', fullContext.length)
+      console.log('  - Full context character count:', fullContext.join('\n').length)
+      console.log('  - Industry contexts selected:', industryContexts.length)
+      console.log('  - Test types:', testTypes)
+      console.log('  - Model ID:', modelId)
+      
+      // Log prompt size warning if too large
+      const totalPromptSize = storyText.length + acceptanceCriteria.length + fullContext.join('\n').length
+      if (totalPromptSize > 50000) {
+        console.warn('⚠️ Large prompt detected:', totalPromptSize, 'characters - may cause AI processing issues')
+      }
+
+      let testCases: string
+      try {
+        console.log('🔄 Calling generateTestCases function...')
+        
+        // Add timeout for AI generation
+        const aiGenerationPromise = generateTestCases(
+          storyText,
+          acceptanceCriteria,
+          fullContext, // Pass enhanced context with industry + RAG
+          testTypes,
+          modelId
+        )
+
+        const aiTimeout = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('AI generation timeout after 3 minutes')), 180000) // 3 minutes
+        })
+
+        testCases = await Promise.race([aiGenerationPromise, aiTimeout]) as string
+        console.log('✅ generateTestCases completed successfully')
+      } catch (aiError) {
+        console.error('💥 AI Service Error in generateTestCases:')
+        console.error('  - Error type:', aiError instanceof Error ? aiError.constructor.name : typeof aiError)
+        console.error('  - Error message:', aiError instanceof Error ? aiError.message : aiError)
+        console.error('  - Error stack:', aiError instanceof Error ? aiError.stack : 'No stack trace')
+        console.error('  - Full error object:', aiError)
+        
+        // Re-throw with more context
+        throw new Error(`AI service failed during test case generation: ${aiError instanceof Error ? aiError.message : 'Unknown error'}`)
+      }
+
+      console.log('✅ Test cases generated successfully')
+      console.log('  - Test cases type:', typeof testCases)
+      console.log('  - Test cases length:', typeof testCases === 'string' ? testCases.length : 'N/A')
+      console.log('  - Test cases preview:', typeof testCases === 'string' ? testCases.substring(0, 200) + '...' : testCases)
+
+      // Save generated test cases
+      console.log('💾 Saving test cases to database...')
+      
+      // Only include sourceStoryId if it's a real database ID (not a direct story)
+      const testCaseData: any = {
+        title: `Generated Test Cases for ${userStory.title}`,
+        steps: testCases,
+        expectedResults: 'See individual test case descriptions',
+        generatedFrom: 'ai_generated_with_rag',
+        priority: userStory.priority || 'medium',
+        status: 'draft',
+      }
+      
+      // Only add sourceStoryId if it's from the database (not a direct story)
+      if (userStoryId && userStory.id !== 'direct-story') {
+        testCaseData.sourceStoryId = userStory.id
+        console.log('  - Including sourceStoryId:', userStory.id)
+      } else {
+        console.log('  - Skipping sourceStoryId for direct story')
+      }
+      
+      try {
+        const dbSavePromise = prisma.testCase.create({
+          data: testCaseData,
+        })
+
+        const dbTimeout = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Database save timeout')), 30000) // 30 seconds
+        })
+
+        const testCase = await Promise.race([dbSavePromise, dbTimeout]) as any
+        console.log('✅ Test cases saved to database with ID:', testCase.id)
+
+        return NextResponse.json({
+          message: 'Test cases generated successfully with RAG context',
+          testCase,
+          content: testCases,
+          ragContextUsed: ragContext.length > 0,
+          ragContextLines: ragContext.length,
+        })
+      } catch (dbSaveError) {
+        console.error('💥 Database save error:', dbSaveError)
+        // Return success even if save fails
+        return NextResponse.json({
+          message: 'Test cases generated successfully (save failed)',
+          content: testCases,
+          ragContextUsed: ragContext.length > 0,
+          ragContextLines: ragContext.length,
+          warning: 'Failed to save to database but generation succeeded'
+        })
+      }
     }
 
-    console.log('✅ Test cases generated successfully')
-    console.log('  - Test cases type:', typeof testCases)
-    console.log('  - Test cases length:', typeof testCases === 'string' ? testCases.length : 'N/A')
-    console.log('  - Test cases preview:', typeof testCases === 'string' ? testCases.substring(0, 200) + '...' : testCases)
+    // Race the main logic against the timeout
+    return await Promise.race([mainLogicPromise(), timeoutPromise])
 
-    // Save generated test cases
-    console.log('💾 Saving test cases to database...')
-    
-    // Only include sourceStoryId if it's a real database ID (not a direct story)
-    const testCaseData: any = {
-      title: `Generated Test Cases for ${userStory.title}`,
-      steps: testCases,
-      expectedResults: 'See individual test case descriptions',
-      generatedFrom: 'ai_generated_with_rag',
-      priority: userStory.priority || 'medium',
-      status: 'draft',
-    }
-    
-    // Only add sourceStoryId if it's from the database (not a direct story)
-    if (userStoryId && userStory.id !== 'direct-story') {
-      testCaseData.sourceStoryId = userStory.id
-      console.log('  - Including sourceStoryId:', userStory.id)
-    } else {
-      console.log('  - Skipping sourceStoryId for direct story')
-    }
-    
-    const testCase = await prisma.testCase.create({
-      data: testCaseData,
-    })
-
-    console.log('✅ Test cases saved to database with ID:', testCase.id)
-
-    return NextResponse.json({
-      message: 'Test cases generated successfully with RAG context',
-      testCase,
-      content: testCases,
-      ragContextUsed: ragContext.length > 0,
-      ragContextLines: ragContext.length,
-    })
   } catch (error) {
     console.error('💥 DETAILED ERROR in test case generation:')
     console.error('  - Error type:', error instanceof Error ? error.constructor.name : typeof error)
@@ -558,13 +588,21 @@ export async function POST(request: NextRequest) {
     
     // Provide more specific error message to help with debugging
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    const isTimeoutError = errorMessage.includes('timeout') || errorMessage.includes('Timeout')
     const isAIError = errorMessage.includes('AI service failed') || errorMessage.includes('Bedrock') || errorMessage.includes('generateTestCases')
+    const isDBError = errorMessage.includes('Database') || errorMessage.includes('Prisma')
+    
+    let errorType = 'Unknown error'
+    if (isTimeoutError) errorType = 'Request timeout'
+    else if (isAIError) errorType = 'AI service error'
+    else if (isDBError) errorType = 'Database error'
     
     return NextResponse.json(
       { 
-        error: isAIError ? 'AI service error during test case generation' : 'Failed to generate test cases',
+        error: `${errorType} during test case generation`,
         details: errorMessage,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        type: errorType
       },
       { status: 500 }
     )
