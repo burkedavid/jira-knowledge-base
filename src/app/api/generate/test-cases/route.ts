@@ -433,7 +433,16 @@ export async function POST(request: NextRequest) {
     ]
 
     // Add scenarios for selected industry contexts (limit to prevent prompt overflow)
-    if (industryContexts.length > 3) {
+    if (industryContexts.length === 0) {
+      // No industry contexts selected - use basic product context only
+      console.log('🎯 No industry contexts selected, using basic product context only')
+      industryContextArray.push(`--- BASIC TEST SCENARIOS ---`)
+      industryContextArray.push(`• Standard functionality testing based on acceptance criteria`)
+      industryContextArray.push(`• User interface and usability validation`)
+      industryContextArray.push(`• Data validation and error handling`)
+      industryContextArray.push(`• Basic integration and workflow testing`)
+      industryContextArray.push(``)
+    } else if (industryContexts.length > 3) {
       // If more than 3 contexts selected, use comprehensive scenarios only
       console.log('🎯 Multiple contexts selected, using comprehensive scenarios to prevent prompt overflow')
       industryContextArray.push(`--- COMPREHENSIVE SCENARIOS (Multiple Contexts Selected) ---`)
