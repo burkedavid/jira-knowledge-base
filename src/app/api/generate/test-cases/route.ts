@@ -462,13 +462,27 @@ export async function POST(request: NextRequest) {
     console.log('  - Test types:', testTypes)
     console.log('  - Model ID:', modelId)
 
-    const testCases = await generateTestCases(
-      storyText,
-      acceptanceCriteria,
-      fullContext, // Pass enhanced context with industry + RAG
-      testTypes,
-      modelId
-    )
+    let testCases: string
+    try {
+      console.log('🔄 Calling generateTestCases function...')
+      testCases = await generateTestCases(
+        storyText,
+        acceptanceCriteria,
+        fullContext, // Pass enhanced context with industry + RAG
+        testTypes,
+        modelId
+      )
+      console.log('✅ generateTestCases completed successfully')
+    } catch (aiError) {
+      console.error('💥 AI Service Error in generateTestCases:')
+      console.error('  - Error type:', aiError instanceof Error ? aiError.constructor.name : typeof aiError)
+      console.error('  - Error message:', aiError instanceof Error ? aiError.message : aiError)
+      console.error('  - Error stack:', aiError instanceof Error ? aiError.stack : 'No stack trace')
+      console.error('  - Full error object:', aiError)
+      
+      // Re-throw with more context
+      throw new Error(`AI service failed during test case generation: ${aiError instanceof Error ? aiError.message : 'Unknown error'}`)
+    }
 
     console.log('✅ Test cases generated successfully')
     console.log('  - Test cases type:', typeof testCases)
@@ -516,8 +530,16 @@ export async function POST(request: NextRequest) {
     console.error('  - Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     console.error('  - Full error object:', error)
     
+    // Provide more specific error message to help with debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    const isAIError = errorMessage.includes('AI service failed') || errorMessage.includes('Bedrock') || errorMessage.includes('generateTestCases')
+    
     return NextResponse.json(
-      { error: 'Failed to generate test cases' },
+      { 
+        error: isAIError ? 'AI service error during test case generation' : 'Failed to generate test cases',
+        details: errorMessage,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     )
   }
