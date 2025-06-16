@@ -164,25 +164,15 @@ export default function GenerateTestCasesPage() {
     setFilteredUserStories(filtered)
   }, [])
 
-  // Fetch quality score for a user story
-  const fetchQualityScore = async (storyId: string) => {
-    try {
-      const response = await fetch(`/api/user-stories/${storyId}/analysis`)
-      if (response.ok) {
-        const data = await response.json()
-        return data.latestQualityScore?.qualityScore || null
-      }
-    } catch (error) {
-      console.error('Error fetching quality score:', error)
-    }
-    return null
-  }
+
 
   // Handle user story selection and check quality score
   const handleStorySelection = async (storyId: string) => {
     setSelectedStoryId(storyId)
     if (storyId) {
-      const qualityScore = await fetchQualityScore(storyId)
+      // Use the quality score that's already available in the user story object
+      const selectedStory = userStories.find(story => story.id === storyId)
+      const qualityScore = selectedStory?.latestQualityScore || null
       setSelectedStoryQualityScore(qualityScore)
     } else {
       setSelectedStoryQualityScore(null)
