@@ -101,20 +101,49 @@ async function processJiraImport(jobId: string, config: JiraImportRequest) {
   try {
     // Build JQL queries using custom mappings or defaults
     const jqlQueries = buildJQLQueries(config)
+    console.log(`\n🚀 Starting import process for ${jqlQueries.length} issue types`)
 
+    // First, calculate total items across all queries for accurate progress tracking
+    let grandTotal = 0
+    const queryTotals: { [key: string]: number } = {}
+    
+    console.log(`\n📊 Calculating total items for accurate progress tracking...`)
     for (const { type, jql } of jqlQueries) {
-      console.log(`\n🔄 Processing ${type} with JQL: ${jql}`)
+      try {
+        const count = await getJiraIssueCount(jiraClient, jql)
+        queryTotals[type] = count
+        grandTotal += count
+        console.log(`   ${type}: ${count} items`)
+      } catch (error: any) {
+        console.error(`❌ Failed to count ${type}:`, error.message)
+        queryTotals[type] = 0
+        errors.push(`Failed to count ${type}: ${error.message}`)
+      }
+    }
+
+    console.log(`📈 Total items to process: ${grandTotal}`)
+    
+    // Update job with accurate total
+    await prisma.importJob.update({
+      where: { id: jobId },
+      data: { 
+        totalItems: grandTotal,
+        status: 'in_progress'
+      }
+    })
+
+    // Process each query type
+    for (const { type, jql } of jqlQueries) {
+      const typeTotal = queryTotals[type]
+      if (typeTotal === 0) {
+        console.log(`⏭️  Skipping ${type} - no items found`)
+        continue
+      }
+      
+      console.log(`\n🔄 Processing ${type} (${typeTotal} items)`)
+      console.log(`   JQL: ${jql}`)
       
       try {
-        const totalItems = await getJiraIssueCount(jiraClient, jql)
-        console.log(`📊 Found ${totalItems} ${type} to import`)
-
-        // Update total items in job
-        const currentJob = await prisma.importJob.findUnique({ where: { id: jobId } })
-        await prisma.importJob.update({
-          where: { id: jobId },
-          data: { totalItems: totalItems + (currentJob?.totalItems || 0) }
-        })
 
         // Track statistics for this type
         const typeStats = {
@@ -128,7 +157,7 @@ async function processJiraImport(jobId: string, config: JiraImportRequest) {
         let startAt = 0
         const batchSize = config.batchSettings.batchSize
 
-        while (startAt < totalItems) {
+        while (startAt < typeTotal) {
           try {
             console.log(`Processing batch ${Math.floor(startAt / batchSize) + 1} for ${type}`)
             
@@ -174,7 +203,7 @@ async function processJiraImport(jobId: string, config: JiraImportRequest) {
             startAt += batchSize
 
             // Delay between batches to respect rate limits
-            if (startAt < totalItems) {
+            if (startAt < typeTotal) {
               await new Promise(resolve => setTimeout(resolve, config.batchSettings.delayBetweenBatches))
             }
 
@@ -280,12 +309,15 @@ function buildJQLQueries(config: JiraImportRequest): Array<{ type: string, jql: 
   if (config.customJQL && config.customJQL.length > 0) {
     config.customJQL.forEach(mapping => {
       if (mapping.enabled) {
-        // Combine the custom JQL with project and date filters
-        let fullJQL = `${baseJql} AND (${mapping.jql})`
+        // Use custom JQL as-is (it already includes project filter)
+        // Only add date filtering if specified
+        let fullJQL = mapping.jql
         if (dateFilter) {
           fullJQL += dateFilter
         }
         fullJQL += ' ORDER BY created DESC'
+        
+        console.log(`🔍 Built JQL for ${mapping.type}: ${fullJQL}`)
         
         queries.push({
           type: mapping.type,
@@ -296,27 +328,34 @@ function buildJQLQueries(config: JiraImportRequest): Array<{ type: string, jql: 
   } else {
     // Fallback to default behavior
     if (config.importOptions.userStories) {
+      const jql = `${baseJql} AND type = "Story"${dateFilter} ORDER BY created DESC`
+      console.log(`🔍 Built default JQL for user_stories: ${jql}`)
       queries.push({
         type: 'user_stories',
-        jql: `${baseJql} AND type = "Story"${dateFilter} ORDER BY created DESC`
+        jql
       })
     }
 
     if (config.importOptions.defects) {
+      const jql = `${baseJql} AND type = "Bug"${dateFilter} ORDER BY created DESC`
+      console.log(`🔍 Built default JQL for defects: ${jql}`)
       queries.push({
         type: 'defects',
-        jql: `${baseJql} AND type = "Bug"${dateFilter} ORDER BY created DESC`
+        jql
       })
     }
 
     if (config.importOptions.epics) {
+      const jql = `${baseJql} AND type = "Epic"${dateFilter} ORDER BY created DESC`
+      console.log(`🔍 Built default JQL for epics: ${jql}`)
       queries.push({
         type: 'epics',
-        jql: `${baseJql} AND type = "Epic"${dateFilter} ORDER BY created DESC`
+        jql
       })
     }
   }
 
+  console.log(`📋 Generated ${queries.length} JQL queries for import`)
   return queries
 }
 
