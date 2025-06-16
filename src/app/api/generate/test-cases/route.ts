@@ -432,12 +432,21 @@ export async function POST(request: NextRequest) {
       ``
     ]
 
-    // Add scenarios for each selected industry context
-    industryContexts.forEach((context: string) => {
-      industryContextArray.push(`--- ${context.toUpperCase()} SCENARIOS ---`)
-      industryContextArray.push(...getIndustryScenarios(context))
+    // Add scenarios for selected industry contexts (limit to prevent prompt overflow)
+    if (industryContexts.length > 3) {
+      // If more than 3 contexts selected, use comprehensive scenarios only
+      console.log('🎯 Multiple contexts selected, using comprehensive scenarios to prevent prompt overflow')
+      industryContextArray.push(`--- COMPREHENSIVE SCENARIOS (Multiple Contexts Selected) ---`)
+      industryContextArray.push(...getIndustryScenarios('comprehensive'))
       industryContextArray.push(``)
-    })
+    } else {
+      // Use specific scenarios for 1-3 contexts
+      industryContexts.forEach((context: string) => {
+        industryContextArray.push(`--- ${context.toUpperCase()} SCENARIOS ---`)
+        industryContextArray.push(...getIndustryScenarios(context))
+        industryContextArray.push(``)
+      })
+    }
 
     // Combine RAG context with industry context
     const fullContext = [...industryContextArray, ...ragContext]
@@ -458,9 +467,17 @@ export async function POST(request: NextRequest) {
     console.log('🤖 About to call generateTestCases with:')
     console.log('  - Story text length:', storyText.length)
     console.log('  - Acceptance criteria length:', acceptanceCriteria.length)
-    console.log('  - Full context length:', fullContext.length)
+    console.log('  - Full context lines:', fullContext.length)
+    console.log('  - Full context character count:', fullContext.join('\n').length)
+    console.log('  - Industry contexts selected:', industryContexts.length)
     console.log('  - Test types:', testTypes)
     console.log('  - Model ID:', modelId)
+    
+    // Log prompt size warning if too large
+    const totalPromptSize = storyText.length + acceptanceCriteria.length + fullContext.join('\n').length
+    if (totalPromptSize > 50000) {
+      console.warn('⚠️ Large prompt detected:', totalPromptSize, 'characters - may cause AI processing issues')
+    }
 
     let testCases: string
     try {
