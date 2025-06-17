@@ -95,9 +95,17 @@ export default function BatchAnalysisPage() {
       const processSequentially = async () => {
         try {
           console.log('📡 Making PUT request to process batch:', batchToProcess.id)
+          
+          // Add timeout to prevent hanging requests
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minute timeout
+          
           const response = await fetch(`/api/analyze/requirements-batch?batchId=${batchToProcess.id}&action=process`, {
-            method: 'PUT'
+            method: 'PUT',
+            signal: controller.signal
           })
+          
+          clearTimeout(timeoutId)
 
           console.log('📡 Response status:', response.status)
           if (response.ok) {
@@ -132,6 +140,11 @@ export default function BatchAnalysisPage() {
                   processSequentially()
                 }
               }, 1000)
+            } else {
+              // Unexpected response format - stop processing
+              console.error('❌ Unexpected response format:', data)
+              setActiveBatchId(null)
+              setProcessingStoryId(null)
             }
           } else if (response.status === 404) {
             // Batch not found (deleted), remove from state
@@ -143,10 +156,39 @@ export default function BatchAnalysisPage() {
             })
             setActiveBatchId(null)
             setProcessingStoryId(null)
+          } else {
+            // Other error status - stop processing and mark as failed
+            console.error('❌ API error:', response.status, response.statusText)
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+            console.error('❌ Error details:', errorData)
+            
+            // Mark batch as failed
+            setBatches(prev => prev.map(batch => 
+              batch.id === batchToProcess.id 
+                ? { ...batch, status: 'failed' as const }
+                : batch
+            ))
+            
+            setActiveBatchId(null)
+            setProcessingStoryId(null)
           }
         } catch (error) {
           console.error('Error processing batch step:', error)
+          
+          // Check if it's a timeout error
+          if (error instanceof Error && error.name === 'AbortError') {
+            console.error('❌ Request timed out after 2 minutes')
+          }
+          
+          // Mark batch as failed on error
+          setBatches(prev => prev.map(batch => 
+            batch.id === batchToProcess.id 
+              ? { ...batch, status: 'failed' as const }
+              : batch
+          ))
+          
           setActiveBatchId(null)
+          setProcessingStoryId(null)
         }
       }
       

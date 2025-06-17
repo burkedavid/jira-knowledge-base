@@ -231,19 +231,28 @@ export async function GET(request: NextRequest) {
         orderBy: { qualityScore: 'desc' }
       })
 
+      // Map database fields to frontend expectations
+      const mappedAnalyses = analyses.map(analysis => ({
+        ...analysis,
+        fullAnalysis: analysis.aiAnalysis, // Map aiAnalysis to fullAnalysis for frontend
+        strengths: JSON.parse(analysis.strengths || '[]'),
+        improvements: JSON.parse(analysis.improvements || '[]'),
+        riskFactors: JSON.parse(analysis.riskFactors || '[]')
+      }))
+
       return NextResponse.json({
         batch,
-        analyses,
+        analyses: mappedAnalyses,
         summary: {
-          totalAnalyzed: analyses.length,
-          averageScore: analyses.length > 0 
-            ? analyses.reduce((sum: number, a: RequirementAnalysis) => sum + a.qualityScore, 0) / analyses.length 
+          totalAnalyzed: mappedAnalyses.length,
+          averageScore: mappedAnalyses.length > 0 
+            ? mappedAnalyses.reduce((sum: number, a: any) => sum + a.qualityScore, 0) / mappedAnalyses.length 
             : 0,
           riskDistribution: {
-            Critical: analyses.filter((analysis: RequirementAnalysis) => analysis.riskLevel === 'Critical').length,
-            High: analyses.filter((analysis: RequirementAnalysis) => analysis.riskLevel === 'High').length,
-            Medium: analyses.filter((analysis: RequirementAnalysis) => analysis.riskLevel === 'Medium').length,
-            Low: analyses.filter((analysis: RequirementAnalysis) => analysis.riskLevel === 'Low').length
+            Critical: mappedAnalyses.filter((analysis: any) => analysis.riskLevel === 'Critical').length,
+            High: mappedAnalyses.filter((analysis: any) => analysis.riskLevel === 'High').length,
+            Medium: mappedAnalyses.filter((analysis: any) => analysis.riskLevel === 'Medium').length,
+            Low: mappedAnalyses.filter((analysis: any) => analysis.riskLevel === 'Low').length
           }
         }
       })
@@ -635,18 +644,18 @@ export async function PUT(request: NextRequest) {
           completed: false,
           analyzedStories: newAnalyzedCount,
           totalStories: allUserStories.length,
-                      analysis: {
-              id: createdAnalysis.id,
-              userStoryId: createdAnalysis.userStoryId,
-              qualityScore: createdAnalysis.qualityScore,
-              riskLevel: createdAnalysis.riskLevel,
-              strengths: strengths,
-              improvements: improvements,
-              riskFactors: riskFactors,
-              fullAnalysis: fullAnalysis,
-              createdAt: createdAnalysis.createdAt.toISOString(),
-              userStory: createdAnalysis.userStory
-            }
+          analysis: {
+            id: createdAnalysis.id,
+            userStoryId: createdAnalysis.userStoryId,
+            qualityScore: createdAnalysis.qualityScore,
+            riskLevel: createdAnalysis.riskLevel,
+            strengths: strengths,
+            improvements: improvements,
+            riskFactors: riskFactors,
+            fullAnalysis: fullAnalysis, // Frontend expects this field name
+            createdAt: createdAnalysis.createdAt.toISOString(),
+            userStory: createdAnalysis.userStory
+          }
         })
 
       } catch (error) {
