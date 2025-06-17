@@ -10,11 +10,31 @@ async function semanticSearchWithDetails(
   limit: number = 10,
   threshold: number = 0.7
 ) {
+  console.log(`🔍 Semantic search: "${query}" for types [${sourceTypes.join(', ')}] with threshold ${threshold}`)
+  
   const searchResults = await vectorSearch(query, sourceTypes, limit, threshold)
+  console.log(`📊 Raw search results: ${searchResults.length} found`)
+  
+  // If no results with the initial threshold, try progressively lower thresholds
+  let finalResults = searchResults
+  if (searchResults.length === 0) {
+    console.log('⚠️ No results with initial threshold, trying lower thresholds...')
+    
+    const fallbackThresholds = [0.2, 0.1, 0.05, 0.01]
+    for (const fallbackThreshold of fallbackThresholds) {
+      console.log(`🔄 Trying threshold ${fallbackThreshold}...`)
+      const fallbackResults = await vectorSearch(query, sourceTypes, limit, fallbackThreshold)
+      if (fallbackResults.length > 0) {
+        console.log(`✅ Found ${fallbackResults.length} results with threshold ${fallbackThreshold}`)
+        finalResults = fallbackResults
+        break
+      }
+    }
+  }
   
   // Enrich results with full entity details
   const enrichedResults = await Promise.all(
-    searchResults.map(async (result) => {
+    finalResults.map(async (result) => {
       let entity = null
 
       try {
@@ -61,7 +81,10 @@ async function semanticSearchWithDetails(
     })
   )
 
-  return enrichedResults.filter(result => result.entity !== null)
+  const validResults = enrichedResults.filter(result => result.entity !== null)
+  console.log(`✅ Final enriched results: ${validResults.length} valid entities`)
+  
+  return validResults
 }
 
 export async function POST(request: NextRequest) {
@@ -109,39 +132,48 @@ export async function POST(request: NextRequest) {
     let ragContext = ''
 
     try {
-      // Search for related defects (quality issues and patterns)
+      // First, check if we have any embeddings at all
+      const embeddingStats = await prisma.embedding.count()
+      console.log(`📊 Total embeddings in database: ${embeddingStats}`)
+      
+      if (embeddingStats === 0) {
+        console.log('⚠️ No embeddings found in database - RAG will not work without embeddings')
+        console.log('💡 You need to generate embeddings first via /api/embeddings/generate')
+      }
+
+      // Search for related defects (quality issues and patterns) - much lower threshold
       const relatedDefects = await semanticSearchWithDetails(
         searchQuery,
         ['defect'],
         5, // limit
-        0.3 // threshold - lower for more results
+        0.1 // threshold - much lower for more results
       )
       console.log('🐛 Found related defects via semantic search:', relatedDefects.length)
 
-      // Search for similar user stories (quality benchmarks)
+      // Search for similar user stories (quality benchmarks) - much lower threshold
       const similarStories = await semanticSearchWithDetails(
         searchQuery,
         ['user_story'],
         3, // limit
-        0.4 // threshold
+        0.1 // threshold - much lower
       )
       console.log('📖 Found similar user stories via semantic search:', similarStories.length)
 
-      // Search for related test cases (testability insights)
+      // Search for related test cases (testability insights) - much lower threshold
       const relatedTestCases = await semanticSearchWithDetails(
         searchQuery,
         ['test_case'],
         3, // limit
-        0.4 // threshold
+        0.1 // threshold - much lower
       )
       console.log('🧪 Found related test cases via semantic search:', relatedTestCases.length)
 
-      // Search for related documentation (technical context and patterns)
+      // Search for related documentation (technical context and patterns) - much lower threshold
       const relatedDocs = await semanticSearchWithDetails(
         searchQuery,
         ['document'],
         3, // limit
-        0.3 // threshold - lower for more results since docs are important
+        0.1 // threshold - much lower for more results since docs are important
       )
       console.log('📚 Found related documentation via semantic search:', relatedDocs.length)
 
@@ -208,23 +240,124 @@ export async function POST(request: NextRequest) {
       console.log('📋 RAG context preview:', ragContext.substring(0, 200))
 
     } catch (searchError) {
-      console.error('⚠️ Semantic search failed, falling back to basic search:', searchError)
+      console.error('⚠️ Semantic search failed, falling back to basic database search:', searchError)
       
-      // Fallback to basic search if semantic search fails
-      const relatedDefects = await prisma.defect.findMany({
-        where: {
-          OR: [
-            { component: userStory.component },
-            { title: { contains: userStory.title.split(' ')[0] } },
-          ],
-        },
-        take: 3,
-        orderBy: { createdAt: 'desc' },
-      })
+      // Comprehensive fallback to basic search if semantic search fails
+      try {
+        console.log('🔄 Attempting fallback database searches...')
+        
+        // Search for defects by component and keywords
+        const relatedDefects = await prisma.defect.findMany({
+          where: {
+            OR: [
+              { component: userStory.component },
+              { title: { contains: userStory.title.split(' ')[0] } },
+              { description: { contains: userStory.title.split(' ')[0] } },
+            ],
+          },
+          take: 3,
+          orderBy: { createdAt: 'desc' },
+        })
+        console.log(`🐛 Fallback: Found ${relatedDefects.length} related defects`)
 
-      ragContext = relatedDefects.map((defect: any) => 
-        `Historical Quality Issue: ${defect.title} - ${defect.description}`
-      ).join('\n')
+        // Search for similar user stories
+        const similarStories = await prisma.userStory.findMany({
+          where: {
+            AND: [
+              { id: { not: userStory.id } }, // Exclude current story
+              {
+                OR: [
+                  { component: userStory.component },
+                  { title: { contains: userStory.title.split(' ')[0] } },
+                  { description: { contains: userStory.title.split(' ')[0] } },
+                ],
+              }
+            ]
+          },
+          take: 2,
+          orderBy: { createdAt: 'desc' },
+        })
+        console.log(`📖 Fallback: Found ${similarStories.length} similar user stories`)
+
+        // Search for related test cases
+        const relatedTestCases = await prisma.testCase.findMany({
+          where: {
+            OR: [
+              { title: { contains: userStory.title.split(' ')[0] } },
+              { steps: { contains: userStory.title.split(' ')[0] } },
+            ],
+          },
+          take: 2,
+          orderBy: { createdAt: 'desc' },
+        })
+        console.log(`🧪 Fallback: Found ${relatedTestCases.length} related test cases`)
+
+        // Search for related documents
+        const relatedDocs = await prisma.document.findMany({
+          where: {
+            OR: [
+              { title: { contains: userStory.title.split(' ')[0] } },
+              { content: { contains: userStory.title.split(' ')[0] } },
+            ],
+          },
+          take: 2,
+          orderBy: { createdAt: 'desc' },
+        })
+        console.log(`📚 Fallback: Found ${relatedDocs.length} related documents`)
+
+        // Build fallback RAG context
+        if (relatedDefects.length > 0 || similarStories.length > 0 || relatedTestCases.length > 0 || relatedDocs.length > 0) {
+          ragContext += '\n**KNOWLEDGE BASE CONTEXT (Database Fallback):**\n'
+          
+          if (relatedDefects.length > 0) {
+            ragContext += '\n=== HISTORICAL QUALITY ISSUES ===\n'
+            relatedDefects.forEach((defect: any, index) => {
+              ragContext += `Defect ${index + 1}: ${defect.title}\n`
+              ragContext += `Description: ${defect.description || 'No description'}\n`
+              ragContext += `Severity: ${defect.severity || 'Unknown'}\n`
+              ragContext += `Component: ${defect.component || 'Unknown'}\n`
+              ragContext += '---\n'
+            })
+          }
+
+          if (similarStories.length > 0) {
+            ragContext += '\n=== RELATED USER STORIES ===\n'
+            similarStories.forEach((story: any, index) => {
+              ragContext += `Story ${index + 1}: ${story.title}\n`
+              ragContext += `Description: ${(story.description || 'No description').substring(0, 200)}...\n`
+              ragContext += `Priority: ${story.priority || 'Unknown'}\n`
+              ragContext += `Status: ${story.status || 'Unknown'}\n`
+              ragContext += '---\n'
+            })
+          }
+
+          if (relatedTestCases.length > 0) {
+            ragContext += '\n=== RELATED TEST CASES ===\n'
+            relatedTestCases.forEach((testCase: any, index) => {
+              ragContext += `Test ${index + 1}: ${testCase.title}\n`
+              ragContext += `Steps: ${(testCase.steps || 'No steps').substring(0, 150)}...\n`
+              ragContext += `Expected Results: ${(testCase.expectedResults || 'No expected results').substring(0, 150)}...\n`
+              ragContext += '---\n'
+            })
+          }
+
+          if (relatedDocs.length > 0) {
+            ragContext += '\n=== TECHNICAL DOCUMENTATION ===\n'
+            relatedDocs.forEach((doc: any, index) => {
+              ragContext += `Document ${index + 1}: ${doc.title}\n`
+              ragContext += `Content: ${(doc.content || 'No content').substring(0, 300)}...\n`
+              ragContext += `Type: ${doc.type || 'Unknown'}\n`
+              ragContext += '---\n'
+            })
+          }
+        }
+
+        console.log(`📋 Fallback RAG context built with ${ragContext.length} characters`)
+        
+      } catch (fallbackError) {
+        console.error('💥 Even fallback search failed:', fallbackError)
+        ragContext = '\n**No related context found** - This is a standalone analysis.\n'
+      }
     }
 
     console.log('🤖 Calling analyzeRequirements with RAG context...')

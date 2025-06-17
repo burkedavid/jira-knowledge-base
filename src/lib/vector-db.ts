@@ -21,11 +21,11 @@ export async function embedContent(
   content: string,
   sourceId: string,
   sourceType: SourceType,
-  version: string = '1.0'
-): Promise<void> {
+  version: string = '1.0',
+  forceRegenerate: boolean = false,
+  isImportContext: boolean = false
+): Promise<{ action: 'created' | 'updated' | 'skipped', reason?: string }> {
   try {
-    const vector = await generateEmbedding(content)
-    
     // Check if embedding already exists
     const existingEmbedding = await prisma.embedding.findFirst({
       where: {
@@ -33,6 +33,36 @@ export async function embedContent(
         sourceId,
       },
     })
+
+    if (existingEmbedding && !forceRegenerate) {
+      // Check if content has changed
+      const contentHash = Buffer.from(content).toString('base64')
+      const existingContentHash = Buffer.from(existingEmbedding.content).toString('base64')
+      
+      if (contentHash === existingContentHash) {
+        // Content hasn't changed, skip regeneration
+        return { 
+          action: 'skipped', 
+          reason: 'Content unchanged since last embedding generation' 
+        }
+      }
+      
+      // Content has changed, check if it's recent enough to warrant regeneration
+      const timeSinceCreation = Date.now() - existingEmbedding.createdAt.getTime()
+      const oneHourInMs = 60 * 60 * 1000
+      
+      // During import context, be more aggressive about regenerating embeddings
+      // Skip the time check if this is an import context and content has changed
+      if (timeSinceCreation < oneHourInMs && !forceRegenerate && !isImportContext) {
+        return { 
+          action: 'skipped', 
+          reason: 'Embedding recently created (less than 1 hour ago)' 
+        }
+      }
+    }
+
+    // Generate new embedding (either new item, content changed, or forced)
+    const vector = await generateEmbedding(content)
 
     if (existingEmbedding) {
       // Update existing embedding
@@ -42,8 +72,13 @@ export async function embedContent(
           content,
           vector: JSON.stringify(vector),
           version,
+          createdAt: new Date(), // Update timestamp to reflect regeneration
         },
       })
+      return { 
+        action: 'updated', 
+        reason: forceRegenerate ? 'Force regeneration requested' : 'Content changed since last embedding' 
+      }
     } else {
       // Create new embedding
       await prisma.embedding.create({
@@ -55,6 +90,10 @@ export async function embedContent(
           version,
         },
       })
+      return { 
+        action: 'created', 
+        reason: 'New content, first embedding generation' 
+      }
     }
   } catch (error) {
     console.error('Error embedding content:', error)

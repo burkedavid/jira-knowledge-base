@@ -1,0 +1,53 @@
+{
+  "searchTypes": {
+    "defects": true,
+    "userStories": true,
+    "testCases": true,
+    "documents": true
+  },
+  "maxResults": {
+    "defects": 3,
+    "userStories": 3,
+    "testCases": 3,
+    "documents": 3
+  },
+  "similarityThresholds": {
+    "defects": 0.8,
+    "userStories": 0.75,
+    "testCases": 0.8,
+    "documents": 0.85
+  },
+  "contentLimits": {
+    "maxItemLength": 200,
+    "maxTotalRAGLength": 800,
+    "enableSmartTruncation": true
+  },
+  "relevanceFiltering": {
+    "enabled": true,
+    "minKeywordMatches": 1,
+    "minStoryKeywordMatches": 2,
+    "keywordBoostTerms": [
+      "test",
+      "defect",
+      "bug",
+      "issue",
+      "error",
+      "validation",
+      "field",
+      "user",
+      "system",
+      "authentication",
+      "authorization",
+      "ui",
+      "interface",
+      "performance",
+      "security",
+      "integration"
+    ]
+  },
+  "performance": {
+    "searchTimeout": 45,
+    "enableParallelSearch": true,
+    "cacheResults": false
+  }
+}

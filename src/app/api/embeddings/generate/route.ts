@@ -4,9 +4,28 @@ import { embedContent } from '@/lib/vector-db'
 
 export async function POST(request: NextRequest) {
   try {
-    const { sourceTypes = ['user_story', 'defect', 'test_case'] } = await request.json()
+    const { 
+      sourceTypes = ['user_story', 'defect', 'test_case'], 
+      forceRegenerate = false,
+      dateRange = null 
+    } = await request.json()
     
     console.log('🚀 Starting embedding generation for:', sourceTypes)
+    if (dateRange) {
+      console.log('📅 Date range filter:', dateRange)
+    }
+    
+    // Build date filter for database queries
+    let dateFilter: any = {}
+    if (dateRange?.fromDate || dateRange?.toDate) {
+      dateFilter = {}
+      if (dateRange.fromDate) {
+        dateFilter.gte = new Date(dateRange.fromDate)
+      }
+      if (dateRange.toDate) {
+        dateFilter.lte = new Date(dateRange.toDate)
+      }
+    }
     
     let totalProcessed = 0
     const results: any = {}
@@ -14,17 +33,25 @@ export async function POST(request: NextRequest) {
     // Process User Stories
     if (sourceTypes.includes('user_story')) {
       console.log('📖 Processing user stories...')
-      const userStories = await prisma.userStory.findMany()
+      const whereClause: any = {}
+      if (Object.keys(dateFilter).length > 0) {
+        whereClause.createdAt = dateFilter
+      }
+      
+      const userStories = await prisma.userStory.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' }
+      })
       
       for (const story of userStories) {
         try {
           const content = `${story.title}\n\n${story.description}\n\nAcceptance Criteria: ${story.acceptanceCriteria || 'Not provided'}\n\nComponent: ${story.component || 'Not specified'}\n\nPriority: ${story.priority || 'Not set'}`
           
-          await embedContent(content, story.id, 'user_story')
+          const result = await embedContent(content, story.id, 'user_story', '1.0', forceRegenerate)
           totalProcessed++
           
           if (totalProcessed % 5 === 0) {
-            console.log(`  ✅ Processed ${totalProcessed} items...`)
+            console.log(`  ✅ Processed ${totalProcessed} items... (${result.action}: ${result.reason})`)
           }
         } catch (error) {
           console.error(`Error embedding user story ${story.id}:`, error)
@@ -32,23 +59,31 @@ export async function POST(request: NextRequest) {
       }
       
       results.user_stories = userStories.length
-      console.log(`✅ Completed user stories: ${userStories.length} processed`)
+      console.log(`✅ Completed user stories: ${userStories.length} processed${Object.keys(dateFilter).length > 0 ? ' (date filtered)' : ''}`)
     }
 
     // Process Defects
     if (sourceTypes.includes('defect')) {
       console.log('🐛 Processing defects...')
-      const defects = await prisma.defect.findMany()
+      const whereClause: any = {}
+      if (Object.keys(dateFilter).length > 0) {
+        whereClause.createdAt = dateFilter
+      }
+      
+      const defects = await prisma.defect.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' }
+      })
       
       for (const defect of defects) {
         try {
           const content = `${defect.title}\n\n${defect.description}\n\nSteps to Reproduce: ${defect.stepsToReproduce || 'Not provided'}\n\nRoot Cause: ${defect.rootCause || 'Not identified'}\n\nComponent: ${defect.component || 'Not specified'}\n\nSeverity: ${defect.severity || 'Not set'}`
           
-          await embedContent(content, defect.id, 'defect')
+          const result = await embedContent(content, defect.id, 'defect', '1.0', forceRegenerate)
           totalProcessed++
           
           if (totalProcessed % 5 === 0) {
-            console.log(`  ✅ Processed ${totalProcessed} items...`)
+            console.log(`  ✅ Processed ${totalProcessed} items... (${result.action}: ${result.reason})`)
           }
         } catch (error) {
           console.error(`Error embedding defect ${defect.id}:`, error)
@@ -56,23 +91,31 @@ export async function POST(request: NextRequest) {
       }
       
       results.defects = defects.length
-      console.log(`✅ Completed defects: ${defects.length} processed`)
+      console.log(`✅ Completed defects: ${defects.length} processed${Object.keys(dateFilter).length > 0 ? ' (date filtered)' : ''}`)
     }
 
     // Process Test Cases
     if (sourceTypes.includes('test_case')) {
       console.log('🧪 Processing test cases...')
-      const testCases = await prisma.testCase.findMany()
+      const whereClause: any = {}
+      if (Object.keys(dateFilter).length > 0) {
+        whereClause.createdAt = dateFilter
+      }
+      
+      const testCases = await prisma.testCase.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' }
+      })
       
       for (const testCase of testCases) {
         try {
           const content = `${testCase.title}\n\nSteps: ${testCase.steps}\n\nExpected Results: ${testCase.expectedResults}\n\nPriority: ${testCase.priority || 'Not set'}\n\nGenerated From: ${testCase.generatedFrom || 'Unknown'}`
           
-          await embedContent(content, testCase.id, 'test_case')
+          const result = await embedContent(content, testCase.id, 'test_case', '1.0', forceRegenerate)
           totalProcessed++
           
           if (totalProcessed % 5 === 0) {
-            console.log(`  ✅ Processed ${totalProcessed} items...`)
+            console.log(`  ✅ Processed ${totalProcessed} items... (${result.action}: ${result.reason})`)
           }
         } catch (error) {
           console.error(`Error embedding test case ${testCase.id}:`, error)
@@ -80,7 +123,7 @@ export async function POST(request: NextRequest) {
       }
       
       results.test_cases = testCases.length
-      console.log(`✅ Completed test cases: ${testCases.length} processed`)
+      console.log(`✅ Completed test cases: ${testCases.length} processed${Object.keys(dateFilter).length > 0 ? ' (date filtered)' : ''}`)
     }
 
     console.log(`🎉 Embedding generation complete! Total processed: ${totalProcessed}`)
@@ -89,6 +132,7 @@ export async function POST(request: NextRequest) {
       success: true,
       totalProcessed,
       results,
+      dateRangeApplied: Object.keys(dateFilter).length > 0 ? dateFilter : null,
       message: 'Embeddings generated successfully'
     })
 

@@ -17,6 +17,7 @@ interface ImportJob {
     skipped: number
     errors: number
     duplicatesPrevented: number
+    embeddingsGenerated?: number
   }
   duplicatePrevention?: {
     enabled: boolean
@@ -26,7 +27,7 @@ interface ImportJob {
 }
 
 interface JQLMapping {
-  type: 'user_stories' | 'defects' | 'epics'
+  type: 'user_stories' | 'defects'
   label: string
   jql: string
   enabled: boolean
@@ -41,8 +42,7 @@ export default function ImportPage() {
   const [currentJob, setCurrentJob] = useState<ImportJob | null>(null)
   const [jqlMappings, setJqlMappings] = useState<JQLMapping[]>([
     { type: 'user_stories', label: 'User Stories', jql: 'project = "PROJ" AND type = "Story"', enabled: false, count: 0 },
-    { type: 'defects', label: 'Defects/Bugs', jql: 'project = "PROJ" AND type = "Bug"', enabled: false, count: 0 },
-    { type: 'epics', label: 'Epics', jql: 'project = "PROJ" AND type = "Epic"', enabled: false, count: 0 }
+    { type: 'defects', label: 'Defects/Bugs', jql: 'project = "PROJ" AND type = "Bug"', enabled: false, count: 0 }
   ])
   const [formData, setFormData] = useState({
     jiraUrl: 'https://your-company.atlassian.net',
@@ -57,6 +57,7 @@ export default function ImportPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [generateEmbeddings, setGenerateEmbeddings] = useState(true)
 
   // Save configuration to localStorage
   const saveConfiguration = async () => {
@@ -204,7 +205,6 @@ export default function ImportPage() {
         // Collect all defect-related issue types for combined JQL
         const defectTypes: string[] = []
         let userStoryType: string | null = null
-        let epicType: string | null = null
         
         result.suggestions.recommendedJQL.forEach((suggestion: any) => {
           const issueTypeName = suggestion.jql.match(/type = "([^"]+)"/)?.[1] || ''
@@ -220,15 +220,7 @@ export default function ImportPage() {
              }
           } else if (lowerType.includes('bug') || lowerType.includes('defect')) {
             defectTypes.push(issueTypeName)
-                     } else if (lowerType.includes('epic')) {
-             epicType = issueTypeName
-             const epicMapping = newMappings.find(m => m.type === 'epics')
-             if (epicMapping) {
-               epicMapping.jql = `project = "${formData.projectKey}" AND type = "${issueTypeName}"`
-               epicMapping.count = suggestion.count
-               epicMapping.enabled = suggestion.count > 0
-             }
-          }
+                     }
         })
         
                  // Handle defects - combine multiple defect types into one JQL
@@ -273,8 +265,7 @@ export default function ImportPage() {
       // Convert JQL mappings to import options
       const importOptions = {
         userStories: jqlMappings.find(m => m.type === 'user_stories')?.enabled || false,
-        defects: jqlMappings.find(m => m.type === 'defects')?.enabled || false,
-        epics: jqlMappings.find(m => m.type === 'epics')?.enabled || false
+        defects: jqlMappings.find(m => m.type === 'defects')?.enabled || false
       }
 
       const response = await fetch('/api/import/jira-batch', {
@@ -296,7 +287,8 @@ export default function ImportPage() {
             delayBetweenBatches: formData.delayBetweenBatches
           },
           importOptions,
-          customJQL: jqlMappings // Pass custom JQL mappings
+          customJQL: jqlMappings, // Pass custom JQL mappings
+          generateEmbeddings // Add embeddings generation flag
         })
       })
 
@@ -321,7 +313,7 @@ export default function ImportPage() {
     }
   }
 
-  const updateJQLMapping = (type: 'user_stories' | 'defects' | 'epics', field: 'jql' | 'enabled', value: string | boolean) => {
+  const updateJQLMapping = (type: 'user_stories' | 'defects', field: 'jql' | 'enabled', value: string | boolean) => {
     setJqlMappings(prev => prev.map(mapping => 
       mapping.type === type 
         ? { ...mapping, [field]: value }
@@ -670,6 +662,26 @@ export default function ImportPage() {
                   </p>
                 </div>
 
+                {/* Generate Embeddings Option */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={generateEmbeddings}
+                      onChange={(e) => setGenerateEmbeddings(e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Generate Embeddings
+                      </span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Enable RAG search capabilities for imported user stories and defects
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
                 {/* Start Import Button */}
                 <div>
                   <button 
@@ -719,7 +731,7 @@ export default function ImportPage() {
                     {currentJob.statistics && (currentJob.status === 'completed' || currentJob.status === 'failed' || (currentJob.statistics.created + currentJob.statistics.updated + currentJob.statistics.skipped) > 0) && (
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-3">
                         <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Import Summary</h5>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                           <div className="text-center">
                             <div className="text-lg font-bold text-green-600 dark:text-green-400">
                               {currentJob.statistics.created}
@@ -743,6 +755,12 @@ export default function ImportPage() {
                               {currentJob.statistics.errors}
                             </div>
                             <div className="text-xs text-gray-600 dark:text-gray-400">Errors</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                              {currentJob.statistics.embeddingsGenerated || 0}
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">Embeddings</div>
                           </div>
                         </div>
                         
@@ -776,6 +794,7 @@ export default function ImportPage() {
                             <p className="text-xs mt-1">
                               Processed {currentJob.statistics.created + currentJob.statistics.updated + currentJob.statistics.skipped} total items
                               {currentJob.statistics.skipped > 0 && ` (${currentJob.statistics.skipped} duplicates prevented)`}
+                              {currentJob.statistics.embeddingsGenerated !== undefined && `, ${currentJob.statistics.embeddingsGenerated} embeddings generated`}
                             </p>
                           )}
                         </div>

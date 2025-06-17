@@ -28,6 +28,7 @@ interface JiraImportRequest {
     delayBetweenBatches: number
   }
   customJQL?: JQLMapping[]
+  generateEmbeddings?: boolean
 }
 
 export async function POST(request: NextRequest) {
@@ -233,13 +234,14 @@ async function processJiraImport(jobId: string, config: JiraImportRequest) {
     }
 
     // Enhanced completion logging with statistics
-    const importSummary = {
+    const importSummary: any = {
       totalProcessed,
       created: stats.created,
       updated: stats.updated,
       skipped: stats.skipped,
       errors: stats.errors,
-      duplicatesPrevented: stats.skipped
+      duplicatesPrevented: stats.skipped,
+      embeddingsGenerated: 0
     }
 
     console.log(`📊 Import Summary:`)
@@ -248,6 +250,139 @@ async function processJiraImport(jobId: string, config: JiraImportRequest) {
     console.log(`   ⏭️  Skipped: ${stats.skipped} items (duplicates prevented)`)
     console.log(`   ❌ Errors: ${stats.errors} items`)
     console.log(`   📈 Total processed: ${totalProcessed} items`)
+
+    // Generate embeddings for newly imported content (if enabled)
+    if (config.generateEmbeddings !== false) { // Default to true if not specified
+      console.log(`\n🔮 Generating embeddings for imported content...`)
+      try {
+      const { embedContent } = await import('@/lib/vector-db')
+      let embeddingsGenerated = 0
+
+      // Generate embeddings for user stories if they were processed (created, updated, or skipped)
+      if (config.importOptions.userStories && totalProcessed > 0) {
+        console.log(`🔍 Looking for user stories to generate embeddings...`)
+        
+        // Get user stories from the import - respect the date range if specified
+        let userStoryWhere: any = {}
+        
+        if (config.dateRange?.fromDate || config.dateRange?.toDate) {
+          // Use the same date range as the import
+          const dateConditions: any = {}
+          if (config.dateRange.fromDate) {
+            dateConditions.gte = new Date(config.dateRange.fromDate)
+          }
+          if (config.dateRange.toDate) {
+            dateConditions.lte = new Date(config.dateRange.toDate)
+          }
+          userStoryWhere.createdAt = dateConditions
+          console.log(`📅 Using import date range for embeddings: ${config.dateRange.fromDate} to ${config.dateRange.toDate}`)
+        } else {
+          // Fallback to recent items if no date range specified
+          userStoryWhere = {
+            OR: [
+              { createdAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) } }, // Last 2 hours
+              { updatedAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) } }   // Last 2 hours
+            ]
+          }
+          console.log(`📅 No date range specified, using last 2 hours for embeddings`)
+        }
+        
+        const recentUserStories = await prisma.userStory.findMany({
+          where: userStoryWhere,
+          take: 500 // Increased limit for date range imports
+        })
+        
+        console.log(`📊 Found ${recentUserStories.length} user stories for embedding generation`)
+
+        for (const story of recentUserStories) {
+          try {
+            const content = `${story.title}\n\n${story.description}\n\nAcceptance Criteria: ${story.acceptanceCriteria || 'Not provided'}\n\nComponent: ${story.component || 'Not specified'}\n\nPriority: ${story.priority || 'Not set'}`
+            // During import, be more aggressive about generating embeddings
+            // Force regeneration if explicitly requested via checkbox
+            const shouldForceRegenerate = config.generateEmbeddings === true
+            const result = await embedContent(content, story.id, 'user_story', '1.0', shouldForceRegenerate, true)
+            if (result.action === 'created' || result.action === 'updated') {
+              embeddingsGenerated++
+              console.log(`✅ Generated embedding for user story ${story.id} (${result.action}: ${result.reason})`)
+            } else {
+              console.log(`⏭️ Skipped embedding for user story ${story.id} (${result.reason})`)
+            }
+          } catch (embeddingError) {
+            console.error(`Failed to generate embedding for user story ${story.id}:`, embeddingError)
+          }
+        }
+      }
+
+      // Generate embeddings for defects if they were processed (created, updated, or skipped)
+      if (config.importOptions.defects && totalProcessed > 0) {
+        console.log(`🔍 Looking for defects to generate embeddings...`)
+        
+        // Get defects from the import - respect the date range if specified
+        let defectWhere: any = {}
+        
+        if (config.dateRange?.fromDate || config.dateRange?.toDate) {
+          // Use the same date range as the import
+          const dateConditions: any = {}
+          if (config.dateRange.fromDate) {
+            dateConditions.gte = new Date(config.dateRange.fromDate)
+          }
+          if (config.dateRange.toDate) {
+            dateConditions.lte = new Date(config.dateRange.toDate)
+          }
+          defectWhere.createdAt = dateConditions
+          console.log(`📅 Using import date range for defect embeddings: ${config.dateRange.fromDate} to ${config.dateRange.toDate}`)
+        } else {
+          // Fallback to recent items if no date range specified
+          defectWhere = {
+            OR: [
+              { createdAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) } }, // Last 2 hours
+              { updatedAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) } }   // Last 2 hours
+            ]
+          }
+          console.log(`📅 No date range specified, using last 2 hours for defect embeddings`)
+        }
+        
+        const recentDefects = await prisma.defect.findMany({
+          where: defectWhere,
+          take: 500 // Increased limit for date range imports
+        })
+        
+        console.log(`📊 Found ${recentDefects.length} defects for embedding generation`)
+
+        for (const defect of recentDefects) {
+          try {
+            const content = `${defect.title}\n\n${defect.description}\n\nSteps to Reproduce: ${defect.stepsToReproduce || 'Not provided'}\n\nRoot Cause: ${defect.rootCause || 'Not identified'}\n\nComponent: ${defect.component || 'Not specified'}\n\nSeverity: ${defect.severity || 'Not set'}`
+            // During import, be more aggressive about generating embeddings
+            // Force regeneration if explicitly requested via checkbox
+            const shouldForceRegenerate = config.generateEmbeddings === true
+            const result = await embedContent(content, defect.id, 'defect', '1.0', shouldForceRegenerate, true)
+            if (result.action === 'created' || result.action === 'updated') {
+              embeddingsGenerated++
+              console.log(`✅ Generated embedding for defect ${defect.id} (${result.action}: ${result.reason})`)
+            } else {
+              console.log(`⏭️ Skipped embedding for defect ${defect.id} (${result.reason})`)
+            }
+          } catch (embeddingError) {
+            console.error(`Failed to generate embedding for defect ${defect.id}:`, embeddingError)
+          }
+        }
+      }
+
+      // Note: Epics are not currently supported in the database schema
+      // The import configuration allows selecting epics, but they are not processed or stored
+
+      console.log(`✅ Generated ${embeddingsGenerated} embeddings for imported content`)
+      importSummary.embeddingsGenerated = embeddingsGenerated
+
+      } catch (embeddingError) {
+        console.error('⚠️ Failed to generate embeddings after import:', embeddingError)
+        errors.push(`Embedding generation failed: ${embeddingError instanceof Error ? embeddingError.message : 'Unknown error'}`)
+      }
+    } else {
+      console.log(`⏭️ Skipping embeddings generation (disabled)`)
+      importSummary.embeddingsGenerated = 0
+    }
+
     console.log(`Import completed successfully!`)
 
     // Complete the job with enhanced metadata
@@ -261,7 +396,7 @@ async function processJiraImport(jobId: string, config: JiraImportRequest) {
       }
     })
 
-    console.log(`Import completed successfully!`)
+    console.log(`🎉 Jira import process completed with ${importSummary.embeddingsGenerated || 0} embeddings generated!`)
 
   } catch (error: any) {
     console.error('Import process failed:', error)

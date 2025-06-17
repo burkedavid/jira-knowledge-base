@@ -720,6 +720,413 @@ function RAGSettingsSection() {
   )
 }
 
+function EmbeddingsManagementSection() {
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [embeddingStats, setEmbeddingStats] = useState<{
+    total: number
+    bySourceType: Record<string, number>
+  } | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [lastGenerated, setLastGenerated] = useState<string | null>(null)
+  const [dateRange, setDateRange] = useState<{
+    fromDate: string
+    toDate: string
+    enabled: boolean
+  }>({
+    fromDate: '',
+    toDate: '',
+    enabled: false
+  })
+
+  useEffect(() => {
+    loadEmbeddingStats()
+  }, [])
+
+  const loadEmbeddingStats = async () => {
+    try {
+      const response = await fetch('/api/embeddings/stats')
+      if (response.ok) {
+        const stats = await response.json()
+        setEmbeddingStats(stats)
+        
+        // Try to get the most recent embedding date
+        const embeddingsResponse = await fetch('/api/debug/rag-status')
+        if (embeddingsResponse.ok) {
+          const ragStatus = await embeddingsResponse.json()
+          setLastGenerated(ragStatus.diagnostics.timestamp)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load embedding stats:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const generateEmbeddings = async (forceRegenerate = false) => {
+    setIsGenerating(true)
+    try {
+      const requestBody: any = {
+        sourceTypes: ['user_story', 'defect', 'test_case', 'document'],
+        forceRegenerate
+      }
+      
+      // Add date range if enabled
+      if (dateRange.enabled && (dateRange.fromDate || dateRange.toDate)) {
+        requestBody.dateRange = {
+          fromDate: dateRange.fromDate || null,
+          toDate: dateRange.toDate || null
+        }
+      }
+      
+      const response = await fetch('/api/embeddings/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        let message = `Embeddings generated successfully!\n\nProcessed: ${result.totalProcessed} items\n\nDetails:\n${Object.entries(result.results).map(([type, count]) => `• ${type}: ${count}`).join('\n')}`
+        
+        // Add date range info if it was used
+        if (dateRange.enabled && (dateRange.fromDate || dateRange.toDate)) {
+          message += `\n\nDate Range Filter Applied:`
+          if (dateRange.fromDate) message += `\n• From: ${new Date(dateRange.fromDate).toLocaleDateString()}`
+          if (dateRange.toDate) message += `\n• To: ${new Date(dateRange.toDate).toLocaleDateString()}`
+        }
+        
+        alert(message)
+        
+        // Reload stats after generation
+        await loadEmbeddingStats()
+      } else {
+        const error = await response.json()
+        alert(`Failed to generate embeddings: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error generating embeddings:', error)
+      alert('Failed to generate embeddings')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleGenerateEmbeddings = () => generateEmbeddings(false)
+  const handleForceRegenerate = () => generateEmbeddings(true)
+
+  const handleTestRAGSystem = async () => {
+    try {
+      const response = await fetch('/api/debug/rag-status')
+      if (response.ok) {
+        const result = await response.json()
+        const diagnostics = result.diagnostics
+        
+        let message = `RAG System Status: ${diagnostics.ragSystemHealth.status.toUpperCase()}\n\n`
+        message += `Data Available:\n`
+        message += `• User Stories: ${diagnostics.dataAvailability.userStories}\n`
+        message += `• Defects: ${diagnostics.dataAvailability.defects}\n`
+        message += `• Test Cases: ${diagnostics.dataAvailability.testCases}\n`
+        message += `• Documents: ${diagnostics.dataAvailability.documents}\n\n`
+        
+        message += `Embeddings:\n`
+        message += `• Total: ${diagnostics.embeddings.total}\n`
+        Object.entries(diagnostics.embeddings.byType).forEach(([type, count]) => {
+          message += `• ${type}: ${count}\n`
+        })
+        
+        if (diagnostics.searchTest?.success) {
+          message += `\nSearch Test: ✅ PASSED\n`
+          message += `• Results found: ${diagnostics.searchTest.resultsFound}\n`
+        } else {
+          message += `\nSearch Test: ❌ FAILED\n`
+          message += `• Error: ${diagnostics.searchTest?.error || 'Unknown'}\n`
+        }
+        
+        if (diagnostics.ragSystemHealth.issues.length > 0) {
+          message += `\nIssues:\n`
+          diagnostics.ragSystemHealth.issues.forEach((issue: string) => {
+            message += `• ${issue}\n`
+          })
+        }
+        
+        if (result.recommendations.length > 0) {
+          message += `\nRecommendations:\n`
+          result.recommendations.forEach((rec: string) => {
+            message += `• ${rec}\n`
+          })
+        }
+        
+        alert(message)
+      } else {
+        alert('Failed to test RAG system')
+      }
+    } catch (error) {
+      console.error('Error testing RAG system:', error)
+      alert('Failed to test RAG system')
+    }
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center">
+          <Search className="h-6 w-6 text-purple-600 mr-3" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            Embeddings Management
+          </h3>
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          Generate and manage vector embeddings for RAG (Retrieval-Augmented Generation) search capabilities. 
+          Embeddings enable semantic search across your user stories, defects, test cases, and documents.
+        </p>
+      </div>
+      <div className="p-6 space-y-6">
+        {/* Current Status */}
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+          <h4 className="font-medium text-gray-900 dark:text-white mb-3">Current Status</h4>
+          {isLoading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/2 mb-2"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/3"></div>
+            </div>
+          ) : embeddingStats ? (
+            <div className="space-y-2">
+              <div className="flex items-center">
+                <div className={`w-3 h-3 rounded-full mr-2 ${embeddingStats.total > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Total Embeddings: <strong>{embeddingStats.total}</strong>
+                </span>
+              </div>
+              {Object.entries(embeddingStats.bySourceType).map(([type, count]) => (
+                <div key={type} className="text-sm text-gray-600 dark:text-gray-400 ml-5">
+                  • {type.replace('_', ' ')}: {count}
+                </div>
+              ))}
+              {lastGenerated && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Last checked: {new Date(lastGenerated).toLocaleString()}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-sm text-red-600 dark:text-red-400">
+              Failed to load embedding statistics
+            </div>
+          )}
+        </div>
+
+        {/* Date Range Filter */}
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+          <div className="flex items-center mb-3">
+            <input
+              type="checkbox"
+              id="enableDateRange"
+              checked={dateRange.enabled}
+              onChange={(e) => setDateRange({...dateRange, enabled: e.target.checked})}
+              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+            />
+            <label htmlFor="enableDateRange" className="ml-2 font-medium text-gray-900 dark:text-white">
+              Filter by Date Range (for testing)
+            </label>
+          </div>
+          
+          {dateRange.enabled && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    From Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.fromDate}
+                    onChange={(e) => setDateRange({...dateRange, fromDate: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    To Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.toDate}
+                    onChange={(e) => setDateRange({...dateRange, toDate: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+              </div>
+              
+              {/* Quick Date Presets */}
+              <div className="mt-3">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Presets:</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date().toISOString().split('T')[0]
+                      setDateRange({...dateRange, fromDate: today, toDate: today})
+                    }}
+                    className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date()
+                      const yesterday = new Date(today)
+                      yesterday.setDate(yesterday.getDate() - 1)
+                      setDateRange({...dateRange, fromDate: yesterday.toISOString().split('T')[0], toDate: today.toISOString().split('T')[0]})
+                    }}
+                    className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                  >
+                    Last 2 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date()
+                      const lastWeek = new Date(today)
+                      lastWeek.setDate(lastWeek.getDate() - 7)
+                      setDateRange({...dateRange, fromDate: lastWeek.toISOString().split('T')[0], toDate: today.toISOString().split('T')[0]})
+                    }}
+                    className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                  >
+                    Last Week
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date()
+                      const lastMonth = new Date(today)
+                      lastMonth.setMonth(lastMonth.getMonth() - 1)
+                      setDateRange({...dateRange, fromDate: lastMonth.toISOString().split('T')[0], toDate: today.toISOString().split('T')[0]})
+                    }}
+                    className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                  >
+                    Last Month
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDateRange({...dateRange, fromDate: '', toDate: ''})}
+                    className="px-3 py-1 text-xs bg-red-200 dark:bg-red-600 text-red-700 dark:text-red-300 rounded hover:bg-red-300 dark:hover:bg-red-500"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+          
+          {dateRange.enabled && (
+            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Date Range Mode:</strong> Only items created within the specified date range will be processed. 
+                This is useful for testing embeddings on specific data sets or recent imports.
+                {dateRange.fromDate && ` From: ${new Date(dateRange.fromDate).toLocaleDateString()}`}
+                {dateRange.toDate && ` To: ${new Date(dateRange.toDate).toLocaleDateString()}`}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={handleGenerateEmbeddings}
+            disabled={isGenerating}
+            className="flex items-center justify-center px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isGenerating ? (
+              <>
+                <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Zap className="h-5 w-5 mr-2" />
+                Smart Generate
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleForceRegenerate}
+            disabled={isGenerating}
+            className="flex items-center justify-center px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isGenerating ? (
+              <>
+                <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
+                Regenerating...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-5 w-5 mr-2" />
+                Force Regenerate
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleTestRAGSystem}
+            disabled={isGenerating}
+            className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <TestTube className="h-5 w-5 mr-2" />
+            Test RAG System
+          </button>
+        </div>
+
+        {/* Information */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+          <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+            What are Embeddings?
+          </h4>
+          <div className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
+            <p>
+              Embeddings are numerical representations of your content that enable AI to understand semantic meaning and relationships.
+            </p>
+            <p>
+              <strong>Generation Options:</strong>
+            </p>
+            <ul className="list-disc list-inside ml-4 space-y-1">
+              <li><strong>Smart Generate:</strong> Only processes new/changed content (recommended)</li>
+              <li><strong>Force Regenerate:</strong> Regenerates all embeddings regardless of changes</li>
+              <li><strong>Test RAG System:</strong> Runs comprehensive diagnostics</li>
+            </ul>
+            <p className="mt-3">
+              <strong>When to use Smart Generate:</strong>
+            </p>
+            <ul className="list-disc list-inside ml-4 space-y-1">
+              <li>After importing new user stories, defects, or documents</li>
+              <li>When RAG search returns few or no results</li>
+              <li>Regular maintenance (skips unchanged content)</li>
+              <li>Testing with specific date ranges (use the date filter above)</li>
+            </ul>
+            <p className="mt-3">
+              <strong>When to use Force Regenerate:</strong>
+            </p>
+            <ul className="list-disc list-inside ml-4 space-y-1">
+              <li>After system updates or configuration changes</li>
+              <li>When troubleshooting search quality issues</li>
+              <li>First-time setup or complete refresh needed</li>
+            </ul>
+            <p className="mt-3">
+              <strong>Note:</strong> Smart generation saves time and AWS costs by skipping unchanged content. 
+              The system uses AWS Titan embeddings for high-quality semantic understanding.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -1226,6 +1633,9 @@ export default function SettingsPage() {
 
           {/* RAG Configuration */}
           <RAGSettingsSection />
+
+          {/* Embeddings Management */}
+          <EmbeddingsManagementSection />
 
           {/* Security Settings */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
