@@ -65,10 +65,13 @@ async function semanticSearchWithDetails(
 }
 
 export async function POST(request: NextRequest) {
+  let requestBody: any = {}
+  
   try {
     console.log('🔍 Starting requirements analysis with RAG...')
     
-    const { userStoryId, criteria = ['invest', 'risk', 'defectPatterns'] } = await request.json()
+    requestBody = await request.json()
+    const { userStoryId, criteria = ['invest', 'risk', 'defectPatterns'] } = requestBody
 
     if (!userStoryId) {
       return NextResponse.json(
@@ -391,9 +394,29 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('💥 Error analyzing requirements:', error)
+    
+    // Ensure we always return JSON, even on errors
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    const errorDetails = error instanceof Error ? error.stack : 'No stack trace available'
+    
+    console.error('💥 Error details:', {
+      message: errorMessage,
+      stack: errorDetails,
+      userStoryId: requestBody?.userStoryId || 'unknown'
+    })
+    
     return NextResponse.json(
-      { error: 'Failed to analyze requirements' },
-      { status: 500 }
+      { 
+        error: 'Failed to analyze requirements',
+        details: errorMessage,
+        timestamp: new Date().toISOString()
+      },
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     )
   }
 } 

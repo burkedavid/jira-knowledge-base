@@ -565,7 +565,17 @@ export async function PUT(request: NextRequest) {
         })
 
         if (!analysisResponse.ok) {
-          throw new Error(`Analysis API returned ${analysisResponse.status}: ${await analysisResponse.text()}`)
+          const errorText = await analysisResponse.text()
+          console.error(`❌ Analysis API error (${analysisResponse.status}):`, errorText)
+          throw new Error(`Analysis API returned ${analysisResponse.status}: ${errorText.substring(0, 200)}`)
+        }
+
+        // Check if response is JSON before parsing
+        const contentType = analysisResponse.headers.get('content-type')
+        if (!contentType || !contentType.includes('application/json')) {
+          const responseText = await analysisResponse.text()
+          console.error('❌ Analysis API returned non-JSON response:', responseText.substring(0, 500))
+          throw new Error(`Analysis API returned non-JSON response (${contentType}). Response: ${responseText.substring(0, 200)}`)
         }
 
         const analysisData = await analysisResponse.json()
