@@ -1006,7 +1006,7 @@ ${report.response}`
                   <option value="30d">Last 30 days</option>
                   <option value="90d">Last 90 days</option>
                   <option value="1y">Last year</option>
-                  <option value="all">All time (with smart sampling)</option>
+                  <option value="all">All time (complete historical analysis)</option>
                 </select>
               </div>
 
@@ -1062,7 +1062,7 @@ ${report.response}`
                     timeframe === '30d' ? 'Last 30 days' :
                     timeframe === '90d' ? 'Last 90 days' :
                     timeframe === '1y' ? 'Last year' :
-                    timeframe === 'all' ? 'All time (intelligent sampling will be used for large datasets)' : timeframe
+                    timeframe === 'all' ? 'All time (complete historical analysis)' : timeframe
                   }
                   {selectedComponent && (
                     <>
@@ -1077,9 +1077,27 @@ ${report.response}`
                     </>
                   )}
                 </div>
-                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                  All analytics, charts, and AI analysis will be based on this data scope.
-                </p>
+                
+                {/* Enhanced explanation for "All time" with smart sampling */}
+                {timeframe === 'all' ? (
+                  <div className="mt-3 p-3 bg-blue-100 dark:bg-blue-800/30 rounded-md border border-blue-200 dark:border-blue-700">
+                    <p className="text-xs font-medium text-blue-900 dark:text-blue-100 mb-2">
+                      🧠 Smart Sampling Explained:
+                    </p>
+                    <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+                      <li>• <strong>Complete Historical Analysis:</strong> Every defect in your database will be analyzed (no data excluded)</li>
+                      <li>• <strong>Extended Timeline:</strong> Up to 5 years of trend data using optimized data sampling</li>
+                      <li>• <strong>Minimal Data Transfer:</strong> Uses only essential fields (title, date, severity) for faster processing</li>
+                      <li>• <strong>Top Components:</strong> Focus on the 10 most defect-prone components for actionable insights</li>
+                      <li>• <strong>Long-term Patterns:</strong> AI identifies multi-year trends and systemic quality evolution</li>
+                      <li>• <strong>Strategic Overview:</strong> Perfect for executive reporting and historical quality assessment</li>
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                    All analytics, charts, and AI analysis will be based on this data scope.
+                  </p>
+                )}
               </div>
             )}
           </div>

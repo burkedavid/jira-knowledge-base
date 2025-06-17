@@ -146,7 +146,8 @@ export async function GET(request: NextRequest) {
         trendsLookback = oldestDefect.createdAt
         // Calculate months between oldest and now
         const monthsDiff = Math.ceil((now.getTime() - oldestDefect.createdAt.getTime()) / (30 * 24 * 60 * 60 * 1000))
-        maxMonths = Math.min(24, monthsDiff) // Cap at 24 months for performance
+        // Smart sampling allows us to go back further with minimal data
+        maxMonths = Math.min(60, monthsDiff) // Increased from 24 to 60 months (5 years)
       } else {
         trendsLookback = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
         maxMonths = 12
@@ -176,6 +177,7 @@ export async function GET(request: NextRequest) {
       }
     }
     
+    // Smart sampling: For "all time", use minimal data to go back further
     const defectsWithDates = await prisma.defect.findMany({
       where: {
         createdAt: {
@@ -183,9 +185,18 @@ export async function GET(request: NextRequest) {
         },
         ...(component ? { component } : {})
       },
-      select: {
+      select: timeframe === 'all' ? {
+        // Smart sampling: Only essential fields for historical analysis
         createdAt: true,
-        severity: true
+        severity: true,
+        title: true // Minimal text data for pattern analysis
+      } : {
+        // Full data for shorter timeframes
+        createdAt: true,
+        severity: true,
+        title: true,
+        description: true,
+        component: true
       }
     })
 
