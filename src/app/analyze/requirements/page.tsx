@@ -98,37 +98,270 @@ const AnalysisResult = ({ result, userStory, selectedSuggestions, onSuggestionTo
 
         {/* Interactive Suggestions Section */}
         {(result?.suggestions || result?.improvements) && (result?.suggestions || result?.improvements).length > 0 && (
-          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <h4 className="text-lg font-medium text-blue-900 dark:text-blue-100 mb-4">
-              Select Suggestions for AI Refinement
-            </h4>
-            <div className="space-y-2">
-              {(result.suggestions || result.improvements).map((suggestion: string, index: number) => (
-                <div key={index} className="flex items-start space-x-3">
-                  <Checkbox
-                    checked={selectedSuggestions.includes(suggestion)}
-                    onCheckedChange={() => onSuggestionToggle(suggestion)}
-                    className="mt-1 border-blue-400 dark:border-blue-500 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                  />
-                  <div 
-                    className="flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer leading-relaxed"
-                    onClick={() => onSuggestionToggle(suggestion)}
-                  >
-                    {suggestion}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {selectedSuggestions.length > 0 && (
-              <div className="mt-4 text-sm text-blue-700 dark:text-blue-300">
-                {selectedSuggestions.length} suggestion{selectedSuggestions.length !== 1 ? 's' : ''} selected for refinement
-              </div>
-            )}
-          </div>
+          <RefinementSuggestionsSection 
+            suggestions={result.suggestions || result.improvements}
+            selectedSuggestions={selectedSuggestions}
+            onSuggestionToggle={onSuggestionToggle}
+          />
         )}
       </div>
     </div>
   );
+}
+
+// Improved Refinement Suggestions Component with grouped categories
+const RefinementSuggestionsSection = ({ 
+  suggestions, 
+  selectedSuggestions, 
+  onSuggestionToggle 
+}: { 
+  suggestions: string[], 
+  selectedSuggestions: string[], 
+  onSuggestionToggle: (suggestion: string) => void 
+}) => {
+  // Categorize suggestions into logical groups
+  const categorizesuggestions = (suggestions: string[]) => {
+    const categories = {
+      'Story Structure & Format': [] as string[],
+      'Requirements Definition': [] as string[],
+      'Technical Specifications': [] as string[],
+      'User Experience': [] as string[],
+      'Quality & Testing': [] as string[],
+      'Risk Management': [] as string[]
+    }
+
+    suggestions.forEach(suggestion => {
+      const lower = suggestion.toLowerCase()
+      
+      if (lower.includes('user story format') || lower.includes('break down') || lower.includes('story points') || lower.includes('proper format')) {
+        categories['Story Structure & Format'].push(suggestion)
+      } else if (lower.includes('stakeholders') || lower.includes('personas') || lower.includes('define') || lower.includes('specify')) {
+        categories['Requirements Definition'].push(suggestion)
+      } else if (lower.includes('notification') || lower.includes('technical') || lower.includes('override') || lower.includes('methods') || lower.includes('timing')) {
+        categories['Technical Specifications'].push(suggestion)
+      } else if (lower.includes('user experience') || lower.includes('fatigue') || lower.includes('content') || lower.includes('ux')) {
+        categories['User Experience'].push(suggestion)
+      } else if (lower.includes('acceptance criteria') || lower.includes('definition of done') || lower.includes('testable') || lower.includes('edge cases') || lower.includes('non-functional')) {
+        categories['Quality & Testing'].push(suggestion)
+      } else if (lower.includes('rollback') || lower.includes('migration') || lower.includes('audit') || lower.includes('compliance') || lower.includes('risk')) {
+        categories['Risk Management'].push(suggestion)
+      } else {
+        // Default to Requirements Definition for uncategorized items
+        categories['Requirements Definition'].push(suggestion)
+      }
+    })
+
+    return categories
+  }
+
+  const categories = categorizesuggestions(suggestions)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Story Structure & Format']))
+
+  const toggleCategory = (categoryName: string) => {
+    const newExpanded = new Set(expandedCategories)
+    if (newExpanded.has(categoryName)) {
+      newExpanded.delete(categoryName)
+    } else {
+      newExpanded.add(categoryName)
+    }
+    setExpandedCategories(newExpanded)
+  }
+
+  const selectAllInCategory = (categoryName: string) => {
+    const categorySuggestions = categories[categoryName as keyof typeof categories]
+    categorySuggestions.forEach(suggestion => {
+      if (!selectedSuggestions.includes(suggestion)) {
+        onSuggestionToggle(suggestion)
+      }
+    })
+  }
+
+  const deselectAllInCategory = (categoryName: string) => {
+    const categorySuggestions = categories[categoryName as keyof typeof categories]
+    categorySuggestions.forEach(suggestion => {
+      if (selectedSuggestions.includes(suggestion)) {
+        onSuggestionToggle(suggestion)
+      }
+    })
+  }
+
+  const getCategoryIcon = (categoryName: string) => {
+    switch (categoryName) {
+      case 'Story Structure & Format': return '📝'
+      case 'Requirements Definition': return '🎯'
+      case 'Technical Specifications': return '⚙️'
+      case 'User Experience': return '👤'
+      case 'Quality & Testing': return '✅'
+      case 'Risk Management': return '🛡️'
+      default: return '📋'
+    }
+  }
+
+  const getCategorySelectedCount = (categoryName: string) => {
+    const categorySuggestions = categories[categoryName as keyof typeof categories]
+    return categorySuggestions.filter(s => selectedSuggestions.includes(s)).length
+  }
+
+  // Quick selection presets
+  const selectEssentials = () => {
+    const essentials = [
+      ...categories['Story Structure & Format'],
+      ...categories['Quality & Testing'].filter(s => s.toLowerCase().includes('acceptance criteria'))
+    ]
+    essentials.forEach(suggestion => {
+      if (!selectedSuggestions.includes(suggestion)) {
+        onSuggestionToggle(suggestion)
+      }
+    })
+  }
+
+  const selectAll = () => {
+    suggestions.forEach(suggestion => {
+      if (!selectedSuggestions.includes(suggestion)) {
+        onSuggestionToggle(suggestion)
+      }
+    })
+  }
+
+  const clearAll = () => {
+    selectedSuggestions.forEach(suggestion => {
+      onSuggestionToggle(suggestion)
+    })
+  }
+
+  return (
+    <div className="mt-6 p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+      <div className="flex items-center justify-between mb-6">
+        <h4 className="text-lg font-medium text-blue-900 dark:text-blue-100">
+          Select Suggestions for AI Refinement
+        </h4>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={selectEssentials}
+            className="text-xs"
+          >
+            📝 Essentials Only
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={selectAll}
+            className="text-xs"
+          >
+            Select All
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearAll}
+            className="text-xs"
+          >
+            Clear All
+          </Button>
+        </div>
+      </div>
+
+      {/* Category-based suggestions */}
+      <div className="space-y-4">
+        {Object.entries(categories).map(([categoryName, categorySuggestions]) => {
+          if (categorySuggestions.length === 0) return null
+          
+          const isExpanded = expandedCategories.has(categoryName)
+          const selectedCount = getCategorySelectedCount(categoryName)
+          
+          return (
+            <div key={categoryName} className="border border-gray-200 dark:border-gray-600 rounded-lg">
+              {/* Category Header */}
+              <div 
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                onClick={() => toggleCategory(categoryName)}
+              >
+                <div className="flex items-center space-x-3">
+                  <span className="text-lg">{getCategoryIcon(categoryName)}</span>
+                  <div>
+                    <h5 className="font-medium text-gray-900 dark:text-white">
+                      {categoryName}
+                    </h5>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {selectedCount}/{categorySuggestions.length} selected
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {selectedCount < categorySuggestions.length && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        selectAllInCategory(categoryName)
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-700"
+                    >
+                      Select All
+                    </Button>
+                  )}
+                  {selectedCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deselectAllInCategory(categoryName)
+                      }}
+                      className="text-xs text-gray-600 hover:text-gray-700"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
+
+              {/* Category Content */}
+              {isExpanded && (
+                <div className="px-4 pb-4 border-t border-gray-200 dark:border-gray-600">
+                  <div className="pt-3 space-y-3">
+                    {categorySuggestions.map((suggestion, index) => (
+                      <div key={index} className="flex items-start space-x-3">
+                        <Checkbox
+                          checked={selectedSuggestions.includes(suggestion)}
+                          onCheckedChange={() => onSuggestionToggle(suggestion)}
+                          className="mt-1 border-blue-400 dark:border-blue-500 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                        />
+                        <div 
+                          className="flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer leading-relaxed hover:text-gray-900 dark:hover:text-white"
+                          onClick={() => onSuggestionToggle(suggestion)}
+                        >
+                          {suggestion}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Selection Summary */}
+      {selectedSuggestions.length > 0 && (
+        <div className="mt-6 p-4 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-blue-700 dark:text-blue-300">
+              <strong>{selectedSuggestions.length}</strong> suggestion{selectedSuggestions.length !== 1 ? 's' : ''} selected for refinement
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              The AI will focus on these specific areas when refining your user story
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function AnalyzeRequirementsPage() {
