@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Settings, Database, Brain, Shield, TestTube, Zap, Building2, Users, Save, Play, Square, RefreshCw, ExternalLink, DollarSign, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Settings, Database, Brain, Shield, TestTube, Zap, Building2, Users, Save, Play, Square, RefreshCw, ExternalLink, DollarSign, AlertCircle, Search, Filter, Target } from 'lucide-react'
 
 interface ProductContext {
   productName: string
@@ -31,6 +31,43 @@ interface AISettings {
   model: string
   trackingEnabled: boolean
   retentionDays: number
+}
+
+interface RAGConfig {
+  searchTypes: {
+    defects: boolean
+    userStories: boolean
+    testCases: boolean
+    documents: boolean
+  }
+  maxResults: {
+    defects: number
+    userStories: number
+    testCases: number
+    documents: number
+  }
+  similarityThresholds: {
+    defects: number
+    userStories: number
+    testCases: number
+    documents: number
+  }
+  contentLimits: {
+    maxItemLength: number
+    maxTotalRAGLength: number
+    enableSmartTruncation: boolean
+  }
+  relevanceFiltering: {
+    enabled: boolean
+    minKeywordMatches: number
+    minStoryKeywordMatches: number
+    keywordBoostTerms: string[]
+  }
+  performance: {
+    searchTimeout: number
+    enableParallelSearch: boolean
+    cacheResults: boolean
+  }
 }
 
 function AISettingsSection() {
@@ -237,6 +274,442 @@ function AISettingsSection() {
                 <>
                   <Save className="w-4 h-4 mr-2" />
                   Save AI Settings
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RAGSettingsSection() {
+  const [ragConfig, setRagConfig] = useState<RAGConfig | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    const loadRAGConfig = async () => {
+      try {
+        const response = await fetch('/api/settings/rag-config')
+        if (response.ok) {
+          const config = await response.json()
+          setRagConfig(config)
+        }
+      } catch (error) {
+        console.error('Failed to load RAG config:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadRAGConfig()
+  }, [])
+
+  const handleSaveRAGConfig = async () => {
+    if (!ragConfig) return
+
+    setIsSaving(true)
+    try {
+      const response = await fetch('/api/settings/rag-config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(ragConfig),
+      })
+
+      if (response.ok) {
+        alert('RAG configuration saved successfully!')
+      } else {
+        const error = await response.json()
+        alert(`Failed to save RAG configuration: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error saving RAG config:', error)
+      alert('Failed to save RAG configuration')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center">
+            <Search className="h-6 w-6 text-purple-600 mr-3" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              RAG Configuration
+            </h3>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4"></div>
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!ragConfig) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center">
+            <Search className="h-6 w-6 text-purple-600 mr-3" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              RAG Configuration
+            </h3>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="text-center text-red-500 dark:text-red-400">
+            <p>Failed to load RAG configuration</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center">
+          <Search className="h-6 w-6 text-purple-600 mr-3" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            RAG Configuration
+          </h3>
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          Configure semantic search and AI analysis parameters for test case generation
+        </p>
+      </div>
+      <div className="p-6 space-y-8">
+        {/* Search Types */}
+        <div>
+          <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Search Types</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Select which content types to include in RAG context for test case generation
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(ragConfig.searchTypes).map(([type, enabled]) => (
+              <label key={type} className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    searchTypes: { ...ragConfig.searchTypes, [type]: e.target.checked }
+                  })}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 capitalize">
+                  {type.replace(/([A-Z])/g, ' $1').trim()}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Max Results */}
+        <div>
+          <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Maximum Results</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Set the maximum number of items to retrieve for each content type
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(ragConfig.maxResults).map(([type, value]) => (
+              <div key={type}>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 capitalize">
+                  {type.replace(/([A-Z])/g, ' $1').trim()}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={value}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    maxResults: { ...ragConfig.maxResults, [type]: parseInt(e.target.value) || 0 }
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Similarity Thresholds */}
+        <div>
+          <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Similarity Thresholds</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Set minimum similarity scores (0.0-1.0) for including content in RAG context
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(ragConfig.similarityThresholds).map(([type, value]) => (
+              <div key={type}>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 capitalize">
+                  {type.replace(/([A-Z])/g, ' $1').trim()}
+                </label>
+                <input
+                  type="number"
+                  min="0.0"
+                  max="1.0"
+                  step="0.05"
+                  value={value}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    similarityThresholds: { ...ragConfig.similarityThresholds, [type]: parseFloat(e.target.value) || 0 }
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Current: {(value * 100).toFixed(0)}% similarity
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Content Limits */}
+        <div>
+          <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Content Limits</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Max Item Length (characters)
+              </label>
+              <input
+                type="number"
+                min="50"
+                max="1000"
+                value={ragConfig.contentLimits.maxItemLength}
+                onChange={(e) => setRagConfig({
+                  ...ragConfig,
+                  contentLimits: { ...ragConfig.contentLimits, maxItemLength: parseInt(e.target.value) || 200 }
+                })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Max Total RAG Length (characters)
+              </label>
+              <input
+                type="number"
+                min="100"
+                max="5000"
+                value={ragConfig.contentLimits.maxTotalRAGLength}
+                onChange={(e) => setRagConfig({
+                  ...ragConfig,
+                  contentLimits: { ...ragConfig.contentLimits, maxTotalRAGLength: parseInt(e.target.value) || 800 }
+                })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+            </div>
+            <div className="flex items-center">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={ragConfig.contentLimits.enableSmartTruncation}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    contentLimits: { ...ragConfig.contentLimits, enableSmartTruncation: e.target.checked }
+                  })}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Enable Smart Truncation
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Performance Settings */}
+        <div>
+          <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Performance Settings</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Search Timeout (seconds)
+              </label>
+              <input
+                type="number"
+                min="10"
+                max="120"
+                value={ragConfig.performance.searchTimeout}
+                onChange={(e) => setRagConfig({
+                  ...ragConfig,
+                  performance: { ...ragConfig.performance, searchTimeout: parseInt(e.target.value) || 45 }
+                })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+            </div>
+            <div className="flex items-center">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={ragConfig.performance.enableParallelSearch}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    performance: { ...ragConfig.performance, enableParallelSearch: e.target.checked }
+                  })}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Enable Parallel Search
+                </span>
+              </label>
+            </div>
+            <div className="flex items-center">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={ragConfig.performance.cacheResults}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    performance: { ...ragConfig.performance, cacheResults: e.target.checked }
+                  })}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Cache Results
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Relevance Filtering */}
+        <div>
+          <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Relevance Filtering</h4>
+          <div className="space-y-4">
+            <div className="flex items-center">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={ragConfig.relevanceFiltering.enabled}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    relevanceFiltering: { ...ragConfig.relevanceFiltering, enabled: e.target.checked }
+                  })}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Enable Relevance Filtering
+                </span>
+              </label>
+            </div>
+            
+            {ragConfig.relevanceFiltering.enabled && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6 border-l-2 border-purple-200 dark:border-purple-700">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Min Keyword Matches
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    value={ragConfig.relevanceFiltering.minKeywordMatches}
+                    onChange={(e) => setRagConfig({
+                      ...ragConfig,
+                      relevanceFiltering: { ...ragConfig.relevanceFiltering, minKeywordMatches: parseInt(e.target.value) || 0 }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Min Story Keyword Matches
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    value={ragConfig.relevanceFiltering.minStoryKeywordMatches}
+                    onChange={(e) => setRagConfig({
+                      ...ragConfig,
+                      relevanceFiltering: { ...ragConfig.relevanceFiltering, minStoryKeywordMatches: parseInt(e.target.value) || 0 }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Keyword Boost Terms
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {ragConfig.relevanceFiltering.keywordBoostTerms.map((term, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300"
+                      >
+                        {term}
+                        <button
+                          onClick={() => {
+                            const newTerms = ragConfig.relevanceFiltering.keywordBoostTerms.filter((_, i) => i !== index)
+                            setRagConfig({
+                              ...ragConfig,
+                              relevanceFiltering: { ...ragConfig.relevanceFiltering, keywordBoostTerms: newTerms }
+                            })
+                          }}
+                          className="ml-1 text-purple-600 hover:text-purple-800"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Add keyword (press Enter)"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                        const newTerm = e.currentTarget.value.trim().toLowerCase()
+                        if (!ragConfig.relevanceFiltering.keywordBoostTerms.includes(newTerm)) {
+                          setRagConfig({
+                            ...ragConfig,
+                            relevanceFiltering: {
+                              ...ragConfig.relevanceFiltering,
+                              keywordBoostTerms: [...ragConfig.relevanceFiltering.keywordBoostTerms, newTerm]
+                            }
+                          })
+                        }
+                        e.currentTarget.value = ''
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Save Button */}
+        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex justify-end">
+            <button
+              onClick={handleSaveRAGConfig}
+              disabled={isSaving}
+              className="flex items-center px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isSaving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save RAG Configuration
                 </>
               )}
             </button>
@@ -750,6 +1223,9 @@ export default function SettingsPage() {
 
           {/* AI Cost Settings */}
           <AISettingsSection />
+
+          {/* RAG Configuration */}
+          <RAGSettingsSection />
 
           {/* Security Settings */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow">

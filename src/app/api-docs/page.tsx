@@ -722,6 +722,672 @@ const API_ENDPOINTS: APIEndpoint[] = [
       }
     ],
     tags: ['System']
+  },
+
+  // RAG Configuration API
+  {
+    method: 'GET',
+    path: '/api/settings/rag-config',
+    summary: 'Get RAG Configuration',
+    description: 'Retrieve RAG (Retrieval-Augmented Generation) configuration settings for test case generation',
+    responses: [
+      {
+        status: 200,
+        description: 'RAG configuration settings',
+        example: {
+          searchTypes: {
+            defects: true,
+            userStories: false,
+            testCases: true,
+            documents: false
+          },
+          maxResults: {
+            defects: 2,
+            userStories: 2,
+            testCases: 2,
+            documents: 1
+          },
+          similarityThresholds: {
+            defects: 0.8,
+            userStories: 0.75,
+            testCases: 0.8,
+            documents: 0.85
+          },
+          contentLimits: {
+            maxItemLength: 200,
+            maxTotalRAGLength: 800,
+            enableSmartTruncation: true
+          },
+          relevanceFiltering: {
+            enabled: true,
+            minKeywordMatches: 1,
+            minStoryKeywordMatches: 2,
+            keywordBoostTerms: ["test", "defect", "bug", "validation"]
+          },
+          performance: {
+            searchTimeout: 45,
+            enableParallelSearch: true,
+            cacheResults: false
+          }
+        }
+      }
+    ],
+    tags: ['Settings', 'RAG']
+  },
+  {
+    method: 'PUT',
+    path: '/api/settings/rag-config',
+    summary: 'Update RAG Configuration',
+    description: 'Update RAG configuration settings for controlling test case generation parameters',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        properties: {
+          searchTypes: {
+            type: 'object',
+            properties: {
+              defects: { type: 'boolean', description: 'Include defects in RAG context' },
+              userStories: { type: 'boolean', description: 'Include user stories in RAG context' },
+              testCases: { type: 'boolean', description: 'Include test cases in RAG context' },
+              documents: { type: 'boolean', description: 'Include documents in RAG context' }
+            }
+          },
+          maxResults: {
+            type: 'object',
+            properties: {
+              defects: { type: 'integer', minimum: 0, maximum: 10 },
+              userStories: { type: 'integer', minimum: 0, maximum: 10 },
+              testCases: { type: 'integer', minimum: 0, maximum: 10 },
+              documents: { type: 'integer', minimum: 0, maximum: 10 }
+            }
+          },
+          similarityThresholds: {
+            type: 'object',
+            properties: {
+              defects: { type: 'number', minimum: 0.0, maximum: 1.0 },
+              userStories: { type: 'number', minimum: 0.0, maximum: 1.0 },
+              testCases: { type: 'number', minimum: 0.0, maximum: 1.0 },
+              documents: { type: 'number', minimum: 0.0, maximum: 1.0 }
+            }
+          },
+          performance: {
+            type: 'object',
+            properties: {
+              searchTimeout: { type: 'integer', minimum: 10, maximum: 120 },
+              enableParallelSearch: { type: 'boolean' },
+              cacheResults: { type: 'boolean' }
+            }
+          }
+        }
+      },
+      example: {
+        searchTypes: { defects: true, userStories: true, testCases: true, documents: false },
+        maxResults: { defects: 3, userStories: 2, testCases: 2, documents: 1 },
+        similarityThresholds: { defects: 0.8, userStories: 0.75, testCases: 0.8, documents: 0.85 },
+        performance: { searchTimeout: 45, enableParallelSearch: true, cacheResults: false }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'RAG configuration updated successfully',
+        example: {
+          success: true,
+          message: "RAG configuration updated successfully"
+        }
+      }
+    ],
+    tags: ['Settings', 'RAG']
+  },
+
+  // AI Audit APIs
+  {
+    method: 'GET',
+    path: '/api/ai-audit/stats',
+    summary: 'Get AI Usage Statistics',
+    description: 'Retrieve statistics about AI model usage, costs, and performance metrics',
+    responses: [
+      {
+        status: 200,
+        description: 'AI usage statistics',
+        example: {
+          totalRequests: 1250,
+          totalTokens: 2500000,
+          averageLatency: 2.3,
+          modelUsage: {
+            "claude-sonnet-4": 850,
+            "claude-haiku": 400
+          },
+          costEstimate: 125.50
+        }
+      }
+    ],
+    tags: ['AI Audit', 'Analytics']
+  },
+  {
+    method: 'GET',
+    path: '/api/ai-audit/logs',
+    summary: 'Get AI Audit Logs',
+    description: 'Retrieve detailed logs of AI model usage for debugging and monitoring',
+    parameters: [
+      { name: 'limit', in: 'query', required: false, type: 'integer', description: 'Number of log entries to return', example: 100 },
+      { name: 'model', in: 'query', required: false, type: 'string', description: 'Filter by AI model', example: 'claude-sonnet-4' },
+      { name: 'operation', in: 'query', required: false, type: 'string', description: 'Filter by operation type', example: 'test-generation' }
+    ],
+    responses: [
+      {
+        status: 200,
+        description: 'AI audit logs',
+        example: {
+          logs: [
+            {
+              timestamp: "2025-01-27T10:00:00Z",
+              model: "claude-sonnet-4",
+              operation: "test-generation",
+              inputTokens: 1200,
+              outputTokens: 800,
+              latency: 2.1,
+              success: true
+            }
+          ],
+          total: 1250
+        }
+      }
+    ],
+    tags: ['AI Audit', 'Monitoring']
+  },
+
+  // Document Upload APIs
+  {
+    method: 'POST',
+    path: '/api/documents/upload',
+    summary: 'Upload Document',
+    description: 'Upload a single document file for processing and embedding generation',
+    requestBody: {
+      required: true,
+      contentType: 'multipart/form-data',
+      schema: {
+        type: 'object',
+        properties: {
+          file: { type: 'string', format: 'binary', description: 'Document file to upload' },
+          title: { type: 'string', description: 'Document title (optional)' },
+          type: { type: 'string', description: 'Document type/category' }
+        }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Document uploaded successfully',
+        example: {
+          success: true,
+          document: {
+            id: "doc-123",
+            filename: "requirements.pdf",
+            size: 2048576,
+            sectionsProcessed: 15
+          }
+        }
+      }
+    ],
+    tags: ['Documents', 'Upload']
+  },
+  {
+    method: 'POST',
+    path: '/api/documents/upload-folder',
+    summary: 'Upload Document Folder',
+    description: 'Upload multiple documents from a folder for batch processing',
+    requestBody: {
+      required: true,
+      contentType: 'multipart/form-data',
+      schema: {
+        type: 'object',
+        properties: {
+          files: { type: 'array', items: { type: 'string', format: 'binary' }, description: 'Multiple document files' },
+          folderName: { type: 'string', description: 'Folder name for organization' }
+        }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Folder uploaded successfully',
+        example: {
+          success: true,
+          processed: 12,
+          failed: 1,
+          totalSize: 25600000
+        }
+      }
+    ],
+    tags: ['Documents', 'Upload', 'Batch']
+  },
+
+  // Jira Configuration APIs
+  {
+    method: 'GET',
+    path: '/api/jira/config',
+    summary: 'Get Jira Configuration',
+    description: 'Retrieve current Jira integration configuration settings',
+    responses: [
+      {
+        status: 200,
+        description: 'Jira configuration',
+        example: {
+          jiraUrl: "https://company.atlassian.net",
+          projectKey: "PROJ",
+          username: "user@company.com",
+          connected: true,
+          lastSync: "2025-01-27T10:00:00Z"
+        }
+      }
+    ],
+    tags: ['Jira', 'Configuration']
+  },
+  {
+    method: 'POST',
+    path: '/api/jira/test-connection',
+    summary: 'Test Jira Connection',
+    description: 'Test connectivity to Jira instance with provided credentials',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        required: ['jiraUrl', 'username', 'apiToken'],
+        properties: {
+          jiraUrl: { type: 'string', description: 'Jira instance URL' },
+          username: { type: 'string', description: 'Jira username' },
+          apiToken: { type: 'string', description: 'Jira API token' }
+        }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Connection test result',
+        example: {
+          success: true,
+          message: "Successfully connected to Jira",
+          userInfo: {
+            displayName: "John Doe",
+            emailAddress: "john@company.com"
+          }
+        }
+      }
+    ],
+    tags: ['Jira', 'Testing']
+  },
+
+  // Story Refinement API
+  {
+    method: 'POST',
+    path: '/api/refine-story',
+    summary: 'Refine User Story with AI',
+    description: 'Use AI to refine and improve user story quality based on specific suggestions',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        required: ['originalStory', 'suggestions'],
+        properties: {
+          originalStory: {
+            type: 'object',
+            description: 'Original user story to refine',
+            properties: {
+              title: { type: 'string' },
+              description: { type: 'string' },
+              jiraKey: { type: 'string' },
+              component: { type: 'string' },
+              priority: { type: 'string' }
+            }
+          },
+          suggestions: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'List of improvement suggestions to apply'
+          }
+        }
+      },
+      example: {
+        originalStory: {
+          title: "User Login",
+          description: "User can log in to the system",
+          jiraKey: "PROJ-123",
+          component: "Authentication"
+        },
+        suggestions: [
+          "Add specific user persona",
+          "Include acceptance criteria",
+          "Specify error handling scenarios"
+        ]
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Refined user story',
+        example: {
+          refinedText: "As a registered user, I want to securely log in to the system using my email and password, so that I can access my personalized dashboard and account features..."
+        }
+      }
+    ],
+    tags: ['AI Generation', 'User Stories', 'Refinement']
+  },
+
+  // Additional Analytics APIs
+  {
+    method: 'GET',
+    path: '/api/analytics/defects/query',
+    summary: 'Query Defect Analytics',
+    description: 'Advanced defect analytics with custom query parameters and filters',
+    parameters: [
+      { name: 'timeframe', in: 'query', required: false, type: 'string', description: 'Time period', example: '30d' },
+      { name: 'groupBy', in: 'query', required: false, type: 'string', description: 'Group results by field', example: 'component' },
+      { name: 'metrics', in: 'query', required: false, type: 'string', description: 'Comma-separated metrics', example: 'count,severity,trends' }
+    ],
+    responses: [
+      {
+        status: 200,
+        description: 'Custom analytics results',
+        example: {
+          query: { timeframe: "30d", groupBy: "component" },
+          results: [
+            { component: "Authentication", count: 15, avgSeverity: "High" }
+          ],
+          metadata: { totalDefects: 89, queryTime: "0.15s" }
+        }
+      }
+    ],
+    tags: ['Analytics', 'Defects', 'Advanced']
+  },
+
+  // Defect Pattern Analysis APIs
+  {
+    method: 'POST',
+    path: '/api/analyze/defect-patterns',
+    summary: 'Analyze Defect Patterns',
+    description: 'Identify patterns and trends in defect data using statistical analysis',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        properties: {
+          timeframe: { type: 'string', default: '90d', description: 'Analysis time period' },
+          components: { type: 'array', items: { type: 'string' }, description: 'Filter by components' },
+          includeResolved: { type: 'boolean', default: true, description: 'Include resolved defects' }
+        }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Defect pattern analysis results',
+        example: {
+          patterns: [
+            {
+              pattern: "Authentication failures spike on Mondays",
+              confidence: 0.85,
+              frequency: "weekly",
+              impact: "high"
+            }
+          ],
+          trends: {
+            increasing: ["UI validation errors"],
+            decreasing: ["Database connection issues"]
+          },
+          recommendations: ["Implement weekend system checks", "Add input validation"]
+        }
+      }
+    ],
+    tags: ['Analysis', 'Defects', 'Patterns']
+  },
+  {
+    method: 'POST',
+    path: '/api/analyze/defect-patterns-ai',
+    summary: 'AI-Powered Defect Pattern Analysis',
+    description: 'Use AI to analyze defect patterns and provide intelligent insights',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Natural language query about defect patterns' },
+          timeframe: { type: 'string', default: '90d' },
+          focusAreas: { type: 'array', items: { type: 'string' }, description: 'Specific areas to analyze' }
+        }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'AI-powered defect analysis',
+        example: {
+          analysis: "Based on the defect patterns, there's a significant correlation between authentication failures and deployment schedules...",
+          insights: ["Peak defect times correlate with release cycles", "Component X shows recurring issues"],
+          actionItems: ["Review authentication module", "Implement pre-deployment testing"]
+        }
+      }
+    ],
+    tags: ['Analysis', 'AI', 'Defects']
+  },
+
+  // User Story Analysis API
+  {
+    method: 'GET',
+    path: '/api/user-stories/[id]/analysis',
+    summary: 'Get User Story Analysis',
+    description: 'Retrieve detailed analysis results for a specific user story',
+    parameters: [
+      { name: 'id', in: 'path', required: true, type: 'string', description: 'User story ID', example: 'story-123' }
+    ],
+    responses: [
+      {
+        status: 200,
+        description: 'User story analysis results',
+        example: {
+          storyId: "story-123",
+          qualityScore: 8.5,
+          lastAnalyzed: "2025-01-27T10:00:00Z",
+          riskFactors: ["Technical complexity", "External dependencies"],
+          testCoverage: {
+            generated: 12,
+            manual: 3,
+            coverage: "85%"
+          }
+        }
+      }
+    ],
+    tags: ['User Stories', 'Analysis']
+  },
+
+  // Import Duplicate Check API
+  {
+    method: 'POST',
+    path: '/api/import/check-duplicates',
+    summary: 'Check for Import Duplicates',
+    description: 'Check for potential duplicate records before importing data',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        properties: {
+          records: { type: 'array', description: 'Records to check for duplicates' },
+          matchFields: { type: 'array', items: { type: 'string' }, description: 'Fields to use for duplicate matching' }
+        }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Duplicate check results',
+        example: {
+          duplicates: [
+            { recordId: "rec-123", existingId: "story-456", matchScore: 0.95 }
+          ],
+          unique: 45,
+          total: 50
+        }
+      }
+    ],
+    tags: ['Import', 'Validation']
+  },
+
+  // Batch Requirements Analysis API
+  {
+    method: 'POST',
+    path: '/api/analyze/requirements-batch',
+    summary: 'Start Batch Requirements Analysis',
+    description: 'Create a batch analysis job to analyze multiple user stories for quality and risk assessment',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', description: 'Name for the analysis batch' },
+          description: { type: 'string', description: 'Optional description of the analysis' },
+          userStoryIds: { type: 'array', items: { type: 'string' }, description: 'Specific user story IDs to analyze' },
+          filters: {
+            type: 'object',
+            properties: {
+              priority: { type: 'array', items: { type: 'string' }, description: 'Filter by priority levels' },
+              status: { type: 'array', items: { type: 'string' }, description: 'Filter by status values' },
+              component: { type: 'array', items: { type: 'string' }, description: 'Filter by components' },
+              assignee: { type: 'array', items: { type: 'string' }, description: 'Filter by assignees' },
+              dateRange: {
+                type: 'object',
+                properties: {
+                  start: { type: 'string', format: 'date', description: 'Start date filter' },
+                  end: { type: 'string', format: 'date', description: 'End date filter' }
+                }
+              }
+            }
+          }
+        }
+      },
+      example: {
+        name: "Sprint 23 Quality Analysis",
+        description: "Analyze all high-priority stories for upcoming sprint",
+        filters: {
+          priority: ["High", "Critical"],
+          status: ["To Do", "In Progress"],
+          dateRange: {
+            start: "2025-01-01",
+            end: "2025-01-31"
+          }
+        }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Batch analysis job created',
+        example: {
+          success: true,
+          batch: {
+            id: "batch-123",
+            name: "Sprint 23 Quality Analysis",
+            status: "running",
+            totalStories: 45,
+            analyzedStories: 0,
+            createdAt: "2025-01-27T10:00:00Z"
+          },
+          message: "Started analysis of 45 user stories"
+        }
+      }
+    ],
+    tags: ['Analysis', 'Batch', 'Requirements']
+  },
+  {
+    method: 'GET',
+    path: '/api/analyze/requirements-batch',
+    summary: 'Get Batch Analysis Results',
+    description: 'Retrieve results and progress of batch requirements analysis jobs',
+    parameters: [
+      { name: 'batchId', in: 'query', required: false, type: 'string', description: 'Specific batch ID to retrieve' },
+      { name: 'getAllAnalyses', in: 'query', required: false, type: 'boolean', description: 'Get statistics for all analyses' }
+    ],
+    responses: [
+      {
+        status: 200,
+        description: 'Batch analysis results',
+        example: {
+          batches: [
+            {
+              id: "batch-123",
+              name: "Sprint 23 Quality Analysis",
+              status: "completed",
+              totalStories: 45,
+              analyzedStories: 45,
+              averageScore: 7.8,
+              completedAt: "2025-01-27T11:30:00Z",
+              analyses: [
+                {
+                  id: "analysis-456",
+                  qualityScore: 8.5,
+                  riskLevel: "Medium",
+                  userStory: {
+                    id: "story-789",
+                    title: "User Authentication",
+                    jiraKey: "PROJ-123"
+                  }
+                }
+              ]
+            }
+          ],
+          totalAnalyses: 450,
+          averageScore: 7.6
+        }
+      }
+    ],
+    tags: ['Analysis', 'Batch', 'Requirements']
+  },
+  {
+    method: 'PUT',
+    path: '/api/analyze/requirements-batch',
+    summary: 'Continue Batch Analysis Processing',
+    description: 'Process the next user story in a batch analysis job (used for controlled processing)',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        required: ['batchId'],
+        properties: {
+          batchId: { type: 'string', description: 'ID of the batch to continue processing' }
+        }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Processing status update',
+        example: {
+          success: true,
+          batch: {
+            id: "batch-123",
+            analyzedStories: 23,
+            totalStories: 45,
+            status: "running",
+            progress: 51.1
+          },
+          currentAnalysis: {
+            storyId: "story-456",
+            qualityScore: 7.2,
+            completed: true
+          }
+        }
+      }
+    ],
+    tags: ['Analysis', 'Batch', 'Processing']
   }
 ]
 
@@ -740,7 +1406,19 @@ const API_TAGS = [
   { name: 'Embeddings', description: 'Vector embeddings management' },
   { name: 'Documents', description: 'Document management' },
   { name: 'Settings', description: 'Configuration and settings management' },
-  { name: 'System', description: 'System utilities and health checks' }
+  { name: 'System', description: 'System utilities and health checks' },
+  { name: 'AI Audit', description: 'AI usage monitoring and auditing' },
+  { name: 'Upload', description: 'File upload and processing' },
+  { name: 'Configuration', description: 'System configuration management' },
+  { name: 'Testing', description: 'Testing and validation utilities' },
+  { name: 'Refinement', description: 'Content refinement and improvement' },
+  { name: 'Advanced', description: 'Advanced features and custom queries' },
+  { name: 'Patterns', description: 'Pattern recognition and analysis' },
+  { name: 'Monitoring', description: 'System monitoring and observability' },
+  { name: 'Batch', description: 'Batch processing operations' },
+  { name: 'Validation', description: 'Data validation and verification' },
+  { name: 'Requirements', description: 'Requirements analysis and management' },
+  { name: 'Processing', description: 'Background processing and job management' }
 ]
 
 export default function APIDocsPage() {

@@ -7,6 +7,9 @@
     },
     "src/app/api/documents/upload-folder/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/generate/test-cases/route.ts": {
+      "maxDuration": 300
     }
   }
 } 

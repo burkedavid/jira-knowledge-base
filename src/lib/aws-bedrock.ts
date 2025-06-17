@@ -292,10 +292,38 @@ export class BedrockClient {
       testTypeSections.push('## EDGE CASES\nTest cases that verify system behavior at boundary conditions and unusual scenarios.')
     }
 
+    // Use shorter prompt for single test types (streaming mode) or when context is large
+    const isStreamingMode = testTypes.length === 1
+    const contextSize = defectContext.length + userStory.length + acceptanceCriteria.length
+    const useShortPrompt = isStreamingMode || contextSize > 3000
+
     const messages: ClaudeMessage[] = [
       {
         role: 'user',
-        content: `Generate comprehensive test cases for the following user story using the EXACT format specified below:
+        content: useShortPrompt ? 
+          // SHORT PROMPT for faster generation
+          `Generate ${testTypes.join(', ')} test cases for this user story:
+
+**User Story:** ${userStory}
+**Acceptance Criteria:** ${acceptanceCriteria}${defectContext}
+
+CRITICAL: Use this EXACT format with section headers:
+
+${testTypeSections.join('\n\n')}
+
+For each test case, use this format:
+### TC-001: [Title]
+**Priority:** [High/Medium/Low]
+**Test Steps:**
+1. [Step 1]
+2. [Step 2]
+**Expected Results:**
+- [Result 1]
+---
+
+Generate 3-4 focused test cases. Be concise but thorough.` :
+          // FULL PROMPT for comprehensive generation
+          `Generate comprehensive test cases for the following user story using the EXACT format specified below:
 
 **User Story:**
 ${userStory}
@@ -353,7 +381,7 @@ Focus on practical, executable test cases that cover all acceptance criteria and
     ]
 
     return this.generateText(messages, { 
-      maxTokens: 4000, 
+      maxTokens: useShortPrompt ? 2000 : 4000, // Shorter response for streaming
       temperature: 0.3, 
       modelId,
       promptType: 'test-case-generation',

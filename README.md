@@ -27,15 +27,28 @@ A comprehensive AI-powered platform that revolutionizes software testing and req
 - **JWT Tokens**: Secure token-based authentication with configurable secrets
 - **Protected Routes**: Automatic redirection to login for unauthenticated users
 
+### ⚙️ **RAG Configuration System**
+- **Comprehensive API**: Full CRUD operations for RAG settings via `/api/settings/rag-config`
+- **Search Type Control**: Enable/disable defects, user stories, test cases, documents independently
+- **Performance Optimization**: Configurable result limits (0-10 per type) and search timeouts (15-60s)
+- **Quality Thresholds**: Per-content-type similarity thresholds (0.0-1.0) for result filtering
+- **Content Management**: Smart truncation with configurable length limits and total context size
+- **Relevance Filtering**: Advanced keyword-based filtering with boost terms and overlap analysis
+- **Parallel Processing**: Enable/disable concurrent searches for optimal performance
+- **Real-time Updates**: Configuration changes apply immediately without restarts
+- **Default Optimization**: Performance-tuned defaults (defects + test cases only, high thresholds)
+- **File-based Storage**: JSON configuration storage in `data/rag-config.json`
+
 ### 🧪 **AI-Powered Test Case Generation**
-- **RAG-Enhanced**: Uses semantic search to find relevant historical defects and test cases
-- **Context-Aware**: Analyzes similar user stories and their test patterns
+- **RAG-Enhanced**: Uses configurable semantic search to find relevant historical defects and test cases
+- **Context-Aware**: Analyzes similar user stories and their test patterns with tunable parameters
 - **Industry Best Practices**: Incorporates testing methodologies and edge case patterns
 - **Quality Threshold Protection**: Configurable quality score threshold (default: 7/10) prevents test generation for low-quality requirements with warning dialog
 - **Structured Output**: Organized by test types (Positive, Negative, Edge Cases, Security)
 - **Enhanced UI**: Beautiful display with color-coded test categories, priority indicators, and expandable sections
 - **Export Options**: Copy all tests or download as formatted files
 - **Dual Views**: Structured view with parsed test cases and raw AI output view
+- **Configuration-Driven**: All RAG parameters controlled by configuration system
 
 ### 📋 **Requirements Quality Analysis**
 - **RAG-Powered Assessment**: Semantic analysis of requirements quality using historical data
@@ -399,8 +412,9 @@ Once import completes, you can:
 1. Navigate to "Settings" from the main menu
 2. Configure "Product Context" for industry-specific AI analysis
 3. Set "Quality Threshold" for test case generation (1-10 scale)
-4. Configure user types, key features, and security standards
-5. Save settings to apply across the platform
+4. Configure "RAG Settings" for semantic search and AI analysis
+5. Configure user types, key features, and security standards
+6. Save settings to apply across the platform
 ```
 
 **Quality Threshold Settings**:
@@ -408,6 +422,14 @@ Once import completes, you can:
 - **Range**: 1-10 (1 = allow all, 10 = perfect requirements only)
 - **Behavior**: Shows warning dialog when generating tests for low-quality user stories
 - **Override**: Users can choose to "Generate Anyway" after seeing the warning
+
+**RAG Configuration Settings**:
+- **Search Types**: Enable/disable defects, user stories, test cases, documents
+- **Result Limits**: Maximum items per search type (0-10 range)
+- **Similarity Thresholds**: Quality control for semantic search (0.0-1.0)
+- **Content Limits**: Control context window size and content length
+- **Relevance Filtering**: Keyword-based filtering with boost terms
+- **Performance Settings**: Timeouts, parallel search, caching options
 
 ### **4. Document Upload & Management**
 ```
@@ -439,12 +461,19 @@ Once import completes, you can:
 ```
 
 **Enhanced Features**:
+- **RAG-Powered Context**: Uses configurable semantic search to find relevant historical defects and test cases
 - **Quality Protection**: Configurable quality threshold (default: 7/10) with warning dialog for low-quality requirements
 - **Quality Score Display**: Shows existing quality scores in story selection and preview
 - **Structured Display**: Organized by test type with color coding
 - **Priority Indicators**: Visual priority badges (High, Medium, Low)
 - **Expandable Sections**: Click to expand test details
 - **Export Options**: Copy to clipboard or download as text file
+
+**RAG Configuration Impact**:
+- **Search Types**: Controls which content types (defects, test cases, user stories, documents) are used for context
+- **Result Limits**: Determines how many similar items are included in AI context
+- **Similarity Thresholds**: Ensures only high-quality, relevant content is used
+- **Performance Settings**: Optimizes search speed with configurable timeouts and parallel processing
 
 ### **6. Advanced Requirements Analysis**
 ```
@@ -610,6 +639,19 @@ curl http://localhost:3000/api/settings/quality-threshold
 
 # Get product context settings
 curl http://localhost:3000/api/settings/product-context
+
+# Get RAG configuration settings
+curl http://localhost:3000/api/settings/rag-config
+
+# Update RAG configuration
+curl -X PUT http://localhost:3000/api/settings/rag-config \
+  -H "Content-Type: application/json" \
+  -d '{"searchTypes":{"defects":true,"testCases":true}}'
+
+# Test RAG-enhanced test case generation
+curl -X POST http://localhost:3000/api/generate/test-cases \
+  -H "Content-Type: application/json" \
+  -d '{"userStoryId":"your-story-id"}'
 ```
 
 ### **Monitoring**
@@ -621,9 +663,84 @@ curl http://localhost:3000/api/settings/product-context
 
 ## 🔧 Configuration Options
 
-### **RAG Settings**
-- **Similarity Threshold**: 0.6-0.8 (configurable per search)
-- **Result Limits**: 5-20 items (performance vs. context balance)
+### **RAG Configuration System**
+
+The platform includes a comprehensive RAG configuration system that allows fine-tuning of semantic search and AI analysis parameters. Configuration is managed via API endpoints and can be controlled through the settings interface.
+
+#### **Configuration API Endpoints**
+```bash
+# Get current RAG configuration
+GET /api/settings/rag-config
+
+# Update RAG configuration
+PUT /api/settings/rag-config
+```
+
+#### **Search Type Configuration**
+Control which content types are included in semantic searches:
+- **🐛 Defects**: Enable/disable defect search (default: enabled)
+- **📖 User Stories**: Enable/disable user story search (default: disabled for performance)
+- **✅ Test Cases**: Enable/disable test case search (default: enabled)
+- **📄 Documents**: Enable/disable document search (default: disabled for performance)
+
+#### **Result Limits & Performance**
+- **Max Results per Type**: 0-10 items (defaults: 2 each for enabled types)
+- **Search Timeout**: 15-60 seconds (default: 45 seconds)
+- **Parallel Search**: Enable/disable concurrent searches (default: enabled)
+- **Result Caching**: Enable/disable result caching (default: disabled)
+
+#### **Similarity Thresholds**
+Quality control for semantic search results (0.0-1.0 range):
+- **Defects**: 0.8 (high quality, relevant defects only)
+- **User Stories**: 0.75 (moderate threshold for broader context)
+- **Test Cases**: 0.8 (high quality, similar test patterns)
+- **Documents**: 0.85 (very high quality, precise documentation)
+
+#### **Content Management**
+- **Max Item Length**: 50-500 characters per item (default: 200)
+- **Max Total RAG Length**: 200-2000 characters (default: 800)
+- **Smart Truncation**: Intelligent content trimming (default: enabled)
+
+#### **Relevance Filtering**
+Advanced keyword-based filtering to improve result quality:
+- **Enable Filtering**: Toggle relevance filtering (default: enabled)
+- **Min Keyword Matches**: Minimum keyword overlap (default: 1)
+- **Min Story Keyword Matches**: Minimum for user stories (default: 2)
+- **Keyword Boost Terms**: 16 predefined terms for relevance boosting
+
+#### **Performance-Optimized Defaults**
+The system ships with performance-optimized defaults:
+```json
+{
+  "searchTypes": {
+    "defects": true,
+    "userStories": false,
+    "testCases": true,
+    "documents": false
+  },
+  "maxResults": {
+    "defects": 2,
+    "userStories": 2,
+    "testCases": 2,
+    "documents": 2
+  },
+  "similarityThresholds": {
+    "defects": 0.8,
+    "userStories": 0.75,
+    "testCases": 0.8,
+    "documents": 0.85
+  },
+  "performance": {
+    "searchTimeout": 45,
+    "enableParallelSearch": true,
+    "cacheResults": false
+  }
+}
+```
+
+### **Legacy RAG Settings**
+- **Similarity Threshold**: 0.6-0.8 (now configurable per content type)
+- **Result Limits**: 5-20 items (now configurable per search type)
 - **Content Types**: Filter by user_story, defect, test_case, document
 - **Context Window**: Optimized for Claude 4's context limits
 - **Search History**: Configurable history size (default: 20 searches)
@@ -635,6 +752,7 @@ curl http://localhost:3000/api/settings/product-context
 - **Prompt Engineering**: Role-based, context-aware prompts
 - **Confidence Scoring**: AI confidence levels for pattern recognition
 - **Quality Threshold**: 1-10 scale for test case generation protection (default: 7)
+- **RAG Context Integration**: Dynamic context injection based on configuration settings
 
 ### **Import Settings**
 - **Batch Size**: 10-50 items (Jira API rate limiting)
@@ -758,4 +876,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - 📊 **Advanced Analytics** with confidence scoring and actionable recommendations
 - 👤 **User Menu Integration** with settings access and session management
 - 🛡️ **Route Protection** with middleware-based authentication
-- 🔑 **Demo Accounts** for testing and demonstration purposes 
+- 🔑 **Demo Accounts** for testing and demonstration purposes
+- ⚙️ **RAG Configuration System** with comprehensive API for tuning semantic search and AI analysis parameters 

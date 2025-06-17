@@ -35,6 +35,14 @@ export default function GenerateTestCasesPage() {
   const [industryContexts, setIndustryContexts] = useState<string[]>(['field-usage'])
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [streamingProgress, setStreamingProgress] = useState<{
+    isStreaming: boolean
+    completedTypes: string[]
+    remainingTypes: string[]
+    totalTypes: number
+    currentlyProcessing?: string
+    chunks: Array<{testType: string, content: string, success: boolean}>
+  } | null>(null)
   const [result, setResult] = useState('')
   const [filteredUserStories, setFilteredUserStories] = useState<UserStory[]>([])
   const [savedTestCases, setSavedTestCases] = useState<Array<{
@@ -179,6 +187,168 @@ export default function GenerateTestCasesPage() {
     }
   }
 
+  // Function to process remaining test case chunks in background
+  const processRemainingChunks = async (remainingTestTypes: string[], userStoryId: string, firstChunkId?: string) => {
+    try {
+      console.log('🔄 Processing remaining chunks:', remainingTestTypes)
+      
+      for (let i = 0; i < remainingTestTypes.length; i++) {
+        const testType = remainingTestTypes[i]
+        
+        // Update progress to show current processing
+        setStreamingProgress(prev => prev ? {
+          ...prev,
+          currentlyProcessing: testType
+        } : null)
+        
+        try {
+          const response = await fetch('/api/generate/test-cases', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userStoryId: userStoryId,
+              testTypes: [testType], // Process one at a time for better progress
+              industryContext: industryContexts.length === 1 ? industryContexts[0] : 'comprehensive',
+              industryContexts: industryContexts,
+              modelId: 'us.anthropic.claude-sonnet-4-20250514-v1:0'
+            }),
+          })
+
+          const chunkData = await response.json()
+
+          if (response.ok && chunkData.content) {
+            const chunk = {
+              testType: testType,
+              content: chunkData.content,
+              success: true
+            }
+            
+            // Update streaming progress
+            setStreamingProgress(prev => {
+              if (!prev) return null
+              
+              const newCompletedTypes = [...prev.completedTypes, testType]
+              const newRemainingTypes = prev.remainingTypes.filter(t => t !== testType)
+              const newChunks = [...prev.chunks, chunk]
+              
+              return {
+                ...prev,
+                completedTypes: newCompletedTypes,
+                remainingTypes: newRemainingTypes,
+                currentlyProcessing: newRemainingTypes[0],
+                chunks: newChunks
+              }
+            })
+            
+            // Append new content to existing result
+            if (chunk.success) {
+              setResult(prevResult => prevResult + '\n\n' + chunk.content)
+              
+              // Show chunk completion notification
+              const notification = document.createElement('div')
+              notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-md shadow-lg z-50'
+              notification.textContent = `${testType} test cases completed! ${remainingTestTypes.length - i - 1} remaining...`
+              document.body.appendChild(notification)
+              
+              setTimeout(() => {
+                if (document.body.contains(notification)) {
+                  document.body.removeChild(notification)
+                }
+              }, 3000)
+            }
+            
+            console.log(`✅ ${testType} chunk completed and added to results`)
+            
+          } else {
+            console.error(`❌ Failed to process ${testType} chunk:`, chunkData.error)
+            
+            // Add error chunk to progress
+            setStreamingProgress(prev => {
+              if (!prev) return null
+              
+              const errorChunk = {
+                testType,
+                content: `## ${testType.toUpperCase()} TEST CASES\n\n⚠️ **Generation Failed**: ${chunkData.error || 'Unknown error'}\n\nPlease try generating this test type separately.\n\n---`,
+                success: false
+              }
+              
+              const newCompletedTypes = [...prev.completedTypes, testType]
+              const newRemainingTypes = prev.remainingTypes.filter(t => t !== testType)
+              const newChunks = [...prev.chunks, errorChunk]
+              
+              return {
+                ...prev,
+                completedTypes: newCompletedTypes,
+                remainingTypes: newRemainingTypes,
+                currentlyProcessing: newRemainingTypes[0],
+                chunks: newChunks
+              }
+            })
+            
+            // Append error message to result
+            setResult(prevResult => prevResult + '\n\n' + `## ${testType.toUpperCase()} TEST CASES\n\n⚠️ **Generation Failed**: ${chunkData.error || 'Unknown error'}\n\nPlease try generating this test type separately.\n\n---`)
+          }
+          
+        } catch (chunkError) {
+          console.error(`❌ Error processing ${testType} chunk:`, chunkError)
+          
+          // Handle individual chunk error
+          setStreamingProgress(prev => {
+            if (!prev) return null
+            
+            const errorChunk = {
+              testType,
+              content: `## ${testType.toUpperCase()} TEST CASES\n\n⚠️ **Generation Failed**: Network error\n\nPlease try generating this test type separately.\n\n---`,
+              success: false
+            }
+            
+            const newCompletedTypes = [...prev.completedTypes, testType]
+            const newRemainingTypes = prev.remainingTypes.filter(t => t !== testType)
+            const newChunks = [...prev.chunks, errorChunk]
+            
+            return {
+              ...prev,
+              completedTypes: newCompletedTypes,
+              remainingTypes: newRemainingTypes,
+              currentlyProcessing: newRemainingTypes[0],
+              chunks: newChunks
+            }
+          })
+        }
+      }
+      
+      // All chunks completed
+      setStreamingProgress(prev => prev ? {
+        ...prev,
+        isStreaming: false,
+        currentlyProcessing: undefined
+      } : null)
+      
+      setIsGenerating(false)
+      
+      // Show final completion notification
+      const finalNotification = document.createElement('div')
+      finalNotification.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50'
+      finalNotification.textContent = `All test case types completed! ${remainingTestTypes.length + 1} types generated.`
+      document.body.appendChild(finalNotification)
+      
+      setTimeout(() => {
+        if (document.body.contains(finalNotification)) {
+          document.body.removeChild(finalNotification)
+        }
+      }, 4000)
+      
+      console.log('🎉 All remaining chunks completed!')
+      
+    } catch (error) {
+      console.error('💥 Error in processRemainingChunks:', error)
+      setIsGenerating(false)
+      setStreamingProgress(null)
+    }
+  }
+
   const handleGenerate = async (forceGenerate?: boolean | React.MouseEvent) => {
     // Handle both direct calls and button click events
     const shouldForce = typeof forceGenerate === 'boolean' ? forceGenerate : false
@@ -225,20 +395,56 @@ export default function GenerateTestCasesPage() {
       const data = await response.json()
 
       if (response.ok) {
+        // Set the first chunk result immediately
         setResult(data.content || 'Test cases generated successfully!')
         saveTestCasesToStorage(data.content, userStories.find(story => story.id === selectedStoryId)?.title || '', selectedTestTypes)
         
-        // Show save notification
-        const notification = document.createElement('div')
-        notification.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-md shadow-lg z-50'
-        notification.textContent = 'Test cases saved to history'
-        document.body.appendChild(notification)
-        
-        setTimeout(() => {
-          if (document.body.contains(notification)) {
-            document.body.removeChild(notification)
-          }
-        }, 3000)
+        // Check if this is streaming mode (multiple test types)
+        if (data.streamingMode && data.isFirstChunk && data.remainingTestTypes?.length > 0) {
+          console.log('🌊 Streaming mode detected, processing remaining chunks...')
+          
+          // Initialize streaming progress
+          setStreamingProgress({
+            isStreaming: true,
+            completedTypes: data.completedTestTypes || [],
+            remainingTypes: data.remainingTestTypes || [],
+            totalTypes: data.totalTestTypes || selectedTestTypes.length,
+            currentlyProcessing: data.remainingTestTypes[0],
+            chunks: [{
+              testType: data.completedTestTypes[0],
+              content: data.content,
+              success: true
+            }]
+          })
+          
+          // Process remaining chunks in background
+          processRemainingChunks(data.remainingTestTypes, selectedStoryId, data.testCase?.id)
+          
+          // Show streaming notification
+          const notification = document.createElement('div')
+          notification.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-md shadow-lg z-50'
+          notification.textContent = `${data.completedTestTypes[0]} test cases ready! Processing ${data.remainingTestTypes.length} more types...`
+          document.body.appendChild(notification)
+          
+          setTimeout(() => {
+            if (document.body.contains(notification)) {
+              document.body.removeChild(notification)
+            }
+          }, 4000)
+          
+        } else {
+          // Single test type - normal flow
+          const notification = document.createElement('div')
+          notification.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-md shadow-lg z-50'
+          notification.textContent = 'Test cases saved to history'
+          document.body.appendChild(notification)
+          
+          setTimeout(() => {
+            if (document.body.contains(notification)) {
+              document.body.removeChild(notification)
+            }
+          }, 3000)
+        }
       } else {
         setResult(`Error: ${data.error || 'Failed to generate test cases'}`)
       }
@@ -246,7 +452,9 @@ export default function GenerateTestCasesPage() {
       console.error('Error generating test cases:', error)
       setResult('Error generating test cases. Please try again.')
     } finally {
-      setIsGenerating(false)
+      if (!streamingProgress?.isStreaming) {
+        setIsGenerating(false)
+      }
     }
   }
 
@@ -866,6 +1074,70 @@ ${tc.testData.length > 0 ? `      // Test Data: ${tc.testData.join(', ')}` : ''}
                   </>
                 )}
               </button>
+
+              {/* Streaming Progress Indicator */}
+              {streamingProgress && (
+                <div className="mt-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-pulse w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        {streamingProgress.isStreaming 
+                          ? `Processing ${streamingProgress.currentlyProcessing || 'next'} test cases...`
+                          : 'All test case types completed!'
+                        }
+                      </span>
+                    </div>
+                    <span className="text-xs text-blue-600 dark:text-blue-400">
+                      {streamingProgress.completedTypes.length} / {streamingProgress.totalTypes}
+                    </span>
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 mb-3">
+                    <div 
+                      className="bg-gradient-to-r from-blue-600 to-green-600 dark:from-blue-400 dark:to-green-400 h-2 rounded-full transition-all duration-500 ease-out"
+                      style={{ 
+                        width: `${(streamingProgress.completedTypes.length / streamingProgress.totalTypes) * 100}%` 
+                      }}
+                    ></div>
+                  </div>
+                  
+                  {/* Completed test types */}
+                  <div className="flex flex-wrap gap-2">
+                    {streamingProgress.completedTypes.map((testType, index) => (
+                      <div key={index} className="flex items-center space-x-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-2 py-1 rounded-full text-xs">
+                        <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span className="capitalize">{testType}</span>
+                      </div>
+                    ))}
+                    
+                    {/* Currently processing */}
+                    {streamingProgress.currentlyProcessing && (
+                      <div className="flex items-center space-x-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs">
+                        <div className="animate-spin w-3 h-3 border border-blue-500 border-t-transparent rounded-full"></div>
+                        <span className="capitalize">{streamingProgress.currentlyProcessing}</span>
+                      </div>
+                    )}
+                    
+                    {/* Remaining test types */}
+                    {streamingProgress.remainingTypes.filter(t => t !== streamingProgress.currentlyProcessing).map((testType, index) => (
+                      <div key={index} className="flex items-center space-x-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-full text-xs">
+                        <div className="w-3 h-3 border border-gray-400 rounded-full"></div>
+                        <span className="capitalize">{testType}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {!streamingProgress.isStreaming && (
+                    <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded text-sm text-green-800 dark:text-green-200">
+                      🎉 All test case types have been generated and combined in the results below!
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Results */}

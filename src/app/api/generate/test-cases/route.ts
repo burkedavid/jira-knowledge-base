@@ -24,7 +24,221 @@ async function loadProductContext() {
   }
 }
 
+// Load RAG configuration
+async function loadRAGConfig() {
+  try {
+    const configFile = path.join(process.cwd(), 'data', 'rag-config.json')
+    const data = await fs.readFile(configFile, 'utf-8')
+    return JSON.parse(data)
+  } catch (error) {
+    // Return default configuration if file doesn't exist
+    return {
+      searchTypes: {
+        defects: true,
+        userStories: false,
+        testCases: true,
+        documents: false
+      },
+      maxResults: {
+        defects: 2,
+        userStories: 2,
+        testCases: 2,
+        documents: 1
+      },
+      similarityThresholds: {
+        defects: 0.8,
+        userStories: 0.75,
+        testCases: 0.8,
+        documents: 0.85
+      },
+      contentLimits: {
+        maxItemLength: 200,
+        maxTotalRAGLength: 800,
+        enableSmartTruncation: true
+      },
+      relevanceFiltering: {
+        enabled: true,
+        minKeywordMatches: 1,
+        minStoryKeywordMatches: 2,
+        keywordBoostTerms: [
+          'test', 'defect', 'bug', 'issue', 'error', 'validation', 
+          'field', 'user', 'system', 'authentication', 'authorization',
+          'ui', 'interface', 'performance', 'security', 'integration'
+        ]
+      },
+      performance: {
+        searchTimeout: 45,
+        enableParallelSearch: true,
+        cacheResults: false
+      }
+    }
+  }
+}
+
 // Generate industry-specific scenarios based on context selection
+// Smart RAG context builder - uses configuration-driven relevance filtering
+async function buildSmartRAGContext(userStory: any, ragConfig: any, testType?: string) {
+  const context = [
+    `=== USER STORY ===`,
+    `Title: ${userStory.title}`,
+    `Description: ${userStory.description}`,
+    `Acceptance Criteria: ${userStory.acceptanceCriteria || 'None provided'}`,
+    ``,
+    `=== CONTEXT ===`,
+    `Product: Fusion Live - Engineering Document Management`,
+    testType ? `Focus: Generate focused ${testType} test cases only` : `Focus: Generate comprehensive test cases`,
+    ``
+  ]
+
+  // Build RAG context based on configuration
+  const ragResults = []
+
+  try {
+    // Search for different types of content based on configuration
+    const searchPromises = []
+
+    if (ragConfig.searchTypes.defects) {
+      searchPromises.push(
+        semanticSearchWithDetails(
+          userStory.title + ' ' + userStory.description,
+          ['defect'],
+          ragConfig.maxResults.defects,
+          ragConfig.similarityThresholds.defects
+        ).then(results => ({ type: 'defects', results }))
+      )
+    }
+
+    if (ragConfig.searchTypes.userStories) {
+      searchPromises.push(
+        semanticSearchWithDetails(
+          userStory.title + ' ' + userStory.description,
+          ['user_story'],
+          ragConfig.maxResults.userStories,
+          ragConfig.similarityThresholds.userStories
+        ).then(results => ({ type: 'userStories', results }))
+      )
+    }
+
+    if (ragConfig.searchTypes.testCases) {
+      searchPromises.push(
+        semanticSearchWithDetails(
+          userStory.title + ' ' + userStory.description,
+          ['test_case'],
+          ragConfig.maxResults.testCases,
+          ragConfig.similarityThresholds.testCases
+        ).then(results => ({ type: 'testCases', results }))
+      )
+    }
+
+    if (ragConfig.searchTypes.documents) {
+      searchPromises.push(
+        semanticSearchWithDetails(
+          userStory.title + ' ' + userStory.description,
+          ['document'],
+          ragConfig.maxResults.documents,
+          ragConfig.similarityThresholds.documents
+        ).then(results => ({ type: 'documents', results }))
+      )
+    }
+
+    // Execute searches in parallel if enabled
+    const searchResults = ragConfig.performance.enableParallelSearch 
+      ? await Promise.all(searchPromises)
+      : await searchPromises.reduce(async (acc, promise) => {
+          const results = await acc
+          const result = await promise
+          return [...results, result]
+        }, Promise.resolve([] as { type: string; results: any[] }[]))
+
+    // Process and filter results
+    for (const { type, results } of searchResults) {
+      for (const result of results) {
+        if (result.entity) {
+          let ragItem = ''
+          
+          switch (type) {
+            case 'defects':
+              ragItem = `Defect: ${result.entity.title} - ${result.entity.description}`
+              break
+            case 'userStories':
+              ragItem = `Related Story: ${result.entity.title} - ${result.entity.description}`
+              break
+            case 'testCases':
+              ragItem = `Similar Test: ${result.entity.title} - ${result.entity.description}`
+              break
+            case 'documents':
+              ragItem = `Document: ${result.entity.title} - ${result.entity.content || result.entity.description}`
+              break
+          }
+
+          if (ragItem) {
+            // Apply relevance filtering if enabled
+            if (ragConfig.relevanceFiltering.enabled) {
+              const itemLower = ragItem.toLowerCase()
+              const storyLower = (userStory.title + ' ' + userStory.description).toLowerCase()
+              
+              // Check for keyword overlap
+              const keywordMatches = ragConfig.relevanceFiltering.keywordBoostTerms.filter((keyword: string) => 
+                itemLower.includes(keyword.toLowerCase()) && storyLower.includes(keyword.toLowerCase())
+              ).length
+              
+              const storyKeywords = storyLower.split(/\s+/).filter(word => word.length > 3)
+              const storyKeywordMatches = storyKeywords.filter(keyword => 
+                itemLower.includes(keyword)
+              ).length
+              
+              // Apply filtering thresholds
+              if (keywordMatches < ragConfig.relevanceFiltering.minKeywordMatches && 
+                  storyKeywordMatches < ragConfig.relevanceFiltering.minStoryKeywordMatches) {
+                continue
+              }
+            }
+
+            // Apply content limits
+            if (ragConfig.contentLimits.enableSmartTruncation && 
+                ragItem.length > ragConfig.contentLimits.maxItemLength) {
+              ragItem = ragItem.substring(0, ragConfig.contentLimits.maxItemLength) + '...'
+            }
+
+            ragResults.push(ragItem)
+          }
+        }
+      }
+    }
+
+    // Apply total length limit
+    let totalLength = 0
+    const filteredResults = []
+    
+    for (const item of ragResults) {
+      if (totalLength + item.length <= ragConfig.contentLimits.maxTotalRAGLength) {
+        filteredResults.push(item)
+        totalLength += item.length
+      } else {
+        break
+      }
+    }
+
+    // Add RAG context to the response
+    if (filteredResults.length > 0) {
+      context.push(`=== RELEVANT INSIGHTS ===`)
+      filteredResults.forEach((item, index) => {
+        context.push(`${index + 1}. ${item}`)
+      })
+      context.push(``)
+    }
+
+  } catch (error) {
+    console.error('Error building RAG context:', error)
+    // Continue without RAG context if there's an error
+  }
+
+  const contextString = context.join('\n')
+  console.log(`🧠 Smart RAG context built: ${context.length} lines, ${contextString.length} chars, ${ragResults.length} RAG items`)
+  
+  return context
+}
+
 function getIndustryScenarios(contextType: string) {
   const scenarios: { [key: string]: string[] } = {
     'field-usage': [
@@ -186,7 +400,8 @@ export async function POST(request: NextRequest) {
       testTypes = ['positive', 'negative', 'edge'],
       industryContext = 'comprehensive',
       industryContexts = [industryContext],
-      modelId 
+      modelId,
+      streamingMode = false // New parameter for streaming mode
     } = requestBody
 
     console.log('🔍 Parsed request parameters:')
@@ -196,11 +411,25 @@ export async function POST(request: NextRequest) {
     console.log('  - industryContext:', industryContext)
     console.log('  - industryContexts:', industryContexts)
     console.log('  - modelId:', modelId)
+    console.log('  - streamingMode:', streamingMode)
+
+    // Determine if we should use streaming chunked generation
+    const shouldUseStreamingChunks = testTypes.length > 1
+    console.log('🌊 Using streaming chunks:', shouldUseStreamingChunks)
 
     // Wrap the main logic in a promise that can be timed out
     const mainLogicPromise = async () => {
       let userStory: any
       let ragContext: string[] = []
+      
+      // Load RAG configuration
+      console.log('⚙️ Loading RAG configuration...')
+      const ragConfig = await loadRAGConfig()
+      console.log('✅ RAG configuration loaded:', {
+        searchTypes: ragConfig.searchTypes,
+        maxResults: ragConfig.maxResults,
+        relevanceFiltering: ragConfig.relevanceFiltering.enabled
+      })
 
       if (userStoryId) {
         console.log('📖 Fetching user story from database with ID:', userStoryId)
@@ -252,73 +481,43 @@ export async function POST(request: NextRequest) {
               const searchQuery = `${userStory.title} ${userStory.description} ${userStory.acceptanceCriteria}`
               console.log('  - Search query length:', searchQuery.length)
               
-              // Perform semantic searches in parallel with reduced limits for speed
-              const [relatedDefects, relatedStories, relatedTestCases, relatedDocs] = await Promise.all([
-                semanticSearchWithDetails(searchQuery, ['defect'], 3, 0.75).catch(err => {
-                  console.warn('Defect search failed:', err.message)
-                  return []
-                }),
-                semanticSearchWithDetails(searchQuery, ['user_story'], 3, 0.75).catch(err => {
-                  console.warn('User story search failed:', err.message)
-                  return []
-                }),
-                semanticSearchWithDetails(searchQuery, ['test_case'], 3, 0.75).catch(err => {
-                  console.warn('Test case search failed:', err.message)
-                  return []
-                }),
-                semanticSearchWithDetails(searchQuery, ['document'], 2, 0.75).catch(err => {
-                  console.warn('Document search failed:', err.message)
-                  return []
-                })
-              ])
+                        // Perform selective semantic searches - prioritize defects and test cases
+          const [relatedDefects, relatedTestCases] = await Promise.all([
+            semanticSearchWithDetails(searchQuery, ['defect'], 2, 0.8).catch(err => {
+              console.warn('Defect search failed:', err.message)
+              return []
+            }),
+            semanticSearchWithDetails(searchQuery, ['test_case'], 2, 0.8).catch(err => {
+              console.warn('Test case search failed:', err.message)
+              return []
+            })
+          ])
 
               console.log('📊 RAG search results:')
               console.log('  - Related defects:', relatedDefects.length)
-              console.log('  - Related stories:', relatedStories.length)
               console.log('  - Related test cases:', relatedTestCases.length)
-              console.log('  - Related docs:', relatedDocs.length)
 
-              // Build context with size limits
+              // Build focused RAG context (only most relevant items)
               if (relatedDefects.length > 0) {
-                ragContext.push('=== HISTORICAL DEFECTS (Risk patterns and common issues) ===')
-                relatedDefects.slice(0, 3).forEach((defect: any, index: number) => {
-                  ragContext.push(`Defect ${index + 1}: ${defect.entity.summary}`)
-                  ragContext.push(`Description: ${(defect.entity.description || 'No description').substring(0, 200)}...`)
-                  ragContext.push(`Component: ${defect.entity.component || 'Unknown'}`)
-                  ragContext.push(`Severity: ${defect.entity.severity || 'Unknown'}`)
-                  ragContext.push('---')
+                ragContext.push('=== HISTORICAL DEFECTS (Patterns to avoid) ===')
+                relatedDefects.slice(0, 2).forEach((defect: any, index: number) => {
+                  ragContext.push(`${index + 1}. ${defect.entity.summary} (${defect.entity.severity || 'Unknown'} severity)`)
+                  if (defect.entity.description) {
+                    ragContext.push(`   Issue: ${defect.entity.description.substring(0, 150)}...`)
+                  }
                 })
-              }
-
-              if (relatedStories.length > 0) {
-                ragContext.push('=== RELATED USER STORIES (Similar functionality patterns) ===')
-                relatedStories.slice(0, 3).forEach((story: any, index: number) => {
-                  ragContext.push(`Story ${index + 1}: ${story.entity.title}`)
-                  ragContext.push(`Description: ${(story.entity.description || 'No description').substring(0, 200)}...`)
-                  ragContext.push(`Component: ${story.entity.component || 'Unknown'}`)
-                  ragContext.push('---')
-                })
+                ragContext.push('')
               }
 
               if (relatedTestCases.length > 0) {
-                ragContext.push('=== EXISTING TEST PATTERNS (Testing approaches) ===')
-                relatedTestCases.slice(0, 3).forEach((testCase: any, index: number) => {
-                  ragContext.push(`Test Case ${index + 1}: ${testCase.entity.title}`)
-                  ragContext.push(`Steps: ${testCase.entity.steps.substring(0, 200)}...`)
-                  ragContext.push(`Priority: ${testCase.entity.priority || 'N/A'}`)
-                  ragContext.push('---')
+                ragContext.push('=== EXISTING TEST PATTERNS ===')
+                relatedTestCases.slice(0, 2).forEach((testCase: any, index: number) => {
+                  ragContext.push(`${index + 1}. ${testCase.entity.title}`)
+                  if (testCase.entity.steps) {
+                    ragContext.push(`   Pattern: ${testCase.entity.steps.substring(0, 150)}...`)
+                  }
                 })
-              }
-
-              if (relatedDocs.length > 0) {
-                ragContext.push('=== TECHNICAL DOCUMENTATION (Domain knowledge and patterns) ===')
-                relatedDocs.slice(0, 2).forEach((doc: any, index: number) => {
-                  ragContext.push(`Document ${index + 1}: ${doc.entity.title}`)
-                  ragContext.push(`Content: ${(doc.entity.content || 'No content').substring(0, 300)}...`)
-                  ragContext.push(`Type: ${doc.entity.type || 'Unknown'}`)
-                  ragContext.push(`Source: Documentation Database (ID: ${doc.entity.id})`)
-                  ragContext.push('---')
-                })
+                ragContext.push('')
               }
 
               console.log('📋 RAG context built with', ragContext.length, 'lines')
@@ -492,20 +691,96 @@ export async function POST(request: NextRequest) {
       try {
         console.log('🔄 Calling generateTestCases function...')
         
-        // Add timeout for AI generation
-        const aiGenerationPromise = generateTestCases(
-          storyText,
-          acceptanceCriteria,
-          fullContext, // Pass enhanced context with industry + RAG
-          testTypes,
-          modelId
-        )
+        if (shouldUseStreamingChunks) {
+          console.log('🌊 Using streaming chunked generation for multiple test types')
+          
+          // Generate FIRST test type immediately and return it
+          const firstTestType = testTypes[0]
+          console.log(`🚀 Generating FIRST chunk: ${firstTestType} test cases...`)
+          
+          const firstChunkTimeout = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error(`${firstTestType} test case generation timeout`)), 90000) // 1.5 minutes
+          })
+          
+          // Build smart, selective RAG context for speed + relevance
+          const smartContext = await buildSmartRAGContext(userStory, ragConfig, firstTestType)
+          
+          const firstChunkPromise = generateTestCases(
+            storyText,
+            acceptanceCriteria,
+                          smartContext, // Use smart RAG context for relevance + speed
+            [firstTestType], // Single test type for first chunk
+            modelId
+          )
+          
+          const firstChunkResult = await Promise.race([firstChunkPromise, firstChunkTimeout]) as string
+          console.log(`✅ FIRST chunk (${firstTestType}) generated successfully (${firstChunkResult.length} chars)`)
+          
+          // Validate the result is not empty
+          if (!firstChunkResult || firstChunkResult.trim().length < 50) {
+            throw new Error(`${firstTestType} test case generation returned empty or invalid result`)
+          }
+          
+          // Save the first chunk immediately
+          const firstTestCaseData: any = {
+            title: `Generated Test Cases for ${userStory.title} - ${firstTestType.toUpperCase()}`,
+            steps: firstChunkResult,
+            expectedResults: 'See individual test case descriptions',
+            generatedFrom: 'ai_generated_streaming_first_chunk',
+            priority: userStory.priority || 'medium',
+            status: 'draft',
+          }
+          
+          if (userStoryId && userStory.id !== 'direct-story') {
+            firstTestCaseData.sourceStoryId = userStory.id
+          }
+          
+          let firstTestCase: any
+          try {
+            firstTestCase = await prisma.testCase.create({
+              data: firstTestCaseData,
+            })
+            console.log('✅ First chunk saved to database with ID:', firstTestCase.id)
+          } catch (dbSaveError) {
+            console.warn('⚠️ Failed to save first chunk to database:', dbSaveError)
+          }
+          
+          // Return first chunk immediately with streaming info
+          const remainingTestTypes = testTypes.slice(1)
+          
+          return NextResponse.json({
+            message: 'First test cases generated successfully - remaining types processing in background',
+            testCase: firstTestCase,
+            content: firstChunkResult,
+            ragContextUsed: ragContext.length > 0,
+            ragContextLines: ragContext.length,
+            streamingMode: true,
+            isFirstChunk: true,
+            completedTestTypes: [firstTestType],
+            remainingTestTypes: remainingTestTypes,
+            totalTestTypes: testTypes.length,
+            progress: Math.round((1 / testTypes.length) * 100)
+          })
+          
+        } else {
+          console.log('🔄 Using single generation for single test type')
+          
+          // Add timeout for AI generation
+          const aiGenerationPromise = generateTestCases(
+            storyText,
+            acceptanceCriteria,
+            fullContext, // Pass enhanced context with industry + RAG
+            testTypes,
+            modelId
+          )
 
-        const aiTimeout = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('AI generation timeout after 3 minutes')), 180000) // 3 minutes
-        })
+          const aiTimeout = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('AI generation timeout after 2 minutes')), 120000) // 2 minutes
+          })
 
-        testCases = await Promise.race([aiGenerationPromise, aiTimeout]) as string
+          testCases = await Promise.race([aiGenerationPromise, aiTimeout]) as string
+        }
+        
         console.log('✅ generateTestCases completed successfully')
       } catch (aiError) {
         console.error('💥 AI Service Error in generateTestCases:')
@@ -577,7 +852,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Race the main logic against the timeout
-    return await Promise.race([mainLogicPromise(), timeoutPromise])
+    const result = await Promise.race([mainLogicPromise(), timeoutPromise])
+    return result as NextResponse
 
   } catch (error) {
     console.error('💥 DETAILED ERROR in test case generation:')
