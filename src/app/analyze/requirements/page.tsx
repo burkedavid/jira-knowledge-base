@@ -97,13 +97,13 @@ const AnalysisResult = ({ result, userStory, selectedSuggestions, onSuggestionTo
         )}
 
         {/* Interactive Suggestions Section */}
-        {result?.suggestions && result.suggestions.length > 0 && (
+        {(result?.suggestions || result?.improvements) && (result?.suggestions || result?.improvements).length > 0 && (
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <h4 className="text-lg font-medium text-blue-900 dark:text-blue-100 mb-4">
               Select Suggestions for AI Refinement
             </h4>
             <div className="space-y-2">
-              {result.suggestions.map((suggestion: string, index: number) => (
+              {(result.suggestions || result.improvements).map((suggestion: string, index: number) => (
                 <div key={index} className="flex items-start space-x-3">
                   <Checkbox
                     checked={selectedSuggestions.includes(suggestion)}
@@ -164,6 +164,9 @@ export default function AnalyzeRequirementsPage() {
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+
+  // Derived state for selected story
+  const selectedStory = userStories.find(s => s.id === selectedStoryId)
 
   const handleSuggestionToggle = (suggestion: string) => {
     setSelectedSuggestions(prev =>
@@ -408,8 +411,6 @@ export default function AnalyzeRequirementsPage() {
       setIsAnalyzing(false)
     }
   }
-
-  const selectedStory = userStories.find(s => s.id === selectedStoryId)
 
   const convertedDescription = useMemo(() => {
     if (!selectedStory?.description) return '';
