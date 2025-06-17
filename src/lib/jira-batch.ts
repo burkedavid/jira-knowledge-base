@@ -57,7 +57,7 @@ export class JiraBatchProcessor {
     const errors: string[] = []
     let totalProcessed = 0
     let userStoriesProcessed = 0
-    let defectsProcessed = 0
+    let defectsProcessed = 0 
 
     try {
       onProgress?.(0, 0, 'Starting import...')
