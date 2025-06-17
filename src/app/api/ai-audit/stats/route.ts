@@ -13,8 +13,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Allow both admin and regular users to view AI audit stats
-    // Note: Stats are aggregated so no user-specific filtering needed here
+    // Only allow admin access to AI audit stats
+    if (session.user?.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(request.url)
     const timeframe = (searchParams.get('timeframe') || 'month') as 'day' | 'week' | 'month' | 'all'
