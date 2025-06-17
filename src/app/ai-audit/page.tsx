@@ -103,19 +103,44 @@ export default function AIAuditPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
+      console.log('🔍 Fetching AI audit data...')
+      
+      const logsUrl = `/api/ai-audit/logs?page=${currentPage}&limit=20${filters.promptType ? `&promptType=${filters.promptType}` : ''}${filters.success ? `&success=${filters.success}` : ''}${filters.userId ? `&userId=${filters.userId}` : ''}`
+      const statsUrl = `/api/ai-audit/stats?timeframe=${filters.timeframe}`
+      
+      console.log('📋 Logs URL:', logsUrl)
+      console.log('📊 Stats URL:', statsUrl)
+      
       const [logsResponse, statsResponse] = await Promise.all([
-        fetch(`/api/ai-audit/logs?page=${currentPage}&limit=20${filters.promptType ? `&promptType=${filters.promptType}` : ''}${filters.success ? `&success=${filters.success}` : ''}${filters.userId ? `&userId=${filters.userId}` : ''}`),
-        fetch(`/api/ai-audit/stats?timeframe=${filters.timeframe}`)
+        fetch(logsUrl),
+        fetch(statsUrl)
       ])
+
+      console.log('📋 Logs response status:', logsResponse.status, logsResponse.statusText)
+      console.log('📊 Stats response status:', statsResponse.status, statsResponse.statusText)
 
       if (logsResponse.ok && statsResponse.ok) {
         const logsData = await logsResponse.json()
         const statsData = await statsResponse.json()
+        
+        console.log('📋 Logs data:', logsData)
+        console.log('📊 Stats data:', statsData)
+        
         setLogs(logsData)
         setStats(statsData)
+      } else {
+        console.error('❌ API responses not OK')
+        if (!logsResponse.ok) {
+          const logsError = await logsResponse.text()
+          console.error('📋 Logs error:', logsError)
+        }
+        if (!statsResponse.ok) {
+          const statsError = await statsResponse.text()
+          console.error('📊 Stats error:', statsError)
+        }
       }
     } catch (error) {
-      console.error('Error fetching audit data:', error)
+      console.error('❌ Error fetching audit data:', error)
     } finally {
       setLoading(false)
     }
