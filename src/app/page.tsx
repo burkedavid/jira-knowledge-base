@@ -11,7 +11,8 @@ import {
   Database,
   Brain,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Calendar
 } from 'lucide-react'
 import UserMenu from '@/components/auth/user-menu'
 
@@ -25,6 +26,27 @@ interface PlatformStats {
   averageQualityScore: number
 }
 
+interface DateRangeInfo {
+  hasData: boolean
+  overall: {
+    startDate: string
+    endDate: string
+    spanDays: number
+    daysSinceLastUpdate: number
+  }
+  breakdown: {
+    userStories: { startDate: string | null; endDate: string | null; spanDays: number }
+    defects: { startDate: string | null; endDate: string | null; spanDays: number }
+    documents: { startDate: string | null; endDate: string | null; spanDays: number }
+    testCases: { startDate: string | null; endDate: string | null; spanDays: number }
+  }
+  freshness: {
+    status: 'current' | 'recent' | 'moderate' | 'stale'
+    daysSinceLastUpdate: number
+    lastUpdateDate: string
+  }
+}
+
 export default function HomePage() {
   const [stats, setStats] = useState<PlatformStats>({
     userStories: 0,
@@ -35,6 +57,7 @@ export default function HomePage() {
     requirementAnalyses: 0,
     averageQualityScore: 0
   })
+  const [dateRange, setDateRange] = useState<DateRangeInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
@@ -42,18 +65,20 @@ export default function HomePage() {
     setIsLoading(true)
     try {
       // Fetch all stats in parallel
-      const [userStoriesRes, testCasesRes, defectsRes, documentsRes] = await Promise.all([
+      const [userStoriesRes, testCasesRes, defectsRes, documentsRes, dateRangeRes] = await Promise.all([
         fetch('/api/user-stories'),
         fetch('/api/test-cases'),
         fetch('/api/defects'),
-        fetch('/api/documents')
+        fetch('/api/documents'),
+        fetch('/api/platform/date-range')
       ])
 
-      const [userStoriesData, testCasesData, defectsData, documentsData] = await Promise.all([
+      const [userStoriesData, testCasesData, defectsData, documentsData, dateRangeData] = await Promise.all([
         userStoriesRes.json(),
         testCasesRes.json(),
         defectsRes.json(),
-        documentsRes.json()
+        documentsRes.json(),
+        dateRangeRes.json()
       ])
 
       // Try to get embeddings stats
@@ -92,6 +117,10 @@ export default function HomePage() {
         requirementAnalyses: requirementAnalysesCount,
         averageQualityScore: Math.round(averageQualityScore * 10) / 10 // Round to 1 decimal place
       })
+
+      // Set date range data
+      setDateRange(dateRangeData)
+
       setLastUpdated(new Date())
     } catch (error) {
       console.error('Error fetching stats:', error)
@@ -321,6 +350,63 @@ export default function HomePage() {
                   {stats.embeddings.toLocaleString()}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">Embeddings</div>
+              </div>
+            </div>
+          )}
+
+          {/* Date Range Information */}
+          {!isLoading && dateRange && dateRange.hasData && (
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-2 text-gray-500 dark:text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    RAG Data Coverage
+                  </span>
+                </div>
+                <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  dateRange.freshness.status === 'current' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                  dateRange.freshness.status === 'recent' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
+                  dateRange.freshness.status === 'moderate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                  'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                }`}>
+                  {dateRange.freshness.status === 'current' ? '🟢 Current' :
+                   dateRange.freshness.status === 'recent' ? '🔵 Recent' :
+                   dateRange.freshness.status === 'moderate' ? '🟡 Moderate' :
+                   '🔴 Stale'}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Date Range</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{dateRange.overall.spanDays} days</span>
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    <div className="flex justify-between">
+                      <span>From:</span>
+                      <span>{new Date(dateRange.overall.startDate).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span>To:</span>
+                      <span>{new Date(dateRange.overall.endDate).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Data Freshness</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {dateRange.freshness.daysSinceLastUpdate === 0 ? 'Today' : 
+                       `${dateRange.freshness.daysSinceLastUpdate} days ago`}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
+                    Last updated: {new Date(dateRange.freshness.lastUpdateDate).toLocaleDateString()}
+                  </div>
+                </div>
               </div>
             </div>
           )}

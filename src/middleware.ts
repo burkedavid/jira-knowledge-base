@@ -14,6 +14,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/ping') ||
     pathname.startsWith('/api/hello') ||
     pathname.startsWith('/api/static-test') ||
+    pathname.startsWith('/api/platform/date-range') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon.ico') ||
     pathname.startsWith('/robots.txt') ||
@@ -48,11 +49,12 @@ export const config = {
      * Match all request paths except for the ones starting with:
      * - api/auth (NextAuth API routes)
      * - api/health, api/ping, api/hello, api/test-simple, api/test/, api/static-test (test endpoints)
+     * - api/platform/date-range (platform stats endpoint)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - login (login page)
      */
-    '/((?!api/auth|api/health|api/ping|api/hello|api/test-simple|api/test/|api/static-test|_next/static|_next/image|favicon.ico|login).*)',
+    '/((?!api/auth|api/health|api/ping|api/hello|api/test-simple|api/test/|api/static-test|api/platform/date-range|_next/static|_next/image|favicon.ico|login).*)',
   ],
 } 
