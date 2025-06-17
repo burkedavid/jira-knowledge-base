@@ -33,9 +33,9 @@ export async function GET(request: NextRequest) {
         break
     }
 
-    // Build where clause
+    // Build where clause - FIXED: Don't apply date filter for "all" timeframe
     const whereClause: any = {}
-    if (Object.keys(dateFilter).length > 0) {
+    if (timeframe !== 'all' && Object.keys(dateFilter).length > 0) {
       whereClause.createdAt = dateFilter
     }
     if (component) {
@@ -128,40 +128,52 @@ export async function GET(request: NextRequest) {
         riskLevel: item._count.id > 5 ? 'High' : item._count.id > 2 ? 'Medium' : 'Low'
       }))
 
-    // Calculate monthly trends
+    // Calculate monthly trends - FIXED to show actual data range
     const monthlyTrends: any[] = []
     
-    // Determine the appropriate lookback period for trends based on timeframe
+    // For "all" timeframe, we need to get the actual date range of all data
     let trendsLookback: Date
     let maxMonths: number
     
-    switch (timeframe) {
-      case '7d':
-        // For 7 days, show daily trends for the last 7 days
-        trendsLookback = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        maxMonths = 1 // Will be converted to days
-        break
-      case '30d':
-        // For 30 days, show weekly trends for the last 4-5 weeks
-        trendsLookback = new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000)
-        maxMonths = 5
-        break
-      case '90d':
-        // For 90 days, show monthly trends for the last 3-4 months
-        trendsLookback = new Date(now.getTime() - 120 * 24 * 60 * 60 * 1000)
-        maxMonths = 4
-        break
-      case '1y':
-        // For 1 year, show monthly trends for the last 12 months
+    if (timeframe === 'all') {
+      // Get the oldest defect to determine the actual data range
+      const oldestDefect = await prisma.defect.findFirst({
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true }
+      })
+      
+      if (oldestDefect) {
+        trendsLookback = oldestDefect.createdAt
+        // Calculate months between oldest and now
+        const monthsDiff = Math.ceil((now.getTime() - oldestDefect.createdAt.getTime()) / (30 * 24 * 60 * 60 * 1000))
+        maxMonths = Math.min(24, monthsDiff) // Cap at 24 months for performance
+      } else {
         trendsLookback = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
         maxMonths = 12
-        break
-      case 'all':
-      default:
-        // For all time, show monthly trends for the last 12 months
-        trendsLookback = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-        maxMonths = 12
-        break
+      }
+    } else {
+      switch (timeframe) {
+        case '7d':
+          trendsLookback = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          maxMonths = 7 // 7 days
+          break
+        case '30d':
+          trendsLookback = new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000)
+          maxMonths = 5 // 5 weeks
+          break
+        case '90d':
+          trendsLookback = new Date(now.getTime() - 120 * 24 * 60 * 60 * 1000)
+          maxMonths = 4 // 4 months
+          break
+        case '1y':
+          trendsLookback = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+          maxMonths = 12
+          break
+        default:
+          trendsLookback = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+          maxMonths = 12
+          break
+      }
     }
     
     const defectsWithDates = await prisma.defect.findMany({
@@ -236,9 +248,21 @@ export async function GET(request: NextRequest) {
           weekEnd.setDate(weekEnd.getDate() + 6)
           displayName = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
         } else {
-          // Format as month name for monthly view
+          // Format as month name for monthly view - INCLUDE YEAR for "all" timeframe
           const date = new Date(timeKey + '-01')
-          displayName = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+          if (timeframe === 'all') {
+            // For "all time", always show year to distinguish between different years
+            displayName = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+          } else {
+            // For specific timeframes (90d, 1y), show year only if data spans multiple years
+            const currentYear = new Date().getFullYear()
+            const dataYear = date.getFullYear()
+            if (dataYear !== currentYear) {
+              displayName = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+            } else {
+              displayName = date.toLocaleDateString('en-US', { month: 'short' })
+            }
+          }
         }
         
         monthlyTrends.push({

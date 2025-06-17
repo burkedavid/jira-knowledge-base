@@ -371,6 +371,211 @@ Please provide a comprehensive analysis that:
 
 Format your response in markdown with clear sections, bullet points, and emphasis on key findings.`,
     example: 'Query: "Authentication issues" → Provides detailed analysis with trends and recommendations'
+  },
+  {
+    id: 'brc-intelligence-analysis',
+    category: 'Analytics',
+    name: 'Business Risk Coverage (BRC) Intelligence Analysis',
+    description: 'Enhanced defect analytics with BRC methodology and strategic intelligence framework',
+    endpoint: '/api/analytics/defects/query',
+    model: 'Claude Sonnet 4',
+    parameters: {
+      maxTokens: 4000,
+      temperature: 0.2
+    },
+    usage: 'Used for comprehensive business risk analysis with strategic intelligence insights',
+    prompt: `You are an Enhanced Defect Analytics Intelligence System implementing Business Risk Coverage (BRC) methodology. Transform raw defect data into strategic intelligence that drives measurable quality improvements and automation ROI.
+
+**MISSION:** Generate insights that enable immediate action and long-term strategic planning using the Intelligence Generation Framework.
+
+**User Query:** "{query}"
+**Timeframe:** {timeframe}
+**Analysis Context:** {timeframe === 'all' ? 'System Quality Baseline Report' : 'Periodic Quality Intelligence Report'}
+
+**CORE DATA ANALYSIS:**
+- Total Defects: {totalDefects}
+- Defects by Severity: {defectsBySeverity}
+- Top Components: {defectsByComponent}
+- Root Cause Patterns: {defectPatterns}
+
+**RAG CONTEXT ({contextCount} items found):**
+{enrichedContext}
+
+**INTELLIGENCE GENERATION FRAMEWORK:**
+
+## 1. EXECUTIVE INTELLIGENCE LAYER
+Generate:
+- **Risk Assessment:** Quantify quality risk levels and business impact
+- **Trend Velocity:** Calculate defect acceleration/deceleration patterns  
+- **Quality Debt:** Identify accumulating technical debt indicators
+- **Investment ROI:** Predict automation investment returns
+
+## 2. STRATEGIC PATTERN RECOGNITION
+Identify:
+- **Defect Hotspots:** Modules/features with highest defect density
+- **Seasonal Patterns:** Cyclical quality issues (release cycles, team changes)
+- **Cascade Effects:** Defects that trigger downstream issues
+- **Quality Momentum:** Improving vs declining quality trajectories
+
+## 3. BUSINESS RISK COVERAGE (BRC) ANALYSIS
+
+**CRITICAL FORMATTING:** Present this as a clean, readable list format - NOT as a table. Use the following structure exactly:
+
+**COMPONENT RISK ASSESSMENT:**
+
+**1. [Component Name] - RISK LEVEL: [CRITICAL/HIGH/MEDIUM/LOW]**
+   • Defect Count: [number] defects
+   • Business Impact: [HIGH/MEDIUM/LOW] - [brief impact description]
+   • Usage Level: [VERY HIGH/HIGH/MEDIUM/LOW]
+   • Risk Score: [number]/100
+   • Priority Action: [specific action needed]
+
+Continue for the top 5-8 most critical components only.
+
+**CRITICAL FORMATTING RULES - STRICTLY ENFORCE:**
+- Use ONLY plain text with **bold** for emphasis
+- ABSOLUTELY FORBIDDEN: Tables of any kind - use numbered lists instead
+- ABSOLUTELY FORBIDDEN: Any form of text highlighting or coloring
+- Use simple bullet points (•) and numbered lists only
+- NO TABLES ANYWHERE - Always use structured lists for data presentation
+
+Focus on generating a comprehensive intelligence report that serves as both immediate tactical guidance and long-term strategic planning foundation.`,
+    example: 'Provides executive-level BRC analysis with component risk assessment and strategic recommendations'
+  },
+  {
+    id: 'defect-patterns-ai-enhanced',
+    category: 'Defect Analysis',
+    name: 'AI-Enhanced Defect Pattern Analysis',
+    description: 'Advanced defect pattern analysis with temporal context and executive-level insights',
+    endpoint: '/api/analyze/defect-patterns-ai',
+    model: 'Claude Sonnet 4',
+    parameters: {
+      maxTokens: 4000,
+      temperature: 0.2
+    },
+    usage: 'Used for comprehensive AI-powered defect pattern analysis with business intelligence',
+    prompt: `You are an expert software quality analyst specializing in defect pattern recognition and quality improvement strategies. Analyze the following defects and provide comprehensive insights.
+
+DEFECT DATA ({defectCount} defects from {timeRange}):
+{defectSummaries}
+
+RELATED CONTEXT FROM KNOWLEDGE BASE:
+{ragContextText}
+
+TEMPORAL ANALYSIS CONTEXT:
+Current Date: {currentDate}
+Current Month Progress: {currentDay} of {daysInMonth} days ({monthProgress}% complete)
+Analysis Period: {timeRange}
+
+CRITICAL: When comparing current month to previous month, remember we are only {currentDay} days into {currentMonth}. 
+Any month-over-month comparisons must be normalized by day count or clearly state they are partial month comparisons.
+
+ANALYSIS REQUIREMENTS:
+Please provide a comprehensive JSON response with the following structure:
+
+{
+  "patterns": [
+    {
+      "id": "unique_pattern_id",
+      "name": "Pattern Name",
+      "description": "Detailed description of the pattern",
+      "severity": "Critical|High|Medium|Low",
+      "frequency": number_of_occurrences,
+      "affectedComponents": ["component1", "component2"],
+      "rootCauses": ["cause1", "cause2"],
+      "businessImpact": "Description of business impact",
+      "preventionStrategy": "How to prevent this pattern",
+      "testingRecommendations": ["test1", "test2"],
+      "relatedDefects": ["defect_ids"],
+      "confidence": 0.0-1.0
+    }
+  ],
+  "insights": {
+    "overallTrend": "Executive-level summary of quality trajectory for directors: improving/declining/stable with key metrics",
+    "riskAssessment": "High-level business risk assessment with quantified impact and immediate concerns",
+    "priorityActions": ["action1", "action2"],
+    "qualityMetrics": {
+      "patternDiversity": number,
+      "componentCoverage": number,
+      "severityDistribution": {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
+    }
+  },
+  "recommendations": {
+    "immediate": ["urgent actions needed now"],
+    "shortTerm": ["actions for next 1-3 months"],
+    "longTerm": ["strategic improvements for 6+ months"]
+  }
+}
+
+CRITICAL REQUIREMENTS:
+1. Limit to TOP 10 most impactful patterns only - focus on highest business impact
+2. Overall Trend: Write a concise executive summary for directors - focus on business impact, not technical details
+3. Risk Assessment: Provide clear business risk level with quantified impact where possible
+4. NO text highlighting, bold formatting, or special characters in responses
+5. Use plain text only - no markdown, asterisks, or emphasis formatting
+6. Focus on actionable business insights, not technical implementation details
+7. TEMPORAL ACCURACY: When making month-over-month comparisons, account for partial month data. Use normalized rates or equivalent time periods.
+
+Remember: This analysis will be reviewed by directors and executives. Focus on business impact, clear risk assessment, and actionable recommendations without technical jargon or formatting.`,
+    example: 'Provides executive-level defect pattern analysis with temporal accuracy and business intelligence'
+  },
+  {
+    id: 'requirements-batch-analysis',
+    category: 'Quality Analysis',
+    name: 'Requirements Batch Analysis',
+    description: 'Analyzes multiple user stories in batch with quality scoring and risk assessment',
+    endpoint: '/api/analyze/requirements-batch',
+    model: 'Claude Sonnet 4',
+    parameters: {
+      maxTokens: 3000,
+      temperature: 0.4
+    },
+    usage: 'Used for batch analysis of user stories with quality metrics and risk assessment',
+    prompt: `Analyze the quality of this user story and provide improvement suggestions with RAG-based insights:
+
+**User Story:**
+{userStory}
+
+**Acceptance Criteria:**
+{acceptanceCriteria}
+
+{ragContext}
+
+Please provide a comprehensive analysis with the following sections:
+
+## 1. Quality Score (1-10) with justification
+
+## 2. Strengths of the current user story
+
+## 3. Areas for Improvement with specific suggestions
+
+## 4. Missing Elements that should be added
+
+## 5. Risk Assessment based on clarity and completeness
+
+## 6. RAG-Based Insights (ONLY if knowledge base context is available)
+
+### Related Dependencies
+- Existing functionality that connects to this requirement (from user stories, guides)
+- Integration points that need consideration
+- Shared components or services
+
+### Potential Risks  
+- Historical defects that could indicate similar risks
+- Known issues from past implementations
+- Component-specific vulnerabilities
+
+### Testing Considerations
+- Additional testing needed based on past experiences
+- Edge cases discovered in similar features
+- Integration testing requirements
+
+**IMPORTANT:** Only include RAG-Based Insights if actual knowledge base context is provided. Base all suggestions strictly on the context found in the knowledge base - never invent or assume information not present in the context. Always cite the source.
+
+## 7. Recommended Actions for the business analyst
+
+Focus on INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable) and industry best practices.`,
+    example: 'Batch analyzes multiple user stories for quality, risk, and provides improvement recommendations'
   }
 ]
 

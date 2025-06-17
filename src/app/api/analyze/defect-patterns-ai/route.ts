@@ -354,6 +354,25 @@ Sample Distribution:
 
 Please consider this sampling context in your analysis and extrapolate patterns to the full dataset of ${samplingResult.totalDefectsInPeriod} defects.` : ''
 
+    // Add temporal context for accurate trend analysis
+    const now = new Date()
+    const currentDay = now.getDate()
+    const currentMonth = now.toLocaleString('default', { month: 'long' })
+    const currentYear = now.getFullYear()
+    const daysInCurrentMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate()
+    const monthProgress = (currentDay / daysInCurrentMonth * 100).toFixed(1)
+    
+    const temporalContext = `
+
+TEMPORAL ANALYSIS CONTEXT:
+Current Date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+Current Month Progress: ${currentDay} of ${daysInCurrentMonth} days (${monthProgress}% complete)
+Analysis Period: ${timeRange === 36500 ? 'ALL TIME' : `Last ${timeRange} days`}
+
+CRITICAL: When comparing current month to previous month, remember we are only ${currentDay} days into ${currentMonth}. 
+Any month-over-month comparisons must be normalized by day count or clearly state they are partial month comparisons.
+For accurate trend analysis, compare equivalent day ranges (e.g., first 17 days of current month vs first 17 days of previous month).`
+
     // Step 3: Create comprehensive AI prompt
     const aiPrompt = `You are an expert software quality analyst specializing in defect pattern recognition and quality improvement strategies. Analyze the following defects and provide comprehensive insights.
 
@@ -361,7 +380,7 @@ DEFECT DATA (${defects.length} defects from ${timeRange === 36500 ? 'ALL TIME' :
 ${defectSummaries}
 
 RELATED CONTEXT FROM KNOWLEDGE BASE:
-${ragContextText}${samplingContext}
+${ragContextText}${samplingContext}${temporalContext}
 
 ANALYSIS REQUIREMENTS:
 Please provide a comprehensive JSON response with the following structure:
@@ -384,8 +403,8 @@ Please provide a comprehensive JSON response with the following structure:
     }
   ],
   "insights": {
-    "overallTrend": "Analysis of overall quality trend",
-    "riskAssessment": "Current risk level and factors",
+    "overallTrend": "Executive-level summary of quality trajectory for directors: improving/declining/stable with key metrics",
+    "riskAssessment": "High-level business risk assessment with quantified impact and immediate concerns",
     "priorityActions": ["action1", "action2"],
     "qualityMetrics": {
       "patternDiversity": number,
@@ -400,18 +419,28 @@ Please provide a comprehensive JSON response with the following structure:
   }
 }
 
+CRITICAL REQUIREMENTS:
+1. Limit to TOP 10 most impactful patterns only - focus on highest business impact
+2. Overall Trend: Write a concise executive summary for directors - focus on business impact, not technical details
+3. Risk Assessment: Provide clear business risk level with quantified impact where possible
+4. NO text highlighting, bold formatting, or special characters in responses
+5. Use plain text only - no markdown, asterisks, or emphasis formatting
+6. Focus on actionable business insights, not technical implementation details
+7. TEMPORAL ACCURACY: When making month-over-month comparisons, account for partial month data. Use normalized rates or equivalent time periods.
+
 ANALYSIS FOCUS:
-1. Identify recurring patterns in defect types, components, and root causes
-2. Assess the business impact and risk level of each pattern
-3. Provide actionable prevention strategies
-4. Recommend specific testing approaches
-5. Prioritize actions based on severity and frequency
+1. Identify the TOP 10 most critical recurring patterns by business impact
+2. Assess business risk and financial impact of each pattern
+3. Provide actionable prevention strategies focused on ROI
+4. Recommend testing approaches that reduce business risk
+5. Prioritize actions based on business impact and implementation effort
 6. Consider the related context from the knowledge base
 7. Provide confidence scores based on data quality and pattern clarity
+8. For trend analysis, use proper temporal normalization - compare equivalent time periods or use daily/weekly rates
 ${samplingResult.samplingStrategy === 'intelligent_stratified' ? 
-  '8. Scale your analysis to represent the full dataset based on the sampling context provided' : ''}
+  '9. Scale your analysis to represent the full dataset based on the sampling context provided' : ''}
 
-Ensure all recommendations are specific, actionable, and prioritized by impact.`
+Remember: This analysis will be reviewed by directors and executives. Focus on business impact, clear risk assessment, and actionable recommendations without technical jargon or formatting.`
 
     console.log('🤖 Sending comprehensive analysis request to Claude 4...')
 

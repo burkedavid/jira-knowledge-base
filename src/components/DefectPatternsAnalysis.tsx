@@ -669,55 +669,82 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
         </div>
       </div>
 
-      {/* Key Insights */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <TrendingUp className="h-8 w-8 text-green-600 mr-3" />
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Overall Trend</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+      {/* Executive Summary - Compact Layout */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Executive Summary</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Director-level quality assessment and business impact analysis</p>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Overall Trend */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Quality Trajectory</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Business impact assessment</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-11">
                 {analysis.insights.overallTrend}
               </p>
             </div>
-          </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <Shield className="h-8 w-8 text-orange-600 mr-3" />
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Risk Assessment</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+            {/* Risk Assessment */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <Shield className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Business Risk Level</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Current exposure and impact</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-11">
                 {analysis.insights.riskAssessment}
               </p>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <Target className="h-8 w-8 text-blue-600 mr-3" />
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Quality Metrics</h3>
-              <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                <div>Patterns: {analysis.insights.qualityMetrics.patternDiversity}</div>
-                <div>Components: {analysis.insights.qualityMetrics.componentCoverage}</div>
+          {/* Quality Metrics Bar */}
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                  <span className="text-gray-600 dark:text-gray-300">Top {Math.min(10, analysis.patterns.length)} Critical Patterns</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-gray-600 dark:text-gray-300">{analysis.insights.qualityMetrics.componentCoverage} Components Analyzed</span>
+                </div>
+              </div>
+              <div className="text-gray-500 dark:text-gray-400">
+                {Object.values(analysis.insights.qualityMetrics.severityDistribution).reduce((a, b) => a + b, 0)} Total Defects
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Identified Patterns */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+      {/* Top 10 Critical Patterns */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-            Identified Patterns ({analysis.patterns.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Top 10 Critical Patterns ({Math.min(10, analysis.patterns.length)})
+            </h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Ranked by business impact
+            </span>
+          </div>
         </div>
-        <div className="p-6 space-y-4">
-          {analysis.patterns.map((pattern) => (
+        <div className="p-6 space-y-3">
+          {analysis.patterns.slice(0, 10).map((pattern, index) => (
             <div key={pattern.id} className="border border-gray-200 dark:border-gray-700 rounded-lg">
               <div 
                 className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
@@ -725,27 +752,35 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    {expandedPatterns.has(pattern.id) ? (
-                      <ChevronDown className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <ChevronRight className="h-5 w-5 text-gray-400" />
-                    )}
-                    <div>
-                      <h4 className="text-lg font-medium text-gray-900 dark:text-white">
-                        {pattern.name}
-                      </h4>
-                      <div className="flex items-center space-x-3 mt-1">
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h4 className="text-base font-semibold text-gray-900 dark:text-white">
+                          {pattern.name}
+                        </h4>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(pattern.severity)}`}>
                           {pattern.severity}
                         </span>
+                      </div>
+                      <div className="flex items-center space-x-4 mt-1">
                         <span className="text-sm text-gray-600 dark:text-gray-300">
                           {pattern.frequency} occurrences
                         </span>
                         <span className="text-sm text-gray-600 dark:text-gray-300">
                           {Math.round(pattern.confidence * 100)}% confidence
                         </span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {pattern.affectedComponents.length} components
+                        </span>
                       </div>
                     </div>
+                    {expandedPatterns.has(pattern.id) ? (
+                      <ChevronDown className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-gray-400" />
+                    )}
                   </div>
                   <button
                     onClick={(e) => {
