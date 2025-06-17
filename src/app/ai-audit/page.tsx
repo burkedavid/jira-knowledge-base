@@ -88,7 +88,9 @@ export default function AIAuditPage() {
   const fetchUsers = async () => {
     setUsersLoading(true)
     try {
-      const response = await fetch('/api/users')
+      const response = await fetch('/api/users', {
+        credentials: 'include'
+      })
       if (response.ok) {
         const usersData = await response.json()
         setUsers(usersData)
@@ -112,8 +114,18 @@ export default function AIAuditPage() {
       console.log('📊 Stats URL:', statsUrl)
       
       const [logsResponse, statsResponse] = await Promise.all([
-        fetch(logsUrl),
-        fetch(statsUrl)
+        fetch(logsUrl, {
+          credentials: 'include',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        }),
+        fetch(statsUrl, {
+          credentials: 'include',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        })
       ])
 
       console.log('📋 Logs response status:', logsResponse.status, logsResponse.statusText)
@@ -161,7 +173,8 @@ export default function AIAuditPage() {
 
     try {
       const response = await fetch('/api/ai-audit/clear', {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include'
       })
 
       if (response.ok) {
