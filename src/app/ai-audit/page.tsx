@@ -197,28 +197,8 @@ export default function AIAuditPage() {
     return null
   }
 
-  if (session.user?.role !== 'admin') {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
-            <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            You need administrator privileges to access AI Cost Audit.
-          </p>
-          <Link 
-            href="/"
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Link>
-        </div>
-      </div>
-    )
-  }
+  // Allow both admin and regular users to access AI audit
+  // (API will filter results appropriately)
 
   if (loading) {
     return (
