@@ -60,7 +60,7 @@ export class JiraBatchProcessor {
     let defectsProcessed = 0 
 
     try {
-      onProgress?.(0, 0, 'Starting import...')
+      onProgress?.(0, 0, 'Starting import...') 
 
       // Import user stories
       if (includeUserStories) {
