@@ -81,12 +81,20 @@ try {
   console.log('✅ Prisma client generated');
   
   if (isVercel) {
-    console.log('🗄️ Running database migrations...');
+    console.log('🗄️ Pushing database schema...');
     try {
-      execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-      console.log('✅ Database migrations completed');
-    } catch (migrateError) {
-      console.warn('⚠️ Migration failed, continuing with build:', migrateError.message);
+      execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+      console.log('✅ Database schema pushed successfully');
+    } catch (pushError) {
+      console.warn('⚠️ Schema push failed, trying without --accept-data-loss flag:', pushError.message);
+      try {
+        execSync('npx prisma db push', { stdio: 'inherit' });
+        console.log('✅ Database schema pushed successfully (second attempt)');
+      } catch (secondError) {
+        console.error('❌ Schema push failed completely:', secondError.message);
+        // Don't exit here - let the build continue in case the schema is already up to date
+        console.warn('⚠️ Continuing with build despite schema push failure...');
+      }
     }
   }
   

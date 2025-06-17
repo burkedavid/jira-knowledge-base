@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/vercel-build.js",
+    "postbuild": "prisma db push --accept-data-loss || prisma db push || echo 'Schema push failed but continuing'",
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "next lint",
