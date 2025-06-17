@@ -241,6 +241,7 @@ export async function POST(request: NextRequest) {
       strengths: [],
       improvements: [],
       riskFactors: [],
+      ragSuggestions: [], // New field for RAG-specific suggestions
       analysis: analysis
     }
 
@@ -279,6 +280,53 @@ export async function POST(request: NextRequest) {
         if (riskList) {
           structuredResult.riskFactors = riskList.map(s => s.replace(/[•\-\*]\s*/, '').trim())
         }
+      }
+
+      // Extract RAG-based suggestions from the RAG-Based Insights section
+      const ragMatch = analysis.match(/(?:RAG-Based Insights?)[\s\S]*?(?=(?:Recommended Actions|$))/i)
+      if (ragMatch) {
+        const ragText = ragMatch[0]
+        
+        // Extract suggestions from Related Dependencies, Potential Risks, and Testing Considerations
+        const ragSuggestions = []
+        
+        // Related Dependencies suggestions
+        const dependenciesMatch = ragText.match(/Related Dependencies[\s\S]*?(?=(?:Potential Risks|Testing Considerations|$))/i)
+        if (dependenciesMatch) {
+          const depText = dependenciesMatch[0]
+          const depSuggestions = depText.match(/[•\-\*]\s*(.+)/g)
+          if (depSuggestions) {
+            ragSuggestions.push(...depSuggestions.map(s => 
+              `Integration: ${s.replace(/[•\-\*]\s*/, '').trim()}`
+            ))
+          }
+        }
+        
+        // Potential Risks suggestions  
+        const potentialRisksMatch = ragText.match(/Potential Risks[\s\S]*?(?=(?:Testing Considerations|$))/i)
+        if (potentialRisksMatch) {
+          const riskText = potentialRisksMatch[0]
+          const riskSuggestions = riskText.match(/[•\-\*]\s*(.+)/g)
+          if (riskSuggestions) {
+            ragSuggestions.push(...riskSuggestions.map(s => 
+              `Risk Mitigation: ${s.replace(/[•\-\*]\s*/, '').trim()}`
+            ))
+          }
+        }
+        
+        // Testing Considerations suggestions
+        const testingMatch = ragText.match(/Testing Considerations[\s\S]*?$/i)
+        if (testingMatch) {
+          const testText = testingMatch[0]
+          const testSuggestions = testText.match(/[•\-\*]\s*(.+)/g)
+          if (testSuggestions) {
+            ragSuggestions.push(...testSuggestions.map(s => 
+              `Testing: ${s.replace(/[•\-\*]\s*/, '').trim()}`
+            ))
+          }
+        }
+        
+        structuredResult.ragSuggestions = ragSuggestions
       }
 
     } catch (parseError) {

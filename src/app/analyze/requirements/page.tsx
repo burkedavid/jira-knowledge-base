@@ -97,9 +97,13 @@ const AnalysisResult = ({ result, userStory, selectedSuggestions, onSuggestionTo
         )}
 
         {/* Interactive Suggestions Section */}
-        {(result?.suggestions || result?.improvements) && (result?.suggestions || result?.improvements).length > 0 && (
+        {(result?.suggestions || result?.improvements || result?.ragSuggestions) && 
+         ((result?.suggestions || result?.improvements || []).length > 0 || (result?.ragSuggestions || []).length > 0) && (
           <RefinementSuggestionsSection 
-            suggestions={result.suggestions || result.improvements}
+            suggestions={[
+              ...(result.ragSuggestions || []),
+              ...(result.suggestions || result.improvements || [])
+            ]}
             selectedSuggestions={selectedSuggestions}
             onSuggestionToggle={onSuggestionToggle}
           />
@@ -122,6 +126,7 @@ const RefinementSuggestionsSection = ({
   // Categorize suggestions into logical groups
   const categorizesuggestions = (suggestions: string[]) => {
     const categories = {
+      'RAG-Enhanced Suggestions': [] as string[],
       'Story Structure & Format': [] as string[],
       'Requirements Definition': [] as string[],
       'Technical Specifications': [] as string[],
@@ -133,7 +138,14 @@ const RefinementSuggestionsSection = ({
     suggestions.forEach(suggestion => {
       const lower = suggestion.toLowerCase()
       
-      if (lower.includes('user story format') || lower.includes('break down') || lower.includes('story points') || lower.includes('proper format')) {
+      // Prioritize RAG-based suggestions that reference knowledge base context
+      if (lower.includes('drag and drop') || lower.includes('business rules') || lower.includes('bim document') || 
+          lower.includes('existing') || lower.includes('integration') || lower.includes('knowledge base') || 
+          lower.includes('document 1') || lower.includes('document 2') || lower.includes('document 3') ||
+          lower.includes('based on the') || lower.includes('according to') || lower.includes('referenced') ||
+          lower.includes('existing functionality') || lower.includes('current system') || lower.includes('established')) {
+        categories['RAG-Enhanced Suggestions'].push(suggestion)
+      } else if (lower.includes('user story format') || lower.includes('break down') || lower.includes('story points') || lower.includes('proper format')) {
         categories['Story Structure & Format'].push(suggestion)
       } else if (lower.includes('stakeholders') || lower.includes('personas') || lower.includes('define') || lower.includes('specify')) {
         categories['Requirements Definition'].push(suggestion)
@@ -155,7 +167,7 @@ const RefinementSuggestionsSection = ({
   }
 
   const categories = categorizesuggestions(suggestions)
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Story Structure & Format']))
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['RAG-Enhanced Suggestions', 'Story Structure & Format']))
 
   const toggleCategory = (categoryName: string) => {
     const newExpanded = new Set(expandedCategories)
@@ -187,6 +199,7 @@ const RefinementSuggestionsSection = ({
 
   const getCategoryIcon = (categoryName: string) => {
     switch (categoryName) {
+      case 'RAG-Enhanced Suggestions': return '🧠'
       case 'Story Structure & Format': return '📝'
       case 'Requirements Definition': return '🎯'
       case 'Technical Specifications': return '⚙️'
@@ -205,10 +218,19 @@ const RefinementSuggestionsSection = ({
   // Quick selection presets
   const selectEssentials = () => {
     const essentials = [
+      ...categories['RAG-Enhanced Suggestions'], // Prioritize RAG suggestions
       ...categories['Story Structure & Format'],
       ...categories['Quality & Testing'].filter(s => s.toLowerCase().includes('acceptance criteria'))
     ]
     essentials.forEach(suggestion => {
+      if (!selectedSuggestions.includes(suggestion)) {
+        onSuggestionToggle(suggestion)
+      }
+    })
+  }
+
+  const selectRAGOnly = () => {
+    categories['RAG-Enhanced Suggestions'].forEach(suggestion => {
       if (!selectedSuggestions.includes(suggestion)) {
         onSuggestionToggle(suggestion)
       }
@@ -239,10 +261,18 @@ const RefinementSuggestionsSection = ({
           <Button
             variant="outline"
             size="sm"
+            onClick={selectRAGOnly}
+            className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300"
+          >
+            🧠 RAG Context Only
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={selectEssentials}
             className="text-xs"
           >
-            📝 Essentials Only
+            📝 Essentials + RAG
           </Button>
           <Button
             variant="outline"
