@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, BarChart3, TrendingUp, AlertTriangle, Target, RefreshCw, Calendar, Filter, Send, MessageSquare, HelpCircle, Shield, Activity, Brain, Play, Settings } from 'lucide-react'
 import DefectPatternsAnalysis from '@/components/DefectPatternsAnalysis'
+import ReactMarkdown from 'react-markdown'
 
 interface DefectAnalytics {
   summary: {
@@ -172,9 +173,25 @@ function DefectQueryInterface({ timeframe, component, onAnalyze }: DefectQueryIn
             <h4 className="font-medium text-gray-900 dark:text-white">AI Analysis Results</h4>
           </div>
           <div className="prose dark:prose-invert max-w-none">
-            <div className="whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+            <ReactMarkdown 
+              components={{
+                h1: ({children}) => <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 mt-6">{children}</h1>,
+                h2: ({children}) => <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3 mt-5">{children}</h2>,
+                h3: ({children}) => <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2 mt-4">{children}</h3>,
+                h4: ({children}) => <h4 className="text-base font-medium text-gray-900 dark:text-white mb-2 mt-3">{children}</h4>,
+                p: ({children}) => <p className="text-gray-700 dark:text-gray-300 mb-3 leading-relaxed">{children}</p>,
+                ul: ({children}) => <ul className="list-disc list-inside mb-3 space-y-1 text-gray-700 dark:text-gray-300">{children}</ul>,
+                ol: ({children}) => <ol className="list-decimal list-inside mb-3 space-y-1 text-gray-700 dark:text-gray-300">{children}</ol>,
+                li: ({children}) => <li className="text-gray-700 dark:text-gray-300">{children}</li>,
+                strong: ({children}) => <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>,
+                em: ({children}) => <em className="italic text-gray-700 dark:text-gray-300">{children}</em>,
+                code: ({children}) => <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-sm font-mono text-gray-800 dark:text-gray-200">{children}</code>,
+                blockquote: ({children}) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-600 dark:text-gray-400 my-3">{children}</blockquote>,
+                hr: () => <hr className="border-gray-200 dark:border-gray-700 my-4" />
+              }}
+            >
               {response}
-            </div>
+            </ReactMarkdown>
           </div>
           <button
             onClick={onAnalyze}
