@@ -92,9 +92,18 @@ try {
         console.log('✅ Database schema pushed successfully (second attempt)');
       } catch (secondError) {
         console.error('❌ Schema push failed completely:', secondError.message);
-        // Don't exit here - let the build continue in case the schema is already up to date
         console.warn('⚠️ Continuing with build despite schema push failure...');
       }
+    }
+    
+    // Additional setup for AI audit tables
+    console.log('🔧 Setting up AI audit tables...');
+    try {
+      execSync('node scripts/setup-neon-db.js', { stdio: 'inherit' });
+      console.log('✅ AI audit setup completed');
+    } catch (setupError) {
+      console.warn('⚠️ AI audit setup failed:', setupError.message);
+      // Continue with build
     }
   }
   
