@@ -4,8 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { TestTube, Loader2, Copy, Download, CheckCircle, XCircle, AlertTriangle, History, Trash2, Clock, FileText, Code, Eye, FileDown, Settings, TrendingUp, Users, Shield, Wifi, ChevronDown, ChevronRight, X } from 'lucide-react'
-import SmartFilter from '../../../components/SmartFilter'
-import StorySearchSelector from '../../../components/StorySearchSelector'
+import SharedStorySelector from '../../../components/SharedStorySelector'
 import PageLayout from '@/components/ui/page-layout'
 
 interface UserStory {
@@ -46,7 +45,6 @@ export default function GenerateTestCasesPage() {
     chunks: Array<{testType: string, content: string, success: boolean}>
   } | null>(null)
   const [result, setResult] = useState('')
-  const [filteredUserStories, setFilteredUserStories] = useState<UserStory[]>([])
   const [savedTestCases, setSavedTestCases] = useState<Array<{
     id: string
     title: string
@@ -60,6 +58,9 @@ export default function GenerateTestCasesPage() {
   const [qualityThreshold, setQualityThreshold] = useState(7)
   const [showQualityWarning, setShowQualityWarning] = useState(false)
   const [selectedStoryQualityScore, setSelectedStoryQualityScore] = useState<number | null>(null)
+
+  // Computed selected story
+  const selectedStory = userStories.find(story => story.id === selectedStoryId)
 
   
   // Cypress test generation states
@@ -164,15 +165,7 @@ export default function GenerateTestCasesPage() {
     })
   }
 
-  // Initialize filtered stories with all stories
-  useEffect(() => {
-    setFilteredUserStories(userStories)
-  }, [userStories])
-
-  // Handle filter changes from SmartFilter component
-  const handleFilterChange = useCallback((filtered: UserStory[]) => {
-    setFilteredUserStories(filtered)
-  }, [])
+  // Remove unused filter code since we're using SharedStorySelector now
 
 
 
@@ -181,8 +174,8 @@ export default function GenerateTestCasesPage() {
     setSelectedStoryId(storyId)
     if (storyId) {
       // Use the quality score that's already available in the user story object
-      const selectedStory = userStories.find(story => story.id === storyId)
-      const qualityScore = selectedStory?.latestQualityScore || null
+      const story = userStories.find(story => story.id === storyId)
+      const qualityScore = story?.latestQualityScore || null
       setSelectedStoryQualityScore(qualityScore)
     } else {
       setSelectedStoryQualityScore(null)
@@ -460,12 +453,6 @@ export default function GenerateTestCasesPage() {
     }
   }
 
-
-
-  const selectedStory = userStories.find(story => story.id === selectedStoryId)
-
-
-
   // Save test cases to localStorage
   const saveTestCasesToStorage = (content: string, userStoryTitle: string, testTypes: string[]) => {
     const newTestCase = {
@@ -510,7 +497,6 @@ export default function GenerateTestCasesPage() {
       return ''
     }
 
-    const selectedStory = userStories.find(s => s.id === selectedStoryId)
     const storyTitle = selectedStory?.title || 'Feature Test'
     const storyKey = selectedStory?.jiraKey || 'TEST'
     
@@ -735,7 +721,6 @@ ${tc.testData.length > 0 ? `      // Test Data: ${tc.testData.join(', ')}` : ''}
   const downloadCypressTests = () => {
     if (!cypressTests) return
     
-    const selectedStory = userStories.find(s => s.id === selectedStoryId)
     const fileName = `${selectedStory?.jiraKey || 'test'}-${selectedStory?.title?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'spec'}.spec.cy.js`
     
     const blob = new Blob([cypressTests], { type: 'text/javascript' })
@@ -912,24 +897,15 @@ ${tc.testData.length > 0 ? `      // Test Data: ${tc.testData.join(', ')}` : ''}
                       <span className="text-sm text-gray-500">Loading recent stories...</span>
                     </div>
                   ) : (
-                    <StorySearchSelector
+                    <SharedStorySelector
                       selectedStoryId={selectedStoryId}
                       onStorySelect={handleStorySelection}
-                      recentStories={userStories}
-                      qualityThreshold={qualityThreshold}
                       placeholder="Search all user stories by title, Jira key, or component..."
+                      showQualityScore={true}
+                      showTestCaseCount={true}
+                      context="test-generation"
                     />
                   )}
-                </div>
-
-                {/* Additional Filters */}
-                <div className="mb-4">
-                  <SmartFilter
-                    userStories={userStories}
-                    onFilterChange={handleFilterChange}
-                    qualityThreshold={qualityThreshold}
-                    showQualityFilter={true}
-                  />
                 </div>
               </div>
 
