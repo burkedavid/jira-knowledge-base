@@ -590,7 +590,7 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
                 <div className="text-center relative">
                   <div className="flex items-center justify-center gap-1">
                     <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                      £{Math.round(processingMetrics.costImpact / 1000)}k
+                      £{processingMetrics.costImpact.toLocaleString()}
                     </div>
                     <button
                       className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -619,7 +619,7 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
                         <div className="border-t border-gray-600 pt-2">
                           <div className="flex justify-between font-medium">
                             <span>Total defects × 8h × £75:</span>
-                            <span>£{Math.round(processingMetrics.costImpact / 1000)}k</span>
+                            <span>£{processingMetrics.costImpact.toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
