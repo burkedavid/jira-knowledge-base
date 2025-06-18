@@ -65,26 +65,21 @@ export async function GET(request: NextRequest) {
 
     // Helper function to get the most recent quality score (same logic as analysis API)
     const getLatestQualityScore = (story: any) => {
-      const qualityScore = story.qualityScores[0]
-      const requirementAnalysis = story.requirementAnalyses[0]
-
-      if (qualityScore && requirementAnalysis) {
-        // Compare dates to find the most recent
-        const qualityScoreDate = new Date(qualityScore.generatedAt)
-        const requirementAnalysisDate = new Date(requirementAnalysis.createdAt)
-        
-        if (qualityScoreDate > requirementAnalysisDate) {
-          return qualityScore.score
-        } else {
-          return requirementAnalysis.qualityScore
-        }
-      } else if (qualityScore) {
-        return qualityScore.score
-      } else if (requirementAnalysis) {
-        return requirementAnalysis.qualityScore
+      if (!story.qualityScores || story.qualityScores.length === 0) {
+        return null;
       }
       
-      return null
+      // Get the most recent quality score
+      const latestScore = story.qualityScores[0]?.score;
+      console.log('🐛 DEBUG - Latest Quality Score:', {
+        storyId: story.id,
+        storyTitle: story.title,
+        qualityScoresCount: story.qualityScores.length,
+        latestScore: latestScore,
+        allScores: story.qualityScores.map((qs: any) => ({ score: qs.score, date: qs.generatedAt }))
+      });
+      
+      return latestScore;
     }
 
     // Format response

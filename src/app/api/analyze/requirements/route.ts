@@ -87,6 +87,30 @@ async function semanticSearchWithDetails(
   return validResults
 }
 
+// Helper function to get smart display identifier (same as search results)
+function getDisplayIdentifier(entity: any, sourceType: string): string {
+  // Priority order: Jira Key > Entity Title > Smart ID
+  if (entity.jiraKey) {
+    return entity.jiraKey;
+  }
+  
+  if (entity.title) {
+    // Truncate long titles to 50 chars
+    const title = entity.title.length > 50 ? entity.title.substring(0, 50) + '...' : entity.title;
+    return title;
+  }
+  
+  // Fallback to smart ID (type + short ID)
+  const shortId = entity.id.substring(entity.id.length - 8);
+  const typeMap: { [key: string]: string } = {
+    'user_story': 'Story',
+    'defect': 'Defect',
+    'test_case': 'Test',
+    'document': 'Doc'
+  };
+  return `${typeMap[sourceType] || sourceType}-${shortId}`;
+}
+
 export async function POST(request: NextRequest) {
   let requestBody: any = {}
   
@@ -185,11 +209,11 @@ export async function POST(request: NextRequest) {
           ragContext += '\n=== HISTORICAL QUALITY ISSUES (Learn from past problems) ===\n'
           relatedDefects.forEach((defect, index) => {
             if (defect.entity) {
-              ragContext += `Defect ${index + 1}: ${defect.entity.title}\n`
+              ragContext += `Defect ${index + 1}: ${getDisplayIdentifier(defect.entity, 'defect')}\n`
               ragContext += `Description: ${(defect.entity as any).description || 'No description'}\n`
               ragContext += `Severity: ${(defect.entity as any).severity || 'Unknown'}\n`
               ragContext += `Component: ${(defect.entity as any).component || 'Unknown'}\n`
-              ragContext += `Source: Defect Database (ID: ${defect.entity.id})\n`
+              ragContext += `Source: Defect Database (${getDisplayIdentifier(defect.entity, 'defect')})\n`
               ragContext += '---\n'
             }
           })
@@ -199,11 +223,11 @@ export async function POST(request: NextRequest) {
           ragContext += '\n=== RELATED USER STORIES (Similar requirements) ===\n'
           similarStories.forEach((story, index) => {
             if (story.entity) {
-              ragContext += `Story ${index + 1}: ${story.entity.title}\n`
+              ragContext += `Story ${index + 1}: ${getDisplayIdentifier(story.entity, 'user_story')}\n`
               ragContext += `Description: ${((story.entity as any).description || 'No description').substring(0, 200)}...\n`
               ragContext += `Priority: ${(story.entity as any).priority || 'Unknown'}\n`
               ragContext += `Status: ${(story.entity as any).status || 'Unknown'}\n`
-              ragContext += `Source: Requirements Database (ID: ${story.entity.id})\n`
+              ragContext += `Source: Requirements Database (${getDisplayIdentifier(story.entity, 'user_story')})\n`
               ragContext += '---\n'
             }
           })
@@ -213,10 +237,10 @@ export async function POST(request: NextRequest) {
           ragContext += '\n=== RELATED TEST CASES (Testing insights) ===\n'
           relatedTestCases.forEach((testCase, index) => {
             if (testCase.entity) {
-              ragContext += `Test ${index + 1}: ${testCase.entity.title}\n`
+              ragContext += `Test ${index + 1}: ${getDisplayIdentifier(testCase.entity, 'test_case')}\n`
               ragContext += `Steps: ${((testCase.entity as any).steps || 'No steps').substring(0, 150)}...\n`
               ragContext += `Expected Results: ${((testCase.entity as any).expectedResults || 'No expected results').substring(0, 150)}...\n`
-              ragContext += `Source: Test Case Database (ID: ${testCase.entity.id})\n`
+              ragContext += `Source: Test Case Database (${getDisplayIdentifier(testCase.entity, 'test_case')})\n`
               ragContext += '---\n'
             }
           })
@@ -226,10 +250,10 @@ export async function POST(request: NextRequest) {
           ragContext += '\n=== TECHNICAL DOCUMENTATION (Domain knowledge and patterns) ===\n'
           relatedDocs.forEach((doc, index) => {
             if (doc.entity) {
-              ragContext += `Document ${index + 1}: ${doc.entity.title}\n`
+              ragContext += `Document ${index + 1}: ${getDisplayIdentifier(doc.entity, 'document')}\n`
               ragContext += `Content: ${((doc.entity as any).content || 'No content').substring(0, 300)}...\n`
               ragContext += `Type: ${(doc.entity as any).type || 'Unknown'}\n`
-              ragContext += `Source: Documentation Database (ID: ${doc.entity.id})\n`
+              ragContext += `Source: Documentation Database (${getDisplayIdentifier(doc.entity, 'document')})\n`
               ragContext += '---\n'
             }
           })
@@ -312,7 +336,7 @@ export async function POST(request: NextRequest) {
           if (relatedDefects.length > 0) {
             ragContext += '\n=== HISTORICAL QUALITY ISSUES ===\n'
             relatedDefects.forEach((defect: any, index) => {
-              ragContext += `Defect ${index + 1}: ${defect.title}\n`
+              ragContext += `Defect ${index + 1}: ${getDisplayIdentifier(defect, 'defect')}\n`
               ragContext += `Description: ${defect.description || 'No description'}\n`
               ragContext += `Severity: ${defect.severity || 'Unknown'}\n`
               ragContext += `Component: ${defect.component || 'Unknown'}\n`
@@ -323,7 +347,7 @@ export async function POST(request: NextRequest) {
           if (similarStories.length > 0) {
             ragContext += '\n=== RELATED USER STORIES ===\n'
             similarStories.forEach((story: any, index) => {
-              ragContext += `Story ${index + 1}: ${story.title}\n`
+              ragContext += `Story ${index + 1}: ${getDisplayIdentifier(story, 'user_story')}\n`
               ragContext += `Description: ${(story.description || 'No description').substring(0, 200)}...\n`
               ragContext += `Priority: ${story.priority || 'Unknown'}\n`
               ragContext += `Status: ${story.status || 'Unknown'}\n`
@@ -334,7 +358,7 @@ export async function POST(request: NextRequest) {
           if (relatedTestCases.length > 0) {
             ragContext += '\n=== RELATED TEST CASES ===\n'
             relatedTestCases.forEach((testCase: any, index) => {
-              ragContext += `Test ${index + 1}: ${testCase.title}\n`
+              ragContext += `Test ${index + 1}: ${getDisplayIdentifier(testCase, 'test_case')}\n`
               ragContext += `Steps: ${(testCase.steps || 'No steps').substring(0, 150)}...\n`
               ragContext += `Expected Results: ${(testCase.expectedResults || 'No expected results').substring(0, 150)}...\n`
               ragContext += '---\n'
@@ -344,7 +368,7 @@ export async function POST(request: NextRequest) {
           if (relatedDocs.length > 0) {
             ragContext += '\n=== TECHNICAL DOCUMENTATION ===\n'
             relatedDocs.forEach((doc: any, index) => {
-              ragContext += `Document ${index + 1}: ${doc.title}\n`
+              ragContext += `Document ${index + 1}: ${getDisplayIdentifier(doc, 'document')}\n`
               ragContext += `Content: ${(doc.content || 'No content').substring(0, 300)}...\n`
               ragContext += `Type: ${doc.type || 'Unknown'}\n`
               ragContext += '---\n'
@@ -386,6 +410,14 @@ export async function POST(request: NextRequest) {
       const scoreMatch = analysis.match(/(?:Quality Score|Score).*?(\d+(?:\.\d+)?)/i)
       if (scoreMatch) {
         structuredResult.qualityScore = parseFloat(scoreMatch[1])
+        console.log('🐛 DEBUG - Score Parsing:', {
+          rawAnalysis: analysis.substring(0, 500),
+          scoreMatch: scoreMatch,
+          parsedScore: structuredResult.qualityScore
+        });
+      } else {
+        console.warn('⚠️ No quality score found in analysis text');
+        structuredResult.qualityScore = 0;
       }
 
       // Extract strengths
@@ -514,8 +546,8 @@ export async function POST(request: NextRequest) {
     console.log('✅ Requirements analysis completed successfully')
 
     return NextResponse.json({
-      message: 'Requirements analysis completed with RAG context',
       ...structuredResult,
+      qualityScore: structuredResult.qualityScore,
       userStory: {
         id: userStory.id,
         title: userStory.title,
@@ -523,7 +555,13 @@ export async function POST(request: NextRequest) {
         acceptanceCriteria: userStory.acceptanceCriteria,
       },
       ragContextUsed: ragContext.length > 0,
-      ragContextLines: ragContext ? ragContext.split('\n').length : 0,
+      ragContextLines: ragContext.split('\n').length,
+      ragSuggestions: structuredResult.ragSuggestions,
+      analysis: analysis,
+      _debug: {
+        parsedQualityScore: structuredResult.qualityScore,
+        timestamp: new Date().toISOString()
+      }
     })
   } catch (error) {
     console.error('💥 Error analyzing requirements:', error)

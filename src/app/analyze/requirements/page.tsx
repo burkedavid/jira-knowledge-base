@@ -33,13 +33,15 @@ interface UserStory {
 // Simple Analysis Result Component - Clean and Readable
 const AnalysisResult = ({ result, userStory, selectedSuggestions, onSuggestionToggle }: { result: any, userStory?: UserStory, selectedSuggestions: string[], onSuggestionToggle: (suggestion: string) => void }) => {
   const analysisText = result.analysis || '';
-  // Always use the database score, don't parse from text to avoid inconsistencies
-  const displayScore = result.qualityScore || 0;
-
-
-
-
-
+  // CRITICAL FIX: Use the correct qualityScore field from the API response
+  const displayScore = result.qualityScore || result.overallScore || 0;
+  
+  console.log('🐛 DEBUG - Analysis Result:', {
+    resultQualityScore: result.qualityScore,
+    resultOverallScore: result.overallScore,
+    displayScore: displayScore,
+    fullResult: result
+  });
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-green-600 bg-green-50 border-green-200';
@@ -428,6 +430,11 @@ export default function AnalyzeRequirementsPage() {
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [analysisSteps, setAnalysisSteps] = useState<{
+    currentStep: string
+    steps: string[]
+    isVisible: boolean
+  }>({ currentStep: '', steps: [], isVisible: false });
 
   // Derived state for selected story
   const selectedStory = userStories.find(s => s.id === selectedStoryId)
@@ -645,13 +652,49 @@ export default function AnalyzeRequirementsPage() {
 
     setIsAnalyzing(true)
     setResult(null)
+    
+    // Show analysis steps to the user
+    const steps = [
+      "📋 Gathering user story details...",
+      "🔍 Searching knowledge base for similar requirements...",
+      "🐛 Looking for related defects and quality issues...",
+      "📚 Finding relevant documentation and patterns...",
+      "🤖 Asking AI to analyze against INVEST criteria...",
+      "⚡ Processing AI response and quality scores..."
+    ]
+    
+    setAnalysisSteps({
+      currentStep: steps[0],
+      steps: steps,
+      isVisible: true
+    })
 
     try {
+      // Step 1: Gathering story details
+      await new Promise(resolve => setTimeout(resolve, 800))
+      setAnalysisSteps(prev => ({ ...prev, currentStep: steps[1] }))
+      
+      // Step 2: Knowledge base search
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      setAnalysisSteps(prev => ({ ...prev, currentStep: steps[2] }))
+      
+      // Step 3: Defect search
+      await new Promise(resolve => setTimeout(resolve, 800))
+      setAnalysisSteps(prev => ({ ...prev, currentStep: steps[3] }))
+      
+      // Step 4: Documentation search
+      await new Promise(resolve => setTimeout(resolve, 800))
+      setAnalysisSteps(prev => ({ ...prev, currentStep: steps[4] }))
+      
+      // Step 5: AI Analysis
       const response = await fetch('/api/analyze/requirements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userStoryId: selectedStoryId })
       })
+
+      setAnalysisSteps(prev => ({ ...prev, currentStep: steps[5] }))
+      await new Promise(resolve => setTimeout(resolve, 500))
 
       if (response.ok) {
         const data = await response.json()
@@ -673,6 +716,7 @@ export default function AnalyzeRequirementsPage() {
       setResult({ error: 'Network error occurred' })
     } finally {
       setIsAnalyzing(false)
+      setAnalysisSteps({ currentStep: '', steps: [], isVisible: false })
     }
   }
 
@@ -978,23 +1022,76 @@ export default function AnalyzeRequirementsPage() {
                 </div>
               )}
 
-              <button
-                onClick={handleAnalyze}
-                disabled={isAnalyzing || !selectedStoryId || userStories.length === 0}
-                className="w-full flex items-center justify-center px-6 py-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-3 animate-spin" />
-                    Analyzing Requirements...
-                  </>
-                ) : (
-                  <>
-                    <BarChart3 className="h-5 w-5 mr-3" />
-                    {existingAnalysis ? 'Re-analyze Quality' : 'Analyze Quality'}
-                  </>
-                )}
-              </button>
+              {/* Analyze Button */}
+              {selectedStoryId && (
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={isAnalyzing}
+                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Analyzing Requirements...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>📊</span>
+                        <span>{existingAnalysis ? 'Re-analyze Quality' : 'Analyze Quality'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Analysis Steps Display */}
+              {analysisSteps.isVisible && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+                    <h3 className="text-lg font-medium text-blue-900 dark:text-blue-100">
+                      AI Analysis in Progress
+                    </h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="text-blue-800 dark:text-blue-200 font-medium">
+                      {analysisSteps.currentStep}
+                    </div>
+                    
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
+                      <p className="mb-3">Here's what we're asking the AI to analyze:</p>
+                      <ul className="space-y-2">
+                        <li className="flex items-start">
+                          <span className="text-blue-600 mr-2">•</span>
+                          <span>Evaluate user story quality against INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable)</span>
+                        </li>
+                        <li className="flex items-start">
+                          <span className="text-blue-600 mr-2">•</span>
+                          <span>Provide a Quality Score (1-10) with detailed justification</span>
+                        </li>
+                        <li className="flex items-start">
+                          <span className="text-blue-600 mr-2">•</span>
+                          <span>Identify specific strengths and weaknesses in the requirement</span>
+                        </li>
+                        <li className="flex items-start">
+                          <span className="text-blue-600 mr-2">•</span>
+                          <span>Generate actionable improvement suggestions</span>
+                        </li>
+                        <li className="flex items-start">
+                          <span className="text-blue-600 mr-2">•</span>
+                          <span>Leverage knowledge base context for enhanced recommendations</span>
+                        </li>
+                      </ul>
+                    </div>
+                    
+                    <div className="mt-4 text-xs text-blue-600 dark:text-blue-400">
+                      The AI is analyzing your story: "{selectedStory?.title}"
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Results */}
