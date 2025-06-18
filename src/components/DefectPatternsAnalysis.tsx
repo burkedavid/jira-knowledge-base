@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Brain, AlertTriangle, TrendingUp, Target, Shield, TestTube, Lightbulb, RefreshCw, Download, Copy, ChevronDown, ChevronRight, Save, History, Clock, Trash2 } from 'lucide-react'
+import { Brain, AlertTriangle, TrendingUp, Target, Shield, TestTube, Lightbulb, RefreshCw, Download, Copy, ChevronDown, ChevronRight, Save, History, Clock, Trash2, Info } from 'lucide-react'
 
 interface DefectPattern {
   id: string
@@ -46,6 +46,7 @@ export default function DefectPatternsAnalysis({ timeframe = 'last_90_days', com
   const [analysis, setAnalysis] = useState<DefectPatternAnalysis | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [preprocessingComplete, setPreprocessingComplete] = useState(false)
   const [expandedPatterns, setExpandedPatterns] = useState<Set<string>>(new Set())
   const [selectedSeverity, setSelectedSeverity] = useState<string>('all')
   const [savedAnalyses, setSavedAnalyses] = useState<Array<{
@@ -59,13 +60,27 @@ export default function DefectPatternsAnalysis({ timeframe = 'last_90_days', com
     patternsCount: number
   }>>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [showCostTooltip, setShowCostTooltip] = useState(false)
+  const [processingMetrics, setProcessingMetrics] = useState<{
+    totalDefects: number
+    qualityScore: number
+    costImpact: number
+    topComponents: string[]
+    samplingStrategy: string
+    samplingDetails?: any
+  } | null>(null)
 
   const analyzePatterns = async () => {
     setIsAnalyzing(true)
     setError(null)
+    setProcessingMetrics(null)
+    setPreprocessingComplete(false)
     
     try {
       console.log('🔍 Starting defect pattern analysis...')
+      console.log('🔍 Current timeframe:', timeframe)
+      console.log('🔍 Current component:', component)
+      console.log('🔍 Current severity:', selectedSeverity)
       
       const timeRangeMap: Record<string, number> = {
         'last_30_days': 30,
@@ -75,7 +90,50 @@ export default function DefectPatternsAnalysis({ timeframe = 'last_90_days', com
         'last_year': 365,
         'all': 36500 // ~100 years - triggers "all time" analysis with smart sampling
       }
+      
+      const timeRangeValue = timeRangeMap[timeframe] || 90
+      console.log('🔍 Mapped time range value:', timeRangeValue)
+      console.log('🔍 Should trigger All Time analysis:', timeRangeValue >= 36500)
 
+      // PHASE 1: Quick preprocessing to get metrics immediately (prevents timeout)
+      console.log('⚡ Phase 1: Getting quick preprocessing metrics...')
+      
+      const preprocessingResponse = await fetch('/api/analyze/defect-patterns-ai/preprocessing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          component: component || 'all',
+          timeRange: timeRangeValue,
+          severity: selectedSeverity === 'all' ? null : selectedSeverity
+        })
+      })
+
+      if (preprocessingResponse.ok) {
+        const preprocessingData = await preprocessingResponse.json()
+        console.log('✅ Preprocessing completed:', preprocessingData)
+        
+        if (preprocessingData.success && preprocessingData.metrics) {
+          const metrics = preprocessingData.metrics
+          setProcessingMetrics({
+            totalDefects: metrics.totalDefects,
+            qualityScore: metrics.qualityScore,
+            costImpact: metrics.costImpactEstimate,
+            topComponents: metrics.topProblemAreas.slice(0, 3),
+            samplingStrategy: preprocessingData.samplingInfo.strategy,
+            samplingDetails: preprocessingData.samplingInfo.samplingDetails
+          })
+          setPreprocessingComplete(true)
+          console.log('📊 Preprocessing metrics displayed to user')
+        }
+      } else {
+        console.warn('⚠️ Preprocessing failed, continuing with full analysis')
+      }
+
+      // PHASE 2: Full AI analysis (now with preprocessing metrics already displayed)
+      console.log('🤖 Phase 2: Starting full AI analysis...')
+      
       const response = await fetch('/api/analyze/defect-patterns-ai', {
         method: 'POST',
         headers: {
@@ -83,7 +141,7 @@ export default function DefectPatternsAnalysis({ timeframe = 'last_90_days', com
         },
         body: JSON.stringify({
           component: component || 'all',
-          timeRange: timeRangeMap[timeframe] || 90,
+          timeRange: timeRangeValue,
           severity: selectedSeverity === 'all' ? null : selectedSeverity,
           includeResolved: true
         })
@@ -95,9 +153,15 @@ export default function DefectPatternsAnalysis({ timeframe = 'last_90_days', com
 
       const data = await response.json()
       
+      console.log('🔍 Full AI Analysis Response structure:')
+      console.log('  - Has metadata:', !!data.metadata)
+      console.log('  - Has managerMetrics:', !!(data.metadata && data.metadata.managerMetrics))
+      console.log('  - Has totalDefectsInPeriod:', !!(data.metadata && data.metadata.totalDefectsInPeriod))
+      console.log('  - Sampling strategy:', data.metadata?.samplingStrategy)
+      
       if (data.success && data.analysis) {
         setAnalysis(data.analysis)
-        console.log('✅ Pattern analysis completed:', data.analysis)
+        console.log('✅ Full pattern analysis completed:', data.analysis)
         
         // Auto-save the analysis to localStorage
         saveAnalysisToStorage(data.analysis)
@@ -109,6 +173,7 @@ export default function DefectPatternsAnalysis({ timeframe = 'last_90_days', com
       setError(error instanceof Error ? error.message : 'Analysis failed')
     } finally {
       setIsAnalyzing(false)
+      // Keep processingMetrics visible even after completion
     }
   }
 
@@ -478,12 +543,146 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
             AI Analyzing Defect Patterns...
           </h3>
           <p className="text-gray-600 dark:text-gray-300 mb-4">
-            Claude 4 is analyzing your defects using RAG to identify patterns and insights
+            {!preprocessingComplete ? (
+              <>
+                ⚡ Phase 1: Quick preprocessing to calculate metrics
+                {timeframe === 'all' && (
+                  <span className="block mt-2 text-sm text-blue-600 dark:text-blue-400 font-medium">
+                    🎯 All Time Analysis Mode - Enhanced preprocessing active
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                🤖 Phase 2: Claude 4 analyzing patterns using RAG
+                <span className="block mt-2 text-sm text-green-600 dark:text-green-400 font-medium">
+                  ✅ Preprocessing complete - Metrics calculated in ~5 seconds
+                </span>
+              </>
+            )}
           </p>
-          <div className="flex items-center justify-center space-x-2">
+          <div className="flex items-center justify-center space-x-2 mb-6">
             <RefreshCw className="h-4 w-4 animate-spin text-indigo-600" />
-            <span className="text-sm text-indigo-600">Processing defect data...</span>
+            <span className="text-sm text-indigo-600">
+              {!preprocessingComplete ? 'Calculating database metrics...' : 'AI analyzing patterns...'}
+            </span>
           </div>
+          
+          {/* Processing Metrics */}
+          {processingMetrics && (
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 mt-6">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+                📊 Dataset Overview
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {processingMetrics.totalDefects.toLocaleString()}
+                  </div>
+                  <div className="text-gray-600 dark:text-gray-400">Total Defects</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {processingMetrics.qualityScore}/10
+                  </div>
+                  <div className="text-gray-600 dark:text-gray-400">Quality Score</div>
+                </div>
+                <div className="text-center relative">
+                  <div className="flex items-center justify-center gap-1">
+                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      £{Math.round(processingMetrics.costImpact / 1000)}k
+                    </div>
+                    <button
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      onMouseEnter={() => setShowCostTooltip(true)}
+                      onMouseLeave={() => setShowCostTooltip(false)}
+                      onClick={() => setShowCostTooltip(!showCostTooltip)}
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="text-gray-600 dark:text-gray-400">Cost Impact</div>
+                  
+                  {/* Cost Explanation Tooltip */}
+                  {showCostTooltip && (
+                    <div className="absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 p-4 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg">
+                      <div className="font-medium mb-2">💰 Cost Calculation Method</div>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between">
+                          <span>Developer hours per defect:</span>
+                          <span className="font-medium">8 hours</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Average hourly rate:</span>
+                          <span className="font-medium">£75/hour</span>
+                        </div>
+                        <div className="border-t border-gray-600 pt-2">
+                          <div className="flex justify-between font-medium">
+                            <span>Total defects × 8h × £75:</span>
+                            <span>£{Math.round(processingMetrics.costImpact / 1000)}k</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-2 border-t border-gray-600 text-xs text-gray-300">
+                        <div className="font-medium mb-1">Includes:</div>
+                        <ul className="list-disc list-inside space-y-1">
+                          <li>Investigation & reproduction time</li>
+                          <li>Development & testing of fixes</li>
+                          <li>Code review & deployment</li>
+                          <li>Regression testing overhead</li>
+                        </ul>
+                      </div>
+                      {/* Tooltip arrow */}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                    </div>
+                  )}
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    {processingMetrics.topComponents.length}
+                  </div>
+                  <div className="text-gray-600 dark:text-gray-400">Top Components</div>
+                </div>
+              </div>
+              
+              {processingMetrics.topComponents.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                    Top Problem Areas:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {processingMetrics.topComponents.map((component, index) => (
+                      <span 
+                        key={index}
+                        className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded text-xs"
+                      >
+                        {component}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  Sampling Strategy: <span className="font-medium">{processingMetrics.samplingStrategy.replace(/_/g, ' ')}</span>
+                </div>
+                {processingMetrics.samplingDetails && (
+                  <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    {processingMetrics.samplingDetails.criticalDefects > 0 && (
+                      <span className="mr-3">Critical: {processingMetrics.samplingDetails.criticalDefects}</span>
+                    )}
+                    {processingMetrics.samplingDetails.highDefects > 0 && (
+                      <span className="mr-3">High: {processingMetrics.samplingDetails.highDefects}</span>
+                    )}
+                    {processingMetrics.samplingDetails.componentsCovered > 0 && (
+                      <span>Components: {processingMetrics.samplingDetails.componentsCovered}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -914,6 +1113,68 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
           </div>
         </div>
       )}
+
+      {/* Cost Methodology Section */}
+      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center mb-4">
+          <Info className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Cost Impact Methodology</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="font-medium text-gray-900 dark:text-white mb-3">💰 Calculation Formula</h4>
+            <div className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-300">Developer hours per defect:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">8 hours</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-300">Average hourly rate (UK):</span>
+                  <span className="font-medium text-gray-900 dark:text-white">£75/hour</span>
+                </div>
+                <div className="border-t border-gray-200 dark:border-gray-600 pt-2">
+                  <div className="flex justify-between font-medium">
+                    <span className="text-gray-900 dark:text-white">Total Cost Impact:</span>
+                    <span className="text-orange-600 dark:text-orange-400">Defects × 8h × £75</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-900 dark:text-white mb-3">📋 What's Included</h4>
+            <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+              <li className="flex items-start">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                Investigation & reproduction time
+              </li>
+              <li className="flex items-start">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                Development & unit testing of fixes
+              </li>
+              <li className="flex items-start">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                Code review & deployment overhead
+              </li>
+              <li className="flex items-start">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                Regression testing & validation
+              </li>
+              <li className="flex items-start">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                Documentation updates
+              </li>
+            </ul>
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-xs text-blue-800 dark:text-blue-200">
+                <strong>Note:</strong> This is a conservative estimate based on industry averages. 
+                Actual costs may vary based on defect complexity, system architecture, and team experience.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
       </div>
     </div>
   )

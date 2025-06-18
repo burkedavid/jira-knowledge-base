@@ -50,6 +50,196 @@ interface SmartSamplingResult {
   }
 }
 
+interface ManagerMetrics {
+  totalDefects: number
+  severityBreakdown: Record<string, number>
+  componentBreakdown: Record<string, number>
+  monthlyTrends: Array<{
+    month: string
+    count: number
+    avgResolutionDays: number
+  }>
+  qualityScore: number
+  defectEscapeRate: number
+  avgResolutionTime: number
+  topProblemAreas: string[]
+  costImpactEstimate: number
+}
+
+// New function for database preprocessing and manager metrics calculation
+async function getManagerMetricsWithSampling(
+  whereClause: any,
+  timeRange: number
+): Promise<{ metrics: ManagerMetrics, sampleDefects: any[], samplingInfo: any }> {
+  console.log('📊 Calculating manager metrics with database preprocessing...')
+  
+  const startTime = Date.now()
+  
+  // 1. Get total counts and basic metrics (fast queries)
+  const [
+    totalDefects,
+    severityStats,
+    componentStats,
+    statusStats
+  ] = await Promise.all([
+    prisma.defect.count({ where: whereClause }),
+    prisma.defect.groupBy({
+      by: ['severity'],
+      where: whereClause,
+      _count: { id: true }
+    }),
+    prisma.defect.groupBy({
+      by: ['component'],
+      where: whereClause,
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } }
+    }),
+    prisma.defect.groupBy({
+      by: ['status'],
+      where: whereClause,
+      _count: { id: true }
+    })
+  ])
+
+  console.log(`📈 Basic metrics calculated in ${Date.now() - startTime}ms`)
+  console.log(`   - Total defects: ${totalDefects}`)
+  console.log(`   - Components: ${componentStats.length}`)
+  console.log(`   - Severity distribution: ${severityStats.map(s => `${s.severity}: ${s._count.id}`).join(', ')}`)
+
+  // 2. Calculate monthly trends using Prisma-compatible approach
+  let monthlyTrends: Array<{
+    month: string
+    count: number
+    avgResolutionDays: number
+  }> = []
+  
+  try {
+    // Get defects from last 24 months for trend analysis
+    const trendStartDate = new Date()
+    trendStartDate.setMonth(trendStartDate.getMonth() - 24)
+    
+    const trendsWhereClause = {
+      ...whereClause,
+      createdAt: {
+        gte: trendStartDate
+      }
+    }
+    
+    // Get defects grouped by month using JavaScript processing
+    const recentDefects = await prisma.defect.findMany({
+      where: trendsWhereClause,
+      select: {
+        createdAt: true,
+        resolvedAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+    
+    // Group by month and calculate averages
+    const monthlyData: Record<string, { count: number, totalResolutionDays: number, resolvedCount: number }> = {}
+    
+    recentDefects.forEach(defect => {
+      const monthKey = defect.createdAt.toISOString().substring(0, 7) // YYYY-MM format
+      
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { count: 0, totalResolutionDays: 0, resolvedCount: 0 }
+      }
+      
+      monthlyData[monthKey].count++
+      
+      if (defect.resolvedAt) {
+        const resolutionDays = Math.floor(
+          (defect.resolvedAt.getTime() - defect.createdAt.getTime()) / (1000 * 60 * 60 * 24)
+        )
+        monthlyData[monthKey].totalResolutionDays += resolutionDays
+        monthlyData[monthKey].resolvedCount++
+      }
+    })
+    
+    // Convert to array and sort
+    monthlyTrends = Object.entries(monthlyData)
+      .map(([month, data]) => ({
+        month,
+        count: data.count,
+        avgResolutionDays: data.resolvedCount > 0 ? Math.round(data.totalResolutionDays / data.resolvedCount) : 0
+      }))
+      .sort((a, b) => b.month.localeCompare(a.month))
+      .slice(0, 24)
+    
+    console.log(`   - Monthly trends calculated: ${monthlyTrends.length} months`)
+    
+  } catch (error) {
+    console.error('Error calculating monthly trends:', error)
+    // Fallback to empty array if calculation fails
+    monthlyTrends = []
+  }
+
+  // 3. Calculate quality metrics
+  const resolvedDefects = statusStats.find(s => s.status === 'Resolved')?._count.id || 0
+  const defectEscapeRate = totalDefects > 0 ? ((totalDefects - resolvedDefects) / totalDefects) * 100 : 0
+  
+  const avgResolutionTime = monthlyTrends.reduce((sum, trend) => 
+    sum + trend.avgResolutionDays, 0
+  ) / Math.max(1, monthlyTrends.filter(t => t.avgResolutionDays > 0).length)
+
+  // 4. Calculate quality score (0-10 scale)
+  const criticalCount = severityStats.find(s => s.severity === 'Critical')?._count.id || 0
+  const highCount = severityStats.find(s => s.severity === 'High')?._count.id || 0
+  const qualityScore = Math.max(0, 10 - (
+    (criticalCount * 3 + highCount * 2) / Math.max(1, totalDefects) * 10
+  ))
+
+  // 5. Identify top problem areas
+  const topProblemAreas = componentStats
+    .slice(0, 5)
+    .map(c => c.component || 'Unknown')
+    .filter(c => c !== 'Unknown')
+
+  // 6. Estimate cost impact (rough calculation)
+  const avgDeveloperHoursPerDefect = 8 // Estimate
+  const avgHourlyRate = 75 // £75/hour average
+  const costImpactEstimate = totalDefects * avgDeveloperHoursPerDefect * avgHourlyRate
+
+  const metrics: ManagerMetrics = {
+    totalDefects,
+    severityBreakdown: severityStats.reduce((acc, s) => {
+      acc[s.severity || 'Unknown'] = s._count.id
+      return acc
+    }, {} as Record<string, number>),
+    componentBreakdown: componentStats.reduce((acc, c) => {
+      acc[c.component || 'Unknown'] = c._count.id
+      return acc
+    }, {} as Record<string, number>),
+    monthlyTrends: monthlyTrends.map(t => ({
+      month: t.month,
+      count: t.count,
+      avgResolutionDays: t.avgResolutionDays
+    })),
+    qualityScore: Math.round(qualityScore * 10) / 10,
+    defectEscapeRate: Math.round(defectEscapeRate * 10) / 10,
+    avgResolutionTime: Math.round(avgResolutionTime * 10) / 10,
+    topProblemAreas,
+    costImpactEstimate
+  }
+
+  // 7. Get smart sample for detailed analysis (max 1000 records)
+  console.log('🎯 Getting smart sample for detailed analysis...')
+  const samplingResult = await getSmartDefectSample(whereClause, timeRange)
+  
+  console.log(`⚡ Manager metrics preprocessing completed in ${Date.now() - startTime}ms`)
+  
+  return {
+    metrics,
+    sampleDefects: samplingResult.defects,
+    samplingInfo: {
+      strategy: samplingResult.samplingStrategy,
+      totalDefectsInPeriod: samplingResult.totalDefectsInPeriod,
+      representativenesScore: samplingResult.representativenesScore,
+      samplingDetails: samplingResult.samplingDetails
+    }
+  }
+}
+
 async function getSmartDefectSample(
   whereClause: any, 
   timeRange: number, 
@@ -61,10 +251,25 @@ async function getSmartDefectSample(
   const totalDefects = await prisma.defect.count({ where: whereClause })
   console.log(`📊 Total defects in period: ${totalDefects}`)
 
-  if (totalDefects <= 100) {
-    // If we have 100 or fewer defects, take them all
+  // For "All Time" analysis with large datasets, use more aggressive sampling
+  const maxSampleSize = timeRange >= 36500 ? 500 : 100 // Reduced for all-time analysis
+  
+  if (totalDefects <= maxSampleSize) {
+    // If we have fewer defects than max sample size, take them all
     const defects = await prisma.defect.findMany({
       where: whereClause,
+      select: {
+        id: true,
+        title: true,
+        severity: true,
+        component: true,
+        status: true,
+        createdAt: true,
+        description: true, // Keep for AI analysis
+        rootCause: true,   // Keep for pattern analysis
+        resolution: true,  // Keep for insights
+        stepsToReproduce: true // Keep for analysis
+      },
       orderBy: { createdAt: 'desc' }
     })
     
@@ -87,14 +292,44 @@ async function getSmartDefectSample(
   // For larger datasets, use intelligent stratified sampling
   console.log('🧠 Using intelligent stratified sampling for large dataset...')
   
-  // Strategy: Ensure representation across key dimensions
-  const samplingQuotas = {
-    critical: Math.max(10, Math.min(25, Math.floor(totalDefects * 0.1))), // At least 10, max 25% of sample
-    high: Math.max(15, Math.min(30, Math.floor(totalDefects * 0.15))),    // At least 15, max 30% of sample
-    medium: Math.max(10, Math.min(25, Math.floor(totalDefects * 0.1))),   // At least 10, max 25% of sample
-    low: Math.max(5, Math.min(15, Math.floor(totalDefects * 0.05))),      // At least 5, max 15% of sample
-    recent: 20,  // Always include 20 most recent defects
-    oldest: 10   // Include 10 oldest defects for historical context
+  // For "All Time" analysis, use minimal fields for better performance
+  const selectFields = timeRange >= 36500 ? {
+    // Minimal fields for All Time analysis (as promised in UI)
+    id: true,
+    title: true,
+    severity: true,
+    component: true,
+    status: true,
+    createdAt: true
+  } : {
+    // Full fields for regular timeframes
+    id: true,
+    title: true,
+    severity: true,
+    component: true,
+    status: true,
+    createdAt: true,
+    description: true,
+    rootCause: true,
+    resolution: true,
+    stepsToReproduce: true
+  }
+  
+  // Adjusted quotas for all-time analysis
+  const baseQuotas = timeRange >= 36500 ? {
+    critical: Math.max(20, Math.min(50, Math.floor(totalDefects * 0.1))),
+    high: Math.max(30, Math.min(75, Math.floor(totalDefects * 0.15))),
+    medium: Math.max(20, Math.min(50, Math.floor(totalDefects * 0.1))),
+    low: Math.max(10, Math.min(25, Math.floor(totalDefects * 0.05))),
+    recent: 50,  // More recent defects for all-time analysis
+    oldest: 25   // More historical context
+  } : {
+    critical: Math.max(10, Math.min(25, Math.floor(totalDefects * 0.1))),
+    high: Math.max(15, Math.min(30, Math.floor(totalDefects * 0.15))),
+    medium: Math.max(10, Math.min(25, Math.floor(totalDefects * 0.1))),
+    low: Math.max(5, Math.min(15, Math.floor(totalDefects * 0.05))),
+    recent: 20,
+    oldest: 10
   }
 
   let selectedDefects: any[] = []
@@ -102,8 +337,9 @@ async function getSmartDefectSample(
   // 1. Get most recent defects (always important for current state)
   const recentDefects = await prisma.defect.findMany({
     where: whereClause,
+    select: selectFields,
     orderBy: { createdAt: 'desc' },
-    take: samplingQuotas.recent
+    take: baseQuotas.recent
   })
   selectedDefects.push(...recentDefects)
   console.log(`✅ Added ${recentDefects.length} recent defects`)
@@ -111,8 +347,9 @@ async function getSmartDefectSample(
   // 2. Get oldest defects (historical context)
   const oldestDefects = await prisma.defect.findMany({
     where: whereClause,
+    select: selectFields,
     orderBy: { createdAt: 'asc' },
-    take: samplingQuotas.oldest
+    take: baseQuotas.oldest
   })
   // Filter out duplicates
   const newOldestDefects = oldestDefects.filter((old: any) => 
@@ -124,7 +361,7 @@ async function getSmartDefectSample(
   // 3. Stratified sampling by severity
   const severities = ['Critical', 'High', 'Medium', 'Low']
   for (const severity of severities) {
-    const quota = samplingQuotas[severity.toLowerCase() as keyof typeof samplingQuotas] as number
+    const quota = baseQuotas[severity.toLowerCase() as keyof typeof baseQuotas] as number
     const existingCount = selectedDefects.filter(d => d.severity === severity).length
     const needed = Math.max(0, quota - existingCount)
     
@@ -135,6 +372,7 @@ async function getSmartDefectSample(
           severity,
           id: { notIn: selectedDefects.map(d => d.id) }
         },
+        select: selectFields,
         orderBy: { createdAt: 'desc' },
         take: needed
       })
@@ -156,10 +394,10 @@ async function getSmartDefectSample(
   })
 
   // Add samples from top components not well represented
-  const remainingQuota = Math.max(0, 100 - selectedDefects.length)
+  const remainingQuota = Math.max(0, maxSampleSize - selectedDefects.length)
   const componentsToSample = Math.min(componentStats.length, Math.floor(remainingQuota / 2))
   
-  for (let i = 0; i < componentsToSample && selectedDefects.length < 100; i++) {
+  for (let i = 0; i < componentsToSample && selectedDefects.length < maxSampleSize; i++) {
     const component = componentStats[i].component
     const componentDefects = await prisma.defect.findMany({
       where: {
@@ -167,21 +405,23 @@ async function getSmartDefectSample(
         component,
         id: { notIn: selectedDefects.map(d => d.id) }
       },
+      select: selectFields,
       orderBy: { createdAt: 'desc' },
-      take: Math.min(3, 100 - selectedDefects.length) // Max 3 per component
+      take: Math.min(3, maxSampleSize - selectedDefects.length) // Max 3 per component
     })
     selectedDefects.push(...componentDefects)
     console.log(`✅ Added ${componentDefects.length} defects from ${component} component`)
   }
 
   // 5. Fill remaining quota with random sampling for diversity
-  if (selectedDefects.length < 100) {
-    const remaining = 100 - selectedDefects.length
+  if (selectedDefects.length < maxSampleSize) {
+    const remaining = maxSampleSize - selectedDefects.length
     const randomDefects = await prisma.defect.findMany({
       where: {
         ...whereClause,
         id: { notIn: selectedDefects.map(d => d.id) }
       },
+      select: selectFields,
       orderBy: { createdAt: 'desc' },
       take: remaining
     })
@@ -203,7 +443,7 @@ async function getSmartDefectSample(
 
   const representativenesScore = Math.min(1.0, 
     (componentsCovered / Math.max(1, totalComponents)) * 0.4 + // 40% component coverage
-    (selectedDefects.length / Math.min(100, totalDefects)) * 0.3 + // 30% sample size
+    (selectedDefects.length / Math.min(maxSampleSize, totalDefects)) * 0.3 + // 30% sample size
     (Object.keys(severityDistribution).length / 4) * 0.3 // 30% severity diversity
   )
 
@@ -213,7 +453,7 @@ async function getSmartDefectSample(
                    (1000 * 60 * 60 * 24))} days` : '0 days'
 
   return {
-    defects: selectedDefects.slice(0, 100), // Ensure we don't exceed 100
+    defects: selectedDefects.slice(0, maxSampleSize), // Ensure we don't exceed max sample size
     samplingStrategy: 'intelligent_stratified',
     totalDefectsInPeriod: totalDefects,
     representativenesScore,
@@ -257,16 +497,42 @@ export async function POST(request: NextRequest) {
       whereClause.status = { not: 'Resolved' }
     }
 
-    // Use smart sampling to get representative defect set
-    const samplingResult = await getSmartDefectSample(whereClause, timeRange, component)
-    const defects = samplingResult.defects
+    // Use manager metrics preprocessing for comprehensive analysis
+    let defects: any[]
+    let samplingInfo: any
+    let managerMetrics: ManagerMetrics | null = null
 
-    console.log(`📈 Smart sampling completed:`)
-    console.log(`   - Strategy: ${samplingResult.samplingStrategy}`)
-    console.log(`   - Sample size: ${defects.length} / ${samplingResult.totalDefectsInPeriod} total`)
-    console.log(`   - Representativeness: ${(samplingResult.representativenesScore * 100).toFixed(1)}%`)
-    console.log(`   - Components covered: ${samplingResult.samplingDetails.componentsCovered}`)
-    console.log(`   - Time span: ${samplingResult.samplingDetails.timeSpanCovered}`)
+    if (timeRange >= 36500) {
+      // For "All Time" analysis, use manager metrics preprocessing to avoid timeout
+      console.log('🏢 Using manager metrics preprocessing for All Time analysis...')
+      const managerResult = await getManagerMetricsWithSampling(whereClause, timeRange)
+      defects = managerResult.sampleDefects
+      samplingInfo = managerResult.samplingInfo
+      managerMetrics = managerResult.metrics
+      
+      console.log(`📈 Manager metrics preprocessing completed:`)
+      console.log(`   - Total defects in database: ${managerMetrics.totalDefects}`)
+      console.log(`   - Sample size for AI analysis: ${defects.length}`)
+      console.log(`   - Quality score: ${managerMetrics.qualityScore}/10`)
+      console.log(`   - Cost impact estimate: £${managerMetrics.costImpactEstimate.toLocaleString()}`)
+    } else {
+      // For regular time ranges, use existing smart sampling
+      const samplingResult = await getSmartDefectSample(whereClause, timeRange, component)
+      defects = samplingResult.defects
+      samplingInfo = {
+        strategy: samplingResult.samplingStrategy,
+        totalDefectsInPeriod: samplingResult.totalDefectsInPeriod,
+        representativenesScore: samplingResult.representativenesScore,
+        samplingDetails: samplingResult.samplingDetails
+      }
+      
+      console.log(`📈 Smart sampling completed:`)
+      console.log(`   - Strategy: ${samplingInfo.strategy}`)
+      console.log(`   - Sample size: ${defects.length} / ${samplingInfo.totalDefectsInPeriod} total`)
+      console.log(`   - Representativeness: ${(samplingInfo.representativenesScore * 100).toFixed(1)}%`)
+      console.log(`   - Components covered: ${samplingInfo.samplingDetails.componentsCovered}`)
+      console.log(`   - Time span: ${samplingInfo.samplingDetails.timeSpanCovered}`)
+    }
 
     if (defects.length === 0) {
       return NextResponse.json({
@@ -318,7 +584,18 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Prepare comprehensive context for Claude
     const defectSummaries = defects.map((defect: any, index: number) => {
-      return `DEFECT ${index + 1}:
+      if (timeRange >= 36500) {
+        // Minimal format for All Time analysis (matches UI promise)
+        return `DEFECT ${index + 1}:
+Title: ${defect.title}
+Component: ${defect.component || 'Unknown'}
+Severity: ${defect.severity || 'Unknown'}
+Status: ${defect.status || 'Unknown'}
+Created: ${defect.createdAt.toISOString().split('T')[0]}
+---`
+      } else {
+        // Full format for regular timeframes
+        return `DEFECT ${index + 1}:
 Title: ${defect.title}
 Component: ${defect.component || 'Unknown'}
 Severity: ${defect.severity || 'Unknown'}
@@ -329,6 +606,7 @@ Steps to Reproduce: ${defect.stepsToReproduce || 'Not provided'}
 Resolution: ${defect.resolution || 'Not resolved'}
 Created: ${defect.createdAt.toISOString().split('T')[0]}
 ---`
+      }
     }).join('\n\n')
 
     // Prepare RAG context
@@ -339,20 +617,20 @@ ${item.content.substring(0, 300)}...
     }).join('\n\n')
 
     // Enhanced sampling context for AI
-    const samplingContext = samplingResult.samplingStrategy === 'intelligent_stratified' ? 
+    const samplingContext = samplingInfo.strategy === 'intelligent_stratified' ? 
       `\n\nSAMPLING CONTEXT:
-This analysis is based on an intelligent sample of ${defects.length} defects from a total of ${samplingResult.totalDefectsInPeriod} defects in the specified timeframe.
-Sampling Strategy: ${samplingResult.samplingStrategy}
-Representativeness Score: ${(samplingResult.representativenesScore * 100).toFixed(1)}%
+This analysis is based on an intelligent sample of ${defects.length} defects from a total of ${samplingInfo.totalDefectsInPeriod} defects in the specified timeframe.
+Sampling Strategy: ${samplingInfo.strategy}
+Representativeness Score: ${(samplingInfo.representativenesScore * 100).toFixed(1)}%
 Sample Distribution:
-- Critical: ${samplingResult.samplingDetails.criticalDefects}
-- High: ${samplingResult.samplingDetails.highDefects}  
-- Medium: ${samplingResult.samplingDetails.mediumDefects}
-- Low: ${samplingResult.samplingDetails.lowDefects}
-- Components Covered: ${samplingResult.samplingDetails.componentsCovered}
-- Time Span: ${samplingResult.samplingDetails.timeSpanCovered}
+- Critical: ${samplingInfo.samplingDetails.criticalDefects}
+- High: ${samplingInfo.samplingDetails.highDefects}  
+- Medium: ${samplingInfo.samplingDetails.mediumDefects}
+- Low: ${samplingInfo.samplingDetails.lowDefects}
+- Components Covered: ${samplingInfo.samplingDetails.componentsCovered}
+- Time Span: ${samplingInfo.samplingDetails.timeSpanCovered}
 
-Please consider this sampling context in your analysis and extrapolate patterns to the full dataset of ${samplingResult.totalDefectsInPeriod} defects.` : ''
+Please consider this sampling context in your analysis and extrapolate patterns to the full dataset of ${samplingInfo.totalDefectsInPeriod} defects.` : ''
 
     // Add temporal context for accurate trend analysis
     const now = new Date()
@@ -373,6 +651,35 @@ CRITICAL: When comparing current month to previous month, remember we are only $
 Any month-over-month comparisons must be normalized by day count or clearly state they are partial month comparisons.
 For accurate trend analysis, compare equivalent day ranges (e.g., first 17 days of current month vs first 17 days of previous month).`
 
+    // Build manager metrics context for All Time analysis
+    const managerMetricsContext = managerMetrics ? `
+
+EXECUTIVE DASHBOARD METRICS (Pre-calculated from Database):
+=============================================================
+Total Defects in Database: ${managerMetrics.totalDefects.toLocaleString()}
+Quality Score: ${managerMetrics.qualityScore}/10 (${managerMetrics.qualityScore >= 8 ? 'Excellent' : managerMetrics.qualityScore >= 6 ? 'Good' : managerMetrics.qualityScore >= 4 ? 'Needs Improvement' : 'Critical'})
+Defect Escape Rate: ${managerMetrics.defectEscapeRate}% (unresolved defects)
+Average Resolution Time: ${managerMetrics.avgResolutionTime} days
+Estimated Cost Impact: £${managerMetrics.costImpactEstimate.toLocaleString()} (total development rework)
+
+Severity Breakdown:
+${Object.entries(managerMetrics.severityBreakdown)
+  .map(([severity, count]) => `- ${severity}: ${count} (${((count / managerMetrics.totalDefects) * 100).toFixed(1)}%)`)
+  .join('\n')}
+
+Top Problem Components:
+${managerMetrics.topProblemAreas.slice(0, 5).map((area, index) => 
+  `${index + 1}. ${area} (${managerMetrics.componentBreakdown[area] || 0} defects)`
+).join('\n')}
+
+Monthly Trend (Last 24 Months):
+${managerMetrics.monthlyTrends.slice(0, 6).map(trend => 
+  `${trend.month}: ${trend.count} defects, ${trend.avgResolutionDays} days avg resolution`
+).join('\n')}
+
+CRITICAL: Use these hard numbers in your executive summary. Focus on business impact and ROI.
+` : ''
+
     // Step 3: Create comprehensive AI prompt
     const aiPrompt = `You are an expert software quality analyst specializing in defect pattern recognition and quality improvement strategies. Analyze the following defects and provide comprehensive insights.
 
@@ -380,7 +687,7 @@ DEFECT DATA (${defects.length} defects from ${timeRange === 36500 ? 'ALL TIME' :
 ${defectSummaries}
 
 RELATED CONTEXT FROM KNOWLEDGE BASE:
-${ragContextText}${samplingContext}${temporalContext}
+${ragContextText}${managerMetricsContext}${samplingContext}${temporalContext}
 
 ANALYSIS REQUIREMENTS:
 Please provide a comprehensive JSON response with the following structure:
@@ -437,7 +744,7 @@ ANALYSIS FOCUS:
 6. Consider the related context from the knowledge base
 7. Provide confidence scores based on data quality and pattern clarity
 8. For trend analysis, use proper temporal normalization - compare equivalent time periods or use daily/weekly rates
-${samplingResult.samplingStrategy === 'intelligent_stratified' ? 
+${samplingInfo.strategy === 'intelligent_stratified' ? 
   '9. Scale your analysis to represent the full dataset based on the sampling context provided' : ''}
 
 Remember: This analysis will be reviewed by directors and executives. Focus on business impact, clear risk assessment, and actionable recommendations without technical jargon or formatting.`
@@ -566,15 +873,16 @@ Remember: This analysis will be reviewed by directors and executives. Focus on b
       analysis: analysisResult,
       metadata: {
         defectCount: defects.length,
-        totalDefectsInPeriod: samplingResult.totalDefectsInPeriod,
-        samplingStrategy: samplingResult.samplingStrategy,
-        representativenesScore: samplingResult.representativenesScore,
-        samplingDetails: samplingResult.samplingDetails,
+        totalDefectsInPeriod: samplingInfo.totalDefectsInPeriod,
+        samplingStrategy: samplingInfo.strategy,
+        representativenesScore: samplingInfo.representativenesScore,
+        samplingDetails: samplingInfo.samplingDetails,
         timeRange,
         component: component || 'all',
         severity: severity || 'all',
         ragContextItems: ragContext.length,
-        analysisTimestamp: new Date().toISOString()
+        analysisTimestamp: new Date().toISOString(),
+        managerMetrics: managerMetrics // Include manager metrics for All Time analysis
       }
     })
 
