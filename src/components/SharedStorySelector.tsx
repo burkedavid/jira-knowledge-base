@@ -13,11 +13,13 @@ interface UserStory {
   assignee?: string
   reporter?: string
   qualityScore?: number
+  latestQualityScore?: number // Support both field names for compatibility
   storyPoints?: number
   acceptanceCriteria?: string
   createdAt?: string
   updatedAt?: string
   testCases?: Array<{ id: string }>
+  testCaseCount?: number // Support both testCases array and count
 }
 
 interface FilterState {
@@ -319,6 +321,16 @@ const SharedStorySelector: React.FC<SharedStorySelectorProps> = ({
   }
 
   // Helper functions
+  const getQualityScore = (story: UserStory) => {
+    // Support both qualityScore and latestQualityScore field names
+    return story.qualityScore ?? story.latestQualityScore
+  }
+
+  const getTestCaseCount = (story: UserStory) => {
+    // Support both testCases array and testCaseCount field
+    return story.testCaseCount ?? story.testCases?.length ?? 0
+  }
+
   const getScoreColor = (score: number | undefined) => {
     if (!score) return 'text-gray-400'
     if (score >= 8) return 'text-green-600'
@@ -379,9 +391,9 @@ const SharedStorySelector: React.FC<SharedStorySelectorProps> = ({
                     {selectedStory.component}
                   </span>
                 )}
-                {showQualityScore && selectedStory.qualityScore !== null && selectedStory.qualityScore !== undefined && (
-                  <span className={`text-xs font-medium ${getScoreColor(selectedStory.qualityScore)}`}>
-                    Quality: {selectedStory.qualityScore}/10
+                {showQualityScore && getQualityScore(selectedStory) !== null && getQualityScore(selectedStory) !== undefined && (
+                  <span className={`text-xs font-medium ${getScoreColor(getQualityScore(selectedStory))}`}>
+                    Quality: {getQualityScore(selectedStory)}/10
                   </span>
                 )}
                 {showStoryPoints && selectedStory.storyPoints && (
@@ -389,9 +401,9 @@ const SharedStorySelector: React.FC<SharedStorySelectorProps> = ({
                     {selectedStory.storyPoints} pts
                   </span>
                 )}
-                {showTestCaseCount && selectedStory.testCases && (
+                {showTestCaseCount && getTestCaseCount(selectedStory) > 0 && (
                   <span className="text-xs bg-green-100 dark:bg-green-600 text-green-600 dark:text-green-300 px-2 py-1 rounded">
-                    {selectedStory.testCases.length} tests
+                    {getTestCaseCount(selectedStory)} tests
                   </span>
                 )}
               </div>
@@ -710,9 +722,9 @@ const SharedStorySelector: React.FC<SharedStorySelectorProps> = ({
                             {story.storyPoints} pts
                           </span>
                         )}
-                        {showTestCaseCount && story.testCases && (
+                        {showTestCaseCount && getTestCaseCount(story) > 0 && (
                           <span className="text-xs bg-green-100 dark:bg-green-600 text-green-600 dark:text-green-300 px-2 py-1 rounded">
-                            {story.testCases.length} tests
+                            {getTestCaseCount(story)} tests
                           </span>
                         )}
                         {story.updatedAt && (
@@ -722,18 +734,18 @@ const SharedStorySelector: React.FC<SharedStorySelectorProps> = ({
                         )}
                       </div>
                     </div>
-                    {showQualityScore && story.qualityScore !== null && story.qualityScore !== undefined && (
+                    {showQualityScore && getQualityScore(story) !== null && getQualityScore(story) !== undefined && (
                       <div className="flex flex-col items-end ml-3">
                         <div className={`flex items-center px-2 py-1 rounded-full ${
-                          story.qualityScore >= 8 ? 'bg-green-100 text-green-800' :
-                          story.qualityScore >= 6 ? 'bg-yellow-100 text-yellow-800' :
+                          getQualityScore(story)! >= 8 ? 'bg-green-100 text-green-800' :
+                          getQualityScore(story)! >= 6 ? 'bg-yellow-100 text-yellow-800' :
                           'bg-red-100 text-red-800'
                         }`}>
                           <Star className="h-3 w-3 mr-1" />
-                          <span className="text-xs font-bold">{story.qualityScore}/10</span>
+                          <span className="text-xs font-bold">{getQualityScore(story)}/10</span>
                         </div>
-                        <span className={`text-xs mt-1 ${getScoreColor(story.qualityScore)}`}>
-                          {getScoreLabel(story.qualityScore)}
+                        <span className={`text-xs mt-1 ${getScoreColor(getQualityScore(story))}`}>
+                          {getScoreLabel(getQualityScore(story))}
                         </span>
                       </div>
                     )}
