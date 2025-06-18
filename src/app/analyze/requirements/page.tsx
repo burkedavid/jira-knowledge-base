@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog'
 import ReactMarkdown from 'react-markdown'
 import SmartFilter from '../../../components/SmartFilter'
+import StorySearchSelector from '../../../components/StorySearchSelector'
 
 interface UserStory {
   id: string
@@ -516,7 +517,7 @@ export default function AnalyzeRequirementsPage() {
   useEffect(() => {
     const fetchUserStories = async () => {
       try {
-        const response = await fetch('/api/user-stories?limit=1000')
+        const response = await fetch('/api/user-stories?limit=100')
         if (response.ok) {
           const data = await response.json()
           setUserStories(data.userStories || [])
@@ -885,7 +886,41 @@ export default function AnalyzeRequirementsPage() {
                     Select User Story
                   </label>
                   
-                  {/* Smart Filter Component */}
+                  {/* Enhanced Story Search Selector */}
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-8 border border-gray-300 dark:border-gray-600 rounded-md">
+                      <Loader2 className="h-6 w-6 animate-spin mr-3" />
+                      <span className="text-gray-500 text-lg">Loading recent stories...</span>
+                    </div>
+                  ) : userStories.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 mb-3 text-lg">No user stories available</p>
+                      <Link 
+                        href="/import" 
+                        className="text-blue-600 hover:text-blue-700 underline text-lg"
+                      >
+                        Import data first
+                      </Link>
+                    </div>
+                  ) : (
+                    <StorySearchSelector
+                      selectedStoryId={selectedStoryId || ''}
+                      onStorySelect={(storyId) => {
+                        handleStorySelection(storyId)
+                        // Clear previous results when selecting a new story
+                        if (result) {
+                          setResult(null)
+                        }
+                      }}
+                      recentStories={userStories}
+                      qualityThreshold={qualityThreshold}
+                      placeholder="Search all user stories by title, Jira key, or component..."
+                    />
+                  )}
+                </div>
+
+                {/* Additional Filters */}
+                <div className="mb-6">
                   <SmartFilter
                     userStories={userStories}
                     onFilterChange={handleFilterChange}
@@ -893,52 +928,6 @@ export default function AnalyzeRequirementsPage() {
                     showQualityFilter={true}
                   />
                 </div>
-
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mr-3" />
-                    <span className="text-gray-500 text-lg">Loading user stories...</span>
-                  </div>
-                ) : userStories.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500 mb-3 text-lg">No user stories available</p>
-                    <Link 
-                      href="/import" 
-                      className="text-blue-600 hover:text-blue-700 underline text-lg"
-                    >
-                      Import data first
-                    </Link>
-                  </div>
-                ) : (
-                  <div>
-                    <select
-                      value={selectedStoryId || ''}
-                      onChange={(e) => {
-                        handleStorySelection(e.target.value)
-                        // Clear previous results when selecting a new story
-                        if (result) {
-                          setResult(null)
-                        }
-                      }}
-                      className="w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-white py-4 text-base"
-                    >
-                      <option value="">Choose a user story to analyze...</option>
-                      {filteredUserStories.map((story) => (
-                        <option key={story.id} value={story.id}>
-                          {story.jiraKey ? `${story.jiraKey} - ` : ''}{story.title}
-                          {story.component ? ` (${story.component})` : ''}
-                          {story.latestQualityScore ? ` [Score: ${story.latestQualityScore}/10]` : ' [Not analyzed]'}
-                        </option>
-                      ))}
-                    </select>
-                    
-                    {filteredUserStories.length === 0 && userStories.length > 0 && (
-                      <p className="mt-3 text-sm text-gray-500">
-                        No stories match your filters.
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* Show selected story details */}

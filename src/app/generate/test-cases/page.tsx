@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { TestTube, Loader2, Copy, Download, CheckCircle, XCircle, AlertTriangle, History, Trash2, Clock, FileText, Code, Eye, FileDown, Settings, TrendingUp, Users, Shield, Wifi, ChevronDown, ChevronRight, X } from 'lucide-react'
 import SmartFilter from '../../../components/SmartFilter'
+import StorySearchSelector from '../../../components/StorySearchSelector'
 import PageLayout from '@/components/ui/page-layout'
 
 interface UserStory {
@@ -904,7 +905,25 @@ ${tc.testData.length > 0 ? `      // Test Data: ${tc.testData.join(', ')}` : ''}
                     Select User Story
                   </label>
                   
-                  {/* Smart Filter Component */}
+                  {/* Enhanced Story Search Selector */}
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-8 border border-gray-300 dark:border-gray-600 rounded-md">
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                      <span className="text-sm text-gray-500">Loading recent stories...</span>
+                    </div>
+                  ) : (
+                    <StorySearchSelector
+                      selectedStoryId={selectedStoryId}
+                      onStorySelect={handleStorySelection}
+                      recentStories={userStories}
+                      qualityThreshold={qualityThreshold}
+                      placeholder="Search all user stories by title, Jira key, or component..."
+                    />
+                  )}
+                </div>
+
+                {/* Additional Filters */}
+                <div className="mb-4">
                   <SmartFilter
                     userStories={userStories}
                     onFilterChange={handleFilterChange}
@@ -912,34 +931,6 @@ ${tc.testData.length > 0 ? `      // Test Data: ${tc.testData.join(', ')}` : ''}
                     showQualityFilter={true}
                   />
                 </div>
-
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    <span className="text-sm text-gray-500">Loading user stories...</span>
-                  </div>
-                ) : (
-                  <select 
-                    value={selectedStoryId}
-                    onChange={(e) => handleStorySelection(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="">
-                      {filteredUserStories.length === 0 
-                        ? 'No user stories found' 
-                        : `Select from ${filteredUserStories.length} user stories`}
-                    </option>
-                    {filteredUserStories.map((story) => (
-                      <option key={story.id} value={story.id}>
-                        {story.jiraKey ? `${story.jiraKey}: ` : ''}{story.title}
-                        {story.component ? ` (${story.component})` : ''}
-                        {story.latestQualityScore !== null && story.latestQualityScore !== undefined 
-                          ? ` [Score: ${story.latestQualityScore}/10]` 
-                          : ' [Not analyzed]'}
-                      </option>
-                    ))}
-                  </select>
-                )}
               </div>
 
               {/* Selected Story Preview */}
