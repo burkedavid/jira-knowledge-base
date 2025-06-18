@@ -407,7 +407,8 @@ export async function POST(request: NextRequest) {
 
     try {
       // Try to extract structured information from the analysis
-      const scoreMatch = analysis.match(/(?:Quality Score|Score).*?(\d+(?:\.\d+)?)/i)
+      // Look for the actual score in format "**Score: X/10**" or "Score: X/10"
+      const scoreMatch = analysis.match(/\*?\*?Score:\s*(\d+(?:\.\d+)?)(?:\/10)?\*?\*?/i)
       if (scoreMatch) {
         structuredResult.qualityScore = parseFloat(scoreMatch[1])
         console.log('🐛 DEBUG - Score Parsing:', {
@@ -417,6 +418,7 @@ export async function POST(request: NextRequest) {
         });
       } else {
         console.warn('⚠️ No quality score found in analysis text');
+        console.warn('🔍 Analysis preview:', analysis.substring(0, 200));
         structuredResult.qualityScore = 0;
       }
 
