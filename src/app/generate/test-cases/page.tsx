@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { TestTube, Loader2, Copy, Download, CheckCircle, XCircle, AlertTriangle, History, Trash2, Clock, FileText, Code, Eye, FileDown, Settings, TrendingUp, Users, Shield, Wifi, ChevronDown, ChevronRight, X } from 'lucide-react'
 import SharedStorySelector from '../../../components/SharedStorySelector'
+import SelectedStoryDisplay from '../../../components/SelectedStoryDisplay'
 import PageLayout from '@/components/ui/page-layout'
 
 interface UserStory {
@@ -911,40 +912,11 @@ ${tc.testData.length > 0 ? `      // Test Data: ${tc.testData.join(', ')}` : ''}
 
               {/* Selected Story Preview */}
               {selectedStory && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                    Selected Story: {selectedStory.jiraKey || selectedStory.title}
-                  </h4>
-                  <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
-                    {selectedStory.description}
-                  </p>
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    {selectedStory.priority && (
-                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded">
-                        Priority: {selectedStory.priority}
-                      </span>
-                    )}
-                    {selectedStory.component && (
-                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded">
-                        Component: {selectedStory.component}
-                      </span>
-                    )}
-                    {selectedStory.testCaseCount > 0 && (
-                      <span className="px-2 py-1 bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded">
-                        {selectedStory.testCaseCount} existing test cases
-                      </span>
-                    )}
-                    {selectedStoryQualityScore !== null && (
-                      <span className={`px-2 py-1 rounded ${
-                        selectedStoryQualityScore >= qualityThreshold 
-                          ? 'bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200'
-                          : 'bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200'
-                      }`}>
-                        Quality Score: {selectedStoryQualityScore}/10
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <SelectedStoryDisplay 
+                  story={selectedStory}
+                  showDebugInfo={true}
+                  className="border-l-4 border-blue-400"
+                />
               )}
 
               {/* Test Types */}

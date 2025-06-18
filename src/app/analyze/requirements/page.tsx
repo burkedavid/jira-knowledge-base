@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog'
 import ReactMarkdown from 'react-markdown'
 import SharedStorySelector from '../../../components/SharedStorySelector'
+import SelectedStoryDisplay from '../../../components/SelectedStoryDisplay'
 
 interface UserStory {
   id: string
@@ -794,67 +795,7 @@ export default function AnalyzeRequirementsPage() {
     }
   }
 
-  const convertedDescription = useMemo(() => {
-    // Handle edge cases that might cause display issues
-    if (!selectedStory?.description) return '';
-    
-    // Check for null, undefined, or non-string values
-    if (typeof selectedStory.description !== 'string') {
-      console.warn('Non-string description found:', selectedStory.description);
-      return String(selectedStory.description || '');
-    }
-    
-    // Handle empty strings
-    if (selectedStory.description.trim() === '') {
-      return '';
-    }
-    
-    try {
-      // Convert Confluence h-tags to Markdown hashes and remove anchors
-      let converted = selectedStory.description
-        .replace(/^h([1-6])\.\s/gm, (_: string, level: string) => '#'.repeat(parseInt(level)) + ' ')
-        .replace(/{anchor:[^}]+}/g, '');
-      
-      // Convert numbered list items that use # to proper markdown numbered lists
-      // This prevents # from being interpreted as headers
-      const lines = converted.split('\n');
-      let listCounter = 1;
-      let inList = false;
-      
-      const processedLines = lines.map(line => {
-        const trimmedLine = line.trim();
-        
-        // Check if this line starts with # followed by space (numbered list item)
-        if (trimmedLine.match(/^#\s+/)) {
-          if (!inList) {
-            listCounter = 1;
-            inList = true;
-          }
-          // Replace # with numbered list format
-          const content = trimmedLine.replace(/^#\s+/, '');
-          return `${listCounter++}. ${content}`;
-        }
-        // Check for sub-items (#*)
-        else if (trimmedLine.match(/^#\*\s+/)) {
-          const content = trimmedLine.replace(/^#\*\s+/, '');
-          return `   - ${content}`;
-        }
-        // If we encounter a non-list line, reset the list state
-        else if (trimmedLine.length > 0 && !trimmedLine.match(/^(#|\s)/)) {
-          inList = false;
-          listCounter = 1;
-        }
-        
-        return line;
-      });
-      
-      return processedLines.join('\n');
-    } catch (error) {
-      console.error('Error processing description for story:', selectedStory.jiraKey, error);
-      // Fallback to raw description if processing fails
-      return selectedStory.description;
-    }
-  }, [selectedStory?.description]);
+
 
   const convertedRefinedStoryText = useMemo(() => {
     if (!refinedStory?.text) return '';
@@ -1016,67 +957,10 @@ export default function AnalyzeRequirementsPage() {
 
               {/* Show selected story details */}
               {selectedStoryId && selectedStory && (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-                  <h3 className="font-medium text-gray-900 dark:text-white mb-3 text-lg">
-                    {selectedStory.jiraKey && (
-                      <span className="text-blue-600 mr-2">{selectedStory.jiraKey}</span>
-                    )}
-                    {selectedStory.title}
-                  </h3>
-                  
-                  {/* Description with better error handling */}
-                  {selectedStory.description ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none text-base text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
-                      <ReactMarkdown>{convertedDescription}</ReactMarkdown>
-                    </div>
-                  ) : (
-                    <div className="text-gray-500 dark:text-gray-400 mb-4 italic">
-                      No description available for this story.
-                    </div>
-                  )}
-                  
-                  {/* Acceptance Criteria */}
-                  {selectedStory.acceptanceCriteria && (
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Acceptance Criteria:</h4>
-                      <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-600 dark:text-gray-400">
-                        <ReactMarkdown>{selectedStory.acceptanceCriteria}</ReactMarkdown>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-6 text-sm text-gray-500 flex-wrap">
-                    {selectedStory.component && (
-                      <span>Component: {selectedStory.component}</span>
-                    )}
-                    {selectedStory.priority && (
-                      <span>Priority: {selectedStory.priority}</span>
-                    )}
-                    {selectedStory.status && (
-                      <span>Status: {selectedStory.status}</span>
-                    )}
-                    {selectedStory.assignee && (
-                      <span>Assignee: {selectedStory.assignee}</span>
-                    )}
-                    {selectedStory.updatedAt && (
-                      <span>Updated: {new Date(selectedStory.updatedAt).toLocaleDateString()}</span>
-                    )}
-                  </div>
-                  
-                  {/* Debug info for problematic stories */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <details className="mt-4">
-                      <summary className="text-xs text-gray-400 cursor-pointer">Debug Info</summary>
-                      <div className="mt-2 text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 p-2 rounded">
-                        <div>Story ID: {selectedStory.id}</div>
-                        <div>Description type: {typeof selectedStory.description}</div>
-                        <div>Description length: {selectedStory.description?.length || 0}</div>
-                        <div>Has description: {!!selectedStory.description}</div>
-                        <div>Description preview: {selectedStory.description?.substring(0, 50)}...</div>
-                      </div>
-                    </details>
-                  )}
-                </div>
+                <SelectedStoryDisplay 
+                  story={selectedStory}
+                  showDebugInfo={true}
+                />
               )}
 
               {/* Existing Analysis */}
