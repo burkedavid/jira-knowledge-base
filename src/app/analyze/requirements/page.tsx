@@ -516,7 +516,8 @@ export default function AnalyzeRequirementsPage() {
   useEffect(() => {
     const fetchUserStories = async () => {
       try {
-        const response = await fetch('/api/user-stories?limit=100')
+        // Fetch more stories initially to reduce the need for additional API calls
+        const response = await fetch('/api/user-stories?limit=1000&orderBy=updatedAt&order=desc')
         if (response.ok) {
           const data = await response.json()
           setUserStories(data.userStories || [])
@@ -612,7 +613,27 @@ export default function AnalyzeRequirementsPage() {
   const handleStorySelection = async (storyId: string) => {
     setSelectedStoryId(storyId)
     if (storyId) {
-      const story = userStories.find(s => s.id === storyId)
+      let story = userStories.find(s => s.id === storyId)
+      
+      // If story not found in local array, fetch it from API
+      if (!story) {
+        try {
+          const response = await fetch(`/api/user-stories?limit=5000&orderBy=updatedAt&order=desc`)
+          if (response.ok) {
+            const data = await response.json()
+            const allStories = data.userStories || []
+            story = allStories.find((s: UserStory) => s.id === storyId)
+            
+            // Update local array with all stories to avoid future API calls
+            if (allStories.length > 0) {
+              setUserStories(allStories)
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching stories:', error)
+        }
+      }
+      
       if (story && story.latestQualityScore !== null && story.latestQualityScore !== undefined) {
         setSelectedStoryQualityScore(story.latestQualityScore)
         // Show warning if quality score is below threshold
