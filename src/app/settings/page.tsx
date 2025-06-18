@@ -837,6 +837,350 @@ function EmbeddingsManagementSection() {
   )
 }
 
+function SemanticSearchTestingSection() {
+  const [searchText, setSearchText] = useState('')
+  const [similarityThreshold, setSimilarityThreshold] = useState(0.7)
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchStats, setSearchStats] = useState<any>(null)
+
+  const handleSemanticSearch = async () => {
+    if (!searchText.trim()) {
+      alert('Please enter search text')
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const response = await fetch('/api/search/semantic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: searchText.trim(),
+          threshold: similarityThreshold,
+          limit: 20,
+          includeDetails: true,
+          sourceTypes: ['user_story', 'defect', 'test_case', 'document']
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setSearchResults(data.results || [])
+        setSearchStats({
+          totalResults: data.results?.length || 0,
+          searchTime: data.searchTime || 0,
+          threshold: similarityThreshold,
+          query: searchText.trim()
+        })
+      } else {
+        const error = await response.json()
+        alert(`Search failed: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error performing semantic search:', error)
+      alert('Search failed')
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'user_story': return 'bg-blue-100 text-blue-800'
+      case 'defect': return 'bg-red-100 text-red-800'
+      case 'test_case': return 'bg-green-100 text-green-800'
+      case 'document': return 'bg-purple-100 text-purple-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'user_story': return 'User Story'
+      case 'defect': return 'Defect'
+      case 'test_case': return 'Test Case'
+      case 'document': return 'Document'
+      default: return type
+    }
+  }
+
+  const getDisplayIdentifier = (result: any) => {
+    // Priority 1: Jira Key
+    if (result.entityData?.jiraKey) {
+      return result.entityData.jiraKey
+    }
+    
+    // Priority 2: Title (truncated if too long)
+    if (result.entityData?.title) {
+      const title = result.entityData.title
+      return title.length > 50 ? `${title.substring(0, 50)}...` : title
+    }
+    
+    // Priority 3: Content-based identifier
+    if (result.title) {
+      return result.title.length > 50 ? `${result.title.substring(0, 50)}...` : result.title
+    }
+    
+    // Priority 4: Generate meaningful ID based on type
+    const typePrefix = {
+      'user_story': 'Story',
+      'defect': 'Defect', 
+      'test_case': 'Test',
+      'document': 'Doc'
+    }
+    
+    const prefix = typePrefix[result.sourceType as keyof typeof typePrefix] || result.sourceType
+    const shortId = result.sourceId.substring(result.sourceId.length - 8) // Last 8 chars
+    
+    return `${prefix}-${shortId}`
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center">
+          <Target className="h-6 w-6 text-blue-600 mr-3" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            Interactive Semantic Search Testing
+          </h3>
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          Test semantic search functionality with custom text and adjustable similarity thresholds to fine-tune accuracy and relevance.
+        </p>
+      </div>
+      
+      <div className="p-6 space-y-6">
+        {/* How Semantic Search Works */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
+          <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-4 flex items-center">
+            <Brain className="h-5 w-5 mr-2" />
+            How Semantic Search Works in Our System
+          </h4>
+          
+          <div className="text-sm text-blue-800 dark:text-blue-200 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <div>
+                  <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">🧠 1. Embedding Vectors</h5>
+                  <p>
+                    Every piece of content (user stories, defects, test cases, documents) is converted into a 
+                    <strong> 1024-dimensional vector</strong> using AWS Titan Text Embeddings V2. These vectors 
+                    capture the semantic meaning of the text, not just keywords.
+                  </p>
+                </div>
+                
+                <div>
+                  <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">🔍 2. Similarity Calculation</h5>
+                  <p>
+                    When you search, your query is also converted to a vector. We then calculate 
+                    <strong> cosine similarity</strong> between your query vector and all stored content vectors. 
+                    This finds content with similar meaning, even if different words are used.
+                  </p>
+                </div>
+                
+                <div>
+                  <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">🎯 3. Threshold Filtering</h5>
+                  <p>
+                    The similarity threshold determines how "similar" content must be to appear in results. 
+                    Higher thresholds (0.8+) return fewer, more precise matches. Lower thresholds (0.5-) 
+                    return more results but may include less relevant content.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">🤖 4. RAG Integration</h5>
+                  <p>
+                    <strong>Retrieval-Augmented Generation (RAG)</strong> uses semantic search to find relevant 
+                    context for AI analysis. When analyzing requirements, the system searches for related 
+                    defects, similar user stories, and relevant documentation to provide better insights.
+                  </p>
+                </div>
+                
+                <div>
+                  <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">⚡ 5. Real-World Example</h5>
+                  <div className="bg-white dark:bg-gray-800 rounded p-3 text-xs">
+                    <p><strong>Query:</strong> "user login problems"</p>
+                    <p><strong>Finds:</strong> "authentication failures", "sign-in issues", "access denied errors"</p>
+                    <p><strong>Why:</strong> These have similar semantic meaning despite different words</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">📊 6. Quality Metrics</h5>
+                  <p>
+                    Similarity scores range from 0.0 (completely different) to 1.0 (identical meaning). 
+                    Scores above 0.8 indicate very similar content, while 0.6-0.8 shows moderate similarity.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-blue-300 dark:border-blue-700">
+              <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">🔬 Test Different Scenarios:</h5>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <strong>High Similarity (0.8+):</strong><br/>
+                  "payment failed" → "transaction error"
+                </div>
+                <div>
+                  <strong>Medium Similarity (0.6-0.8):</strong><br/>
+                  "user interface slow" → "performance issues"
+                </div>
+                <div>
+                  <strong>Low Similarity (0.3-0.6):</strong><br/>
+                  "login problems" → "database errors"
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Input */}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Search Text
+            </label>
+            <textarea
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Enter text to search for semantically similar content..."
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              rows={3}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Similarity Threshold: {similarityThreshold.toFixed(2)}
+            </label>
+            <div className="flex items-center space-x-4">
+              <span className="text-xs text-gray-500">0.0 (Less strict)</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={similarityThreshold}
+                onChange={(e) => setSimilarityThreshold(parseFloat(e.target.value))}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+              />
+              <span className="text-xs text-gray-500">1.0 (More strict)</span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Lower values return more results but may be less relevant. Higher values return fewer but more precise matches.
+            </p>
+          </div>
+
+          <button
+            onClick={handleSemanticSearch}
+            disabled={isSearching || !searchText.trim()}
+            className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSearching ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Searching...
+              </>
+            ) : (
+              <>
+                <Search className="h-4 w-4 mr-2" />
+                Test Semantic Search
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Search Results */}
+        {searchStats && (
+          <div className="border-t pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-medium text-gray-900 dark:text-white">
+                Search Results
+              </h4>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {searchStats.totalResults} results • {searchStats.searchTime}ms • threshold: {searchStats.threshold}
+              </div>
+            </div>
+
+            {searchResults.length > 0 ? (
+              <div className="space-y-3">
+                {searchResults.map((result, index) => (
+                  <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(result.sourceType)} mr-3`}>
+                          {getTypeLabel(result.sourceType)}
+                        </span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {getDisplayIdentifier(result)}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">
+                          {Math.round(result.similarity * 100)}% match
+                        </span>
+                        <div className="w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full" 
+                            style={{ width: `${result.similarity * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
+                      {result.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  No Results Found
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Try lowering the similarity threshold or using different search terms.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Threshold Guidance */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+          <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+            Threshold Tuning Guide
+          </h4>
+          <div className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <strong>0.0 - 0.3 (Very Loose):</strong>
+                <p>Returns many results, including loosely related content. Good for broad exploration.</p>
+              </div>
+              <div>
+                <strong>0.4 - 0.6 (Moderate):</strong>
+                <p>Balanced approach. Returns moderately related content with some noise.</p>
+              </div>
+              <div>
+                <strong>0.7 - 1.0 (Strict):</strong>
+                <p>Returns only highly similar content. May miss relevant but differently worded items.</p>
+              </div>
+            </div>
+            <p className="mt-3">
+              <strong>Recommendation:</strong> Start with 0.7 for production use. Lower to 0.5-0.6 if too few results, raise to 0.8+ if too much noise.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -867,6 +1211,7 @@ export default function SettingsPage() {
     { id: 'ai', name: 'AI Configuration', icon: Brain, description: 'AI model settings and cost tracking' },
     { id: 'rag', name: 'RAG System', icon: Search, description: 'Vector search and retrieval settings' },
     { id: 'embeddings', name: 'Embeddings', icon: Zap, description: 'Vector embeddings management' },
+    { id: 'search-test', name: 'Search Testing', icon: Target, description: 'Interactive semantic search testing' },
     { id: 'database', name: 'Database Tools', icon: Database, description: 'Database management and tools' },
     { id: 'api-docs', name: 'API Documentation', icon: ExternalLink, description: 'Browse available API endpoints' }
   ]
@@ -1346,6 +1691,11 @@ export default function SettingsPage() {
             {/* Embeddings Tab */}
             {activeTab === 'embeddings' && (
               <EmbeddingsManagementSection />
+            )}
+
+            {/* Search Testing Tab */}
+            {activeTab === 'search-test' && (
+              <SemanticSearchTestingSection />
             )}
 
             {activeTab === 'database' && (

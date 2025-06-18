@@ -92,6 +92,19 @@ export async function POST(request: NextRequest) {
               break
           }
 
+          // Debug logging for missing Jira keys
+          if (entityData) {
+            if (result.sourceType === 'user_story' && 'jiraKey' in entityData) {
+              if (!entityData.jiraKey) {
+                console.log(`⚠️  user_story ${result.sourceId} missing jiraKey. Title: ${entityData.title || 'No title'}`)
+              }
+            } else if (result.sourceType === 'defect' && 'jiraKey' in entityData) {
+              if (!entityData.jiraKey) {
+                console.log(`⚠️  defect ${result.sourceId} missing jiraKey. Title: ${entityData.title || 'No title'}`)
+              }
+            }
+          }
+
           return {
             ...result,
             entityData

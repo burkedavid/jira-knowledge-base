@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { Play, Pause, RefreshCw, Filter, X, Calendar, CheckCircle, AlertTriangle, Clock, BarChart3, FileText, Users, Target, TrendingUp, Shield, Lightbulb, Bug, Zap, Award, AlertCircle, Download, StopCircle, Trash2, Database, ExternalLink, ChevronDown } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import { Play, RefreshCw, Filter, X, Calendar, CheckCircle, AlertTriangle, Clock, BarChart3, FileText, Users, Target, TrendingUp, Shield, Lightbulb, Bug, Zap, Award, AlertCircle, Download, StopCircle, Trash2, Database, ExternalLink, ChevronDown, ChevronRight, Eye } from 'lucide-react'
 import PageLayout from '@/components/ui/page-layout'
 
 interface UserStory {
@@ -17,228 +18,116 @@ interface UserStory {
   createdAt?: string
 }
 
-interface AnalysisBatch {
+interface BatchJob {
   id: string
   name: string
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  status: 'pending' | 'running' | 'completed' | 'failed'
   totalStories: number
   analyzedStories: number
-  averageScore?: number
-  riskDistribution?: {
-    low: number
-    medium: number
-    high: number
-    critical: number
-  }
   createdAt: string
   completedAt?: string
-  filters?: any
 }
 
-interface RequirementAnalysis {
+interface BatchResult {
   id: string
+  batchId: string
   userStoryId: string
-  qualityScore: number
-  riskLevel: 'Low' | 'Medium' | 'High' | 'Critical'
-  strengths: string[]
-  improvements: string[]
-  riskFactors: string[]
-  fullAnalysis: string
+  userStory: UserStory
+  overallScore: number
+  completenessScore: number
+  clarityScore: number
+  testabilityScore: number
+  analysisResult: any
   createdAt: string
-  userStory?: UserStory
+}
+
+interface Filters {
+  priority: string[]
+  status: string[]
+  component: string[]
+  dateRange: {
+    start: string
+    end: string
+  }
 }
 
 export default function BatchAnalysisPage() {
-  const [userStories, setUserStories] = useState<UserStory[]>([])
-  const [batches, setBatches] = useState<AnalysisBatch[]>([])
-  const [batchAnalyses, setBatchAnalyses] = useState<RequirementAnalysis[]>([])
-  const [selectedBatch, setSelectedBatch] = useState<AnalysisBatch | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isStartingBatch, setIsStartingBatch] = useState(false)
+  const [batchJobs, setBatchJobs] = useState<BatchJob[]>([])
+  const [selectedBatch, setSelectedBatch] = useState<BatchJob | null>(null)
+  const [batchResults, setBatchResults] = useState<BatchResult[]>([])
+  const [loading, setLoading] = useState(false)
+  const [resultsLoading, setResultsLoading] = useState(false)
+  const [showFilters, setShowFilters] = useState(true)
+  const [selectedResult, setSelectedResult] = useState<BatchResult | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const resultsPerPage = 10
+
+  // Form state
   const [batchName, setBatchName] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
-  const [showFullAnalysis, setShowFullAnalysis] = useState(false)
+  const [filters, setFilters] = useState<Filters>({
+    priority: [],
+    status: [],
+    component: [],
+    dateRange: {
+      start: '',
+      end: ''
+    }
+  })
+  const [totalStories, setTotalStories] = useState(0)
 
-  // Filter states
-  const [selectedPriorities, setSelectedPriorities] = useState<string[]>([])
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
-  const [selectedComponents, setSelectedComponents] = useState<string[]>([])
-  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([])
-  const [dateRange, setDateRange] = useState({ start: '', end: '' })
-
-  // Real-time batch processing states
-  const [activeBatchId, setActiveBatchId] = useState<string | null>(null)
-  const [batchProgress, setBatchProgress] = useState<{[batchId: string]: RequirementAnalysis[]}>({})
-  const [processingStoryId, setProcessingStoryId] = useState<string | null>(null)
-
-  // Available filter options
-  const [priorities, setPriorities] = useState<string[]>([])
-  const [statuses, setStatuses] = useState<string[]>([])
-  const [components, setComponents] = useState<string[]>([])
-  const [assignees, setAssignees] = useState<string[]>([])
-
+  // Load batch jobs on component mount
   useEffect(() => {
-    fetchUserStories()
-    fetchBatches()
+    loadBatchJobs()
   }, [])
 
-  // Real-time processing effect for active batches
+  // Poll for updates when a batch is selected and running
   useEffect(() => {
-    const runningBatches = batches.filter(batch => batch.status === 'running')
-    console.log('🔄 Processing effect triggered:', { runningBatches: runningBatches.length, activeBatchId })
-    
-    if (runningBatches.length > 0 && !activeBatchId) {
-      // Only process one batch at a time
-      const batchToProcess = runningBatches[0]
-      console.log('🚀 Starting processing for batch:', batchToProcess.id)
-      setActiveBatchId(batchToProcess.id)
-      
-      const processSequentially = async () => {
-        try {
-          console.log('📡 Making PUT request to process batch:', batchToProcess.id)
-          
-          // Add timeout to prevent hanging requests
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minute timeout
-          
-          const response = await fetch(`/api/analyze/requirements-batch?batchId=${batchToProcess.id}&action=process`, {
-            method: 'PUT',
-            signal: controller.signal
-          })
-          
-          clearTimeout(timeoutId)
-
-          console.log('📡 Response status:', response.status)
-          if (response.ok) {
-            const data = await response.json()
-            console.log('📡 Response data:', data)
-            
-            if (data.completed) {
-              // Batch completed - refresh batches list
-              console.log('✅ Batch completed!')
-              fetchBatches()
-              setActiveBatchId(null)
-              setProcessingStoryId(null)
-            } else if (data.analysis) {
-              // New analysis completed - add to real-time progress
-              setBatchProgress(prev => ({
-                ...prev,
-                [batchToProcess.id]: [...(prev[batchToProcess.id] || []), data.analysis]
-              }))
-              
-              // Update batch progress in batches list
-              setBatches(prev => prev.map(batch => 
-                batch.id === batchToProcess.id 
-                  ? { ...batch, analyzedStories: data.analyzedStories || batch.analyzedStories }
-                  : batch
-              ))
-              
-              setProcessingStoryId(null)
-              
-              // Continue processing next story after a short delay
-              setTimeout(() => {
-                if (activeBatchId === batchToProcess.id) {
-                  processSequentially()
-                }
-              }, 1000)
-            } else {
-              // Unexpected response format - stop processing
-              console.error('❌ Unexpected response format:', data)
-              setActiveBatchId(null)
-              setProcessingStoryId(null)
-            }
-          } else if (response.status === 404) {
-            // Batch not found (deleted), remove from state
-            setBatches(prev => prev.filter(batch => batch.id !== batchToProcess.id))
-            setBatchProgress(prev => {
-              const newProgress = { ...prev }
-              delete newProgress[batchToProcess.id]
-              return newProgress
-            })
-            setActiveBatchId(null)
-            setProcessingStoryId(null)
-          } else {
-            // Other error status - stop processing and mark as failed
-            console.error('❌ API error:', response.status, response.statusText)
-            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-            console.error('❌ Error details:', errorData)
-            
-            // Mark batch as failed
-            setBatches(prev => prev.map(batch => 
-              batch.id === batchToProcess.id 
-                ? { ...batch, status: 'failed' as const }
-                : batch
-            ))
-            
-            setActiveBatchId(null)
-            setProcessingStoryId(null)
-          }
-        } catch (error) {
-          console.error('Error processing batch step:', error)
-          
-          // Check if it's a timeout error
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.error('❌ Request timed out after 2 minutes')
-          }
-          
-          // Mark batch as failed on error
-          setBatches(prev => prev.map(batch => 
-            batch.id === batchToProcess.id 
-              ? { ...batch, status: 'failed' as const }
-              : batch
-          ))
-          
-          setActiveBatchId(null)
-          setProcessingStoryId(null)
+    let interval: NodeJS.Timeout
+    if (selectedBatch && selectedBatch.status === 'running') {
+      interval = setInterval(() => {
+        loadBatchJobs()
+        if (selectedBatch) {
+          loadBatchResults(selectedBatch.id)
         }
-      }
-      
-      processSequentially()
+      }, 3000)
     }
-  }, [batches, activeBatchId])
-
-  const fetchUserStories = async () => {
-    try {
-      const response = await fetch('/api/user-stories?limit=10000')
-      if (response.ok) {
-        const data = await response.json()
-        setUserStories(data.userStories || [])
-        
-        // Extract unique filter options
-        const stories = data.userStories || []
-        setPriorities(Array.from(new Set(stories.map((s: UserStory) => s.priority).filter(Boolean))))
-        setStatuses(Array.from(new Set(stories.map((s: UserStory) => s.status).filter(Boolean))))
-        setComponents(Array.from(new Set(stories.map((s: UserStory) => s.component).filter(Boolean))))
-        setAssignees(Array.from(new Set(stories.map((s: UserStory) => s.assignee).filter(Boolean))))
-      }
-    } catch (error) {
-      console.error('Error fetching user stories:', error)
-    } finally {
-      setIsLoading(false)
+    return () => {
+      if (interval) clearInterval(interval)
     }
-  }
+  }, [selectedBatch?.id, selectedBatch?.status])
 
-  const fetchBatches = async () => {
+  const loadBatchJobs = async () => {
     try {
       const response = await fetch('/api/analyze/requirements-batch')
       if (response.ok) {
         const data = await response.json()
-        setBatches(data.batches || [])
+        setBatchJobs(data.batches || [])
+        
+        // Update selected batch if it exists
+        if (selectedBatch) {
+          const updatedBatch = data.batches?.find((b: BatchJob) => b.id === selectedBatch.id)
+          if (updatedBatch) {
+            setSelectedBatch(updatedBatch)
+          }
+        }
       }
     } catch (error) {
-      console.error('Error fetching batches:', error)
+      console.error('Error loading batch jobs:', error)
     }
   }
 
-  const fetchBatchAnalyses = async (batchId: string) => {
+  const loadBatchResults = async (batchId: string) => {
+    setResultsLoading(true)
     try {
       const response = await fetch(`/api/analyze/requirements-batch?batchId=${batchId}`)
       if (response.ok) {
         const data = await response.json()
-        setBatchAnalyses(data.analyses || [])
+        setBatchResults(data.results || [])
       }
     } catch (error) {
-      console.error('Error fetching batch analyses:', error)
+      console.error('Error loading batch results:', error)
+    } finally {
+      setResultsLoading(false)
     }
   }
 
@@ -248,902 +137,655 @@ export default function BatchAnalysisPage() {
       return
     }
 
-    setIsStartingBatch(true)
+    setLoading(true)
     try {
-      console.log('🚀 Starting batch analysis...')
-      const filters: any = {}
-      
-      if (selectedPriorities.length > 0) filters.priority = selectedPriorities
-      if (selectedStatuses.length > 0) filters.status = selectedStatuses
-      if (selectedComponents.length > 0) filters.component = selectedComponents
-      if (selectedAssignees.length > 0) filters.assignee = selectedAssignees
-      if (dateRange.start || dateRange.end) {
-        const dateRangeFilter: any = {}
-        if (dateRange.start && dateRange.start.trim()) {
-          dateRangeFilter.start = dateRange.start
-        }
-        if (dateRange.end && dateRange.end.trim()) {
-          dateRangeFilter.end = dateRange.end
-        }
-        if (dateRangeFilter.start || dateRangeFilter.end) {
-          filters.dateRange = dateRangeFilter
-        }
-      }
-
-      console.log('📋 Request payload:', { name: batchName, filters })
-
       const response = await fetch('/api/analyze/requirements-batch', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: batchName,
           filters
-        }),
+        })
       })
 
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Response data:', data)
+        setBatchName('')
+        setFilters({
+          priority: [],
+          status: [],
+          component: [],
+          dateRange: { start: '', end: '' }
+        })
+        await loadBatchJobs()
         
-        if (data.success && data.batch) {
-          setBatches(prev => [data.batch, ...prev])
-          setBatchName('')
-          clearFilters()
-          
-          // Start real-time processing for this batch
-          setActiveBatchId(data.batch.id)
-          setBatchProgress(prev => ({ ...prev, [data.batch.id]: [] }))
-          
-          alert(`Batch analysis "${data.batch.name}" started successfully!`)
-        } else {
-          console.error('❌ Unexpected response format:', data)
-          alert('Failed to start batch analysis: Unexpected response format')
+        // Auto-select the new batch
+        if (data.batch) {
+          setSelectedBatch(data.batch)
+          await loadBatchResults(data.batch.id)
         }
       } else {
         const error = await response.json()
-        console.error('❌ Server error:', error)
-        alert(`Failed to start batch analysis: ${error.error}`)
+        alert(`Error: ${error.message}`)
       }
     } catch (error) {
-      console.error('❌ Client error starting batch analysis:', error)
-      alert(`Failed to start batch analysis: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      console.error('Error starting batch analysis:', error)
+      alert('Error starting batch analysis')
     } finally {
-      setIsStartingBatch(false)
+      setLoading(false)
     }
   }
 
-  const clearFilters = () => {
-    setSelectedPriorities([])
-    setSelectedStatuses([])
-    setSelectedComponents([])
-    setSelectedAssignees([])
-    setDateRange({ start: '', end: '' })
+  const selectBatch = async (batch: BatchJob) => {
+    setSelectedBatch(batch)
+    setCurrentPage(1)
+    await loadBatchResults(batch.id)
   }
 
-  const cancelBatch = async (batchId: string, batchName: string) => {
-    if (!confirm(`Cancel batch "${batchName}"? Any completed analyses will be preserved.`)) {
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/analyze/requirements-batch?batchId=${batchId}&action=cancel`, {
-        method: 'DELETE'
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        alert(data.message)
-        fetchBatches()
-        
-        // Stop real-time processing for this batch
-        if (activeBatchId === batchId) {
-          setActiveBatchId(null)
-          setProcessingStoryId(null)
-        }
-      } else {
-        const error = await response.json()
-        alert(`Failed to cancel batch: ${error.error}`)
-      }
-    } catch (error) {
-      console.error('Error cancelling batch:', error)
-      alert('Failed to cancel batch')
-    }
-  }
-
-  const deleteBatch = async (batchId: string, batchName: string) => {
-    if (!confirm(`Delete batch "${batchName}" and ALL its analyses? This cannot be undone.`)) {
-      return
-    }
+  const deleteBatch = async (batchId: string) => {
+    if (!confirm('Are you sure you want to delete this batch?')) return
 
     try {
       const response = await fetch(`/api/analyze/requirements-batch?batchId=${batchId}&action=delete`, {
         method: 'DELETE'
       })
-
+      
       if (response.ok) {
-        const data = await response.json()
-        alert(data.message)
-        fetchBatches()
-        
-        // Clean up real-time state
-        setBatchProgress(prev => {
-          const newProgress = { ...prev }
-          delete newProgress[batchId]
-          return newProgress
-        })
-        
-        if (activeBatchId === batchId) {
-          setActiveBatchId(null)
-          setProcessingStoryId(null)
-        }
-        
+        await loadBatchJobs()
         if (selectedBatch?.id === batchId) {
           setSelectedBatch(null)
-          setBatchAnalyses([])
+          setBatchResults([])
         }
       } else {
         const error = await response.json()
-        alert(`Failed to delete batch: ${error.error}`)
+        alert(`Error deleting batch: ${error.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error deleting batch:', error)
-      alert('Failed to delete batch')
+      alert('Error deleting batch')
     }
   }
 
-  // Fixed filtering logic to match backend exactly
-  const getFilteredStoriesCount = () => {
-    return userStories.filter(story => {
-      // Priority filter
-      if (selectedPriorities.length > 0 && !selectedPriorities.includes(story.priority || '')) return false
+  const updateStoryCount = async () => {
+    try {
+      const response = await fetch('/api/analyze/requirements-batch/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filters })
+      })
       
-      // Status filter  
-      if (selectedStatuses.length > 0 && !selectedStatuses.includes(story.status || '')) return false
-      
-      // Component filter
-      if (selectedComponents.length > 0 && !selectedComponents.includes(story.component || '')) return false
-      
-      // Assignee filter
-      if (selectedAssignees.length > 0 && !selectedAssignees.includes(story.assignee || '')) return false
-      
-      // Date range filter - match backend logic exactly
-      if (dateRange.start && dateRange.start.trim() && story.createdAt) {
-        const startDate = new Date(dateRange.start)
-        const storyDate = new Date(story.createdAt)
-        if (!isNaN(startDate.getTime()) && storyDate < startDate) return false
+      if (response.ok) {
+        const data = await response.json()
+        setTotalStories(data.count || 0)
       }
-      
-      if (dateRange.end && dateRange.end.trim() && story.createdAt) {
-        const endDate = new Date(dateRange.end)
-        // Set end date to end of day to match backend logic
-        endDate.setHours(23, 59, 59, 999)
-        const storyDate = new Date(story.createdAt)
-        if (!isNaN(endDate.getTime()) && storyDate > endDate) return false
-      }
-      
-      return true
-    }).length
+    } catch (error) {
+      console.error('Error getting story count:', error)
+      setTotalStories(0)
+    }
+  }
+
+  // Update story count when filters change
+  useEffect(() => {
+    updateStoryCount()
+  }, [filters])
+
+  const handleFilterChange = (type: keyof Filters, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [type]: value
+    }))
+  }
+
+  const clearFilters = () => {
+    setFilters({
+      priority: [],
+      status: [],
+      component: [],
+      dateRange: { start: '', end: '' }
+    })
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return CheckCircle
-      case 'running': return Play
-      case 'failed': return AlertTriangle
-      case 'cancelled': return StopCircle
-      default: return Clock
+      case 'completed': return <CheckCircle className="w-4 h-4 text-green-500" />
+      case 'running': return <Clock className="w-4 h-4 text-blue-500 animate-spin" />
+      case 'failed': return <AlertTriangle className="w-4 h-4 text-red-500" />
+      default: return <Clock className="w-4 h-4 text-gray-400" />
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'text-green-600 bg-green-100 dark:bg-green-900/20'
-      case 'running': return 'text-blue-600 bg-blue-100 dark:bg-blue-900/20'
-      case 'failed': return 'text-red-600 bg-red-100 dark:bg-red-900/20'
-      case 'cancelled': return 'text-orange-600 bg-orange-100 dark:bg-orange-900/20'
-      default: return 'text-gray-600 bg-gray-100 dark:bg-gray-700'
-    }
+  const getScoreColor = (score: number) => {
+    if (score >= 8) return 'text-green-600 bg-green-50'
+    if (score >= 6) return 'text-yellow-600 bg-yellow-50'
+    return 'text-red-600 bg-red-50'
   }
 
-  const getRiskColor = (risk: string) => {
-    switch (risk?.toLowerCase()) {
-      case 'low': return 'text-green-600 bg-green-100 dark:bg-green-900/20'
-      case 'medium': return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/20'
-      case 'high': return 'text-orange-600 bg-orange-100 dark:bg-orange-900/20'
-      case 'critical': return 'text-red-600 bg-red-100 dark:bg-red-900/20'
-      default: return 'text-gray-600 bg-gray-100 dark:bg-gray-700'
-    }
+  const calculateProgress = (batch: BatchJob) => {
+    if (!batch.totalStories || batch.totalStories === 0) return 0
+    return Math.round((batch.analyzedStories / batch.totalStories) * 100)
   }
 
-  const actionButtons = [
-    {
-      label: 'Refresh',
-      onClick: fetchBatches,
-      icon: <RefreshCw className="h-4 w-4" />,
-      variant: 'outline' as const
-    }
-  ];
+  // Pagination
+  const totalPages = Math.ceil(batchResults.length / resultsPerPage)
+  const startIndex = (currentPage - 1) * resultsPerPage
+  const endIndex = startIndex + resultsPerPage
+  const currentResults = batchResults.slice(startIndex, endIndex)
 
   return (
     <PageLayout
       title="Batch Requirements Analysis"
       subtitle="Start and monitor batch analysis of user stories with real-time progress tracking"
-      icon={<BarChart3 className="h-6 w-6 text-blue-600" />}
-      backUrl="/analyze/requirements"
-      backLabel="Back to Requirements Analysis"
-      actionButtons={actionButtons}
+      icon={<BarChart3 className="h-6 w-6" />}
+             actionButtons={[
+         {
+           label: 'Refresh',
+           onClick: loadBatchJobs,
+           variant: 'outline',
+           icon: <RefreshCw className="h-4 w-4" />
+         }
+       ]}
     >
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Start New Batch */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Start New Batch Analysis
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Batch Name
-                  </label>
-                  <input
-                    type="text"
-                    value={batchName}
-                    onChange={(e) => setBatchName(e.target.value)}
-                    placeholder="e.g., Sprint 24 Analysis"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
+      <div className="grid grid-cols-12 gap-6 h-[calc(100vh-12rem)]">
+        {/* Sidebar */}
+        <div className="col-span-3 space-y-6 overflow-y-auto">
+          {/* New Batch Form */}
+          <div className="bg-white rounded-lg border p-4">
+            <h3 className="font-semibold text-gray-900 mb-4">Start New Batch</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Batch Name
+                </label>
+                <input
+                  type="text"
+                  value={batchName}
+                  onChange={(e) => setBatchName(e.target.value)}
+                  placeholder="e.g., Sprint 24 Analysis"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Filters
-                  </span>
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/20 dark:text-blue-300"
-                  >
-                    <Filter className="h-3 w-3 mr-1" />
-                    {showFilters ? 'Hide' : 'Show'}
-                  </button>
-                </div>
+              {/* Filters */}
+              <div>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center text-sm font-medium text-gray-700 mb-2"
+                >
+                  <Filter className="w-4 h-4 mr-1" />
+                  Filters
+                  {showFilters ? (
+                    <ChevronDown className="w-4 h-4 ml-1" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  )}
+                </button>
 
                 {showFilters && (
-                  <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
-                    {/* Priority Filter */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Priority
-                      </label>
-                      <div className="flex flex-wrap gap-1">
-                        {priorities.map(priority => (
-                          <label key={priority} className="inline-flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedPriorities.includes(priority)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedPriorities(prev => [...prev, priority])
-                                } else {
-                                  setSelectedPriorities(prev => prev.filter(p => p !== priority))
-                                }
-                              }}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="ml-1 text-xs text-gray-700 dark:text-gray-300">{priority}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Status Filter */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Status
-                      </label>
-                      <div className="flex flex-wrap gap-1">
-                        {statuses.map(status => (
-                          <label key={status} className="inline-flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedStatuses.includes(status)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedStatuses(prev => [...prev, status])
-                                } else {
-                                  setSelectedStatuses(prev => prev.filter(s => s !== status))
-                                }
-                              }}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="ml-1 text-xs text-gray-700 dark:text-gray-300">{status}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Component Filter */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Component
-                      </label>
-                      <div className="flex flex-wrap gap-1">
-                        {components.slice(0, 5).map(component => (
-                          <label key={component} className="inline-flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedComponents.includes(component)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedComponents(prev => [...prev, component])
-                                } else {
-                                  setSelectedComponents(prev => prev.filter(c => c !== component))
-                                }
-                              }}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="ml-1 text-xs text-gray-700 dark:text-gray-300">{component}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
+                  <div className="space-y-3 pl-4 border-l-2 border-gray-100">
                     {/* Date Range */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
                         Date Range
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           type="date"
-                          value={dateRange.start}
-                          onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                          className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-white"
+                          value={filters.dateRange.start}
+                          onChange={(e) => handleFilterChange('dateRange', {
+                            ...filters.dateRange,
+                            start: e.target.value
+                          })}
+                          className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                         <input
                           type="date"
-                          value={dateRange.end}
-                          onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                          className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-600 dark:text-white"
+                          value={filters.dateRange.end}
+                          onChange={(e) => handleFilterChange('dateRange', {
+                            ...filters.dateRange,
+                            end: e.target.value
+                          })}
+                          className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </div>
                     </div>
 
                     <button
                       onClick={clearFilters}
-                      className="w-full px-2 py-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                      className="text-xs text-blue-600 hover:text-blue-800"
                     >
                       Clear All Filters
                     </button>
                   </div>
                 )}
-
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  {getFilteredStoriesCount()} user stories will be analyzed
-                </div>
-
-                {isStartingBatch ? (
-                  <div className="flex items-center justify-center py-2">
-                    <RefreshCw className="h-4 w-4 animate-spin text-blue-600 mr-2" />
-                    <span className="text-blue-600">Starting analysis...</span>
-                  </div>
-                ) : (
-                  <button
-                    onClick={startBatchAnalysis}
-                    disabled={!batchName.trim() || getFilteredStoriesCount() === 0}
-                    className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    Start Batch Analysis
-                  </button>
-                )}
               </div>
+
+              <div className="text-sm text-gray-600">
+                {totalStories} user stories will be analyzed
+              </div>
+
+              <button
+                onClick={startBatchAnalysis}
+                disabled={loading || !batchName.trim() || totalStories === 0}
+                className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 mr-2" />
+                )}
+                {loading ? 'Starting...' : 'Start Batch Analysis'}
+              </button>
             </div>
           </div>
 
-          {/* Batch History with Real-time Progress */}
-          <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Batch Analysis Progress
-                </h2>
-              </div>
-              
-              <div className="p-6">
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
-                    <span className="ml-2 text-gray-600 dark:text-gray-300">Loading batches...</span>
+          {/* Recent Batches */}
+          <div className="bg-white rounded-lg border p-4">
+            <h3 className="font-semibold text-gray-900 mb-4">Recent Batches</h3>
+            
+            <div className="space-y-2">
+              {batchJobs.map((batch) => (
+                <div
+                  key={batch.id}
+                  onClick={() => selectBatch(batch)}
+                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                    selectedBatch?.id === batch.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      {getStatusIcon(batch.status)}
+                      <span className="ml-2 font-medium text-sm">{batch.name}</span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deleteBatch(batch.id)
+                      }}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                ) : batches.length === 0 ? (
-                  <div className="text-center py-8">
-                    <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 dark:text-gray-400">No batch analyses yet</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500">Start your first batch analysis to see real-time progress here</p>
+                  
+                  <div className="text-xs text-gray-600">
+                    {batch.analyzedStories}/{batch.totalStories} analyzed
                   </div>
-                ) : (
-                  <div className="space-y-6">
-                    {batches.map((batch) => {
-                      const StatusIcon = getStatusIcon(batch.status)
-                      const batchResults = batchProgress[batch.id] || []
-                      const isRunning = batch.status === 'running'
-                      
-                      return (
+                  
+                  {batch.status === 'running' && (
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-1">
                         <div
-                          key={batch.id}
-                          className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden"
-                        >
-                          {/* Batch Header */}
-                          <div className="p-4 bg-gray-50 dark:bg-gray-700/50">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <div className={`p-2 rounded-md ${getStatusColor(batch.status)}`}>
-                                  <StatusIcon className="h-5 w-5" />
-                                </div>
-                                <div>
-                                  <h3 className="font-semibold text-gray-900 dark:text-white">
-                                    {batch.name}
-                                  </h3>
-                                  <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                                    <span>{batch.analyzedStories}/{batch.totalStories} stories analyzed</span>
-                                    {batch.averageScore && <span>Avg Score: {batch.averageScore.toFixed(1)}/10</span>}
-                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(batch.status)}`}>
-                                      {batch.status}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center space-x-2">
-                                <div className="text-right mr-3">
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {batch.createdAt && !isNaN(new Date(batch.createdAt).getTime()) 
-                                      ? new Date(batch.createdAt).toLocaleDateString()
-                                      : 'Invalid Date'
-                                    }
-                                  </p>
-                                </div>
-                                
-                                {/* Action Buttons */}
-                                <div className="flex items-center space-x-1">
-                                  {batch.status === 'running' && (
-                                    <button
-                                      onClick={() => cancelBatch(batch.id, batch.name)}
-                                      className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/20 rounded transition-colors"
-                                      title="Cancel batch (preserve completed analyses)"
-                                    >
-                                      <StopCircle className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                  
-                                  <button
-                                    onClick={() => deleteBatch(batch.id, batch.name)}
-                                    className="p-1 text-red-600 hover:text-red-800 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
-                                    title="Delete batch and all analyses"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Progress Bar */}
-                            {isRunning && (
-                              <div className="mt-3">
-                                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
-                                  <span>Analysis Progress</span>
-                                  <span>{Math.round((batch.analyzedStories / batch.totalStories) * 100)}%</span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                                  <div 
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style={{ width: `${(batch.analyzedStories / batch.totalStories) * 100}%` }}
-                                  ></div>
-                                </div>
-                                {processingStoryId && (
-                                  <div className="mt-2 flex items-center text-sm text-blue-600">
-                                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                                    Processing story...
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Real-time Results */}
-                          {batchResults.length > 0 && (
-                            <div className="p-4">
-                              <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
-                                Completed Analyses ({batchResults.length})
-                              </h4>
-                              <div className="space-y-3 max-h-96 overflow-y-auto">
-                                {batchResults.map((analysis, index) => {
-                                  // Always use the database score, don't parse from text to avoid inconsistencies
-                                  const analysisText = analysis.fullAnalysis || ''
-                                  const displayScore = analysis.qualityScore || 0
-                                  
-                                  // Clean up arrays
-                                  const strengths = (analysis.strengths || []).filter((s: string) => s && s.trim().length > 5)
-                                  const improvements = (analysis.improvements || []).filter((i: string) => i && i.trim().length > 5)
-                                  const risks = (analysis.riskFactors || []).filter((r: string) => r && r.trim().length > 5)
-                                  
-                                  const getScoreColor = (score: number) => {
-                                    if (score >= 8) return 'text-green-600 bg-green-50 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
-                                    if (score >= 6) return 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-800'
-                                    return 'text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
-                                  }
-                                  
-                                  const getScoreLabel = (score: number) => {
-                                    if (score >= 8) return 'Excellent'
-                                    if (score >= 6) return 'Good'
-                                    return 'Needs Work'
-                                  }
-
-                                  const cleanText = (text: string) => {
-                                    return text.replace(/^\*\*[^*]+\*\*:?\s*/, '').trim()
-                                  }
-
-                                  return (
-                                    <div key={analysis.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-                                      
-                                      {/* Header */}
-                                      <div className="px-8 py-6 border-b border-gray-200 dark:border-gray-700">
-                                        <div className="flex items-center justify-between">
-                                          <div>
-                                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                                              {analysis.userStory?.jiraKey && (
-                                                <span className="text-blue-600 mr-3">{analysis.userStory.jiraKey}</span>
-                                              )}
-                                              {analysis.userStory?.title || 'Analysis Result'}
-                                            </h3>
-                                            {analysis.userStory?.component && (
-                                              <span className="inline-block mt-2 px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
-                                                {analysis.userStory.component}
-                                              </span>
-                                            )}
-                                          </div>
-                                          
-                                          {/* Quality Score */}
-                                          <div className={`px-6 py-4 rounded-lg border ${getScoreColor(displayScore)}`}>
-                                            <div className="text-center">
-                                              <div className="text-3xl font-bold">{displayScore}/10</div>
-                                              <div className="text-base font-medium mt-1">{getScoreLabel(displayScore)}</div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      {/* Content */}
-                                      <div className="px-8 py-6 space-y-8">
-                                        
-                                        {/* Strengths */}
-                                        {strengths.length > 0 && (
-                                          <div>
-                                            <h4 className="flex items-center text-base font-semibold text-green-700 dark:text-green-300 mb-4">
-                                              <CheckCircle className="h-5 w-5 mr-3" />
-                                              Strengths ({strengths.length})
-                                            </h4>
-                                            <ul className="space-y-3">
-                                              {strengths.map((strength: string, index: number) => (
-                                                <li key={index} className="flex items-start text-sm text-gray-700 dark:text-gray-300">
-                                                  <span className="flex-shrink-0 w-6 h-6 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center text-xs font-medium mr-4 mt-1">
-                                                    {index + 1}
-                                                  </span>
-                                                  <span className="leading-relaxed">{cleanText(strength)}</span>
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </div>
-                                        )}
-
-                                        {/* Improvements */}
-                                        {improvements.length > 0 && (
-                                          <div>
-                                            <h4 className="flex items-center text-base font-semibold text-yellow-700 dark:text-yellow-300 mb-4">
-                                              <AlertTriangle className="h-5 w-5 mr-3" />
-                                              Recommended Improvements ({improvements.length})
-                                            </h4>
-                                            <ul className="space-y-3">
-                                              {improvements.map((improvement: string, index: number) => (
-                                                <li key={index} className="flex items-start text-sm text-gray-700 dark:text-gray-300">
-                                                  <span className="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-full flex items-center justify-center text-xs font-medium mr-4 mt-1">
-                                                    {index + 1}
-                                                  </span>
-                                                  <span className="leading-relaxed">{cleanText(improvement)}</span>
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </div>
-                                        )}
-
-                                        {/* Risk Factors */}
-                                        {risks.length > 0 && (
-                                          <div>
-                                            <h4 className="flex items-center text-base font-semibold text-red-700 dark:text-red-300 mb-4">
-                                              <AlertCircle className="h-5 w-5 mr-3" />
-                                              Risk Factors ({risks.length})
-                                            </h4>
-                                            <ul className="space-y-3">
-                                              {risks.map((risk: string, index: number) => (
-                                                <li key={index} className="flex items-start text-sm text-gray-700 dark:text-gray-300">
-                                                  <span className="flex-shrink-0 w-6 h-6 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center text-xs font-medium mr-4 mt-1">
-                                                    {index + 1}
-                                                  </span>
-                                                  <span className="leading-relaxed">{cleanText(risk)}</span>
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </div>
-                                        )}
-
-                                        {/* Full Analysis Toggle */}
-                                        {analysisText && (
-                                          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                                            <details className="group">
-                                              <summary className="flex items-center cursor-pointer text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
-                                                <FileText className="h-4 w-4 mr-2" />
-                                                Show Complete Analysis Report
-                                                <ChevronDown className="h-4 w-4 ml-2 transform transition-transform group-open:rotate-180" />
-                                              </summary>
-                                              
-                                              <div className="mt-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                                <div className="prose prose-sm dark:prose-invert max-w-none">
-                                                  <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 font-sans leading-relaxed">
-                                                    {analysisText}
-                                                  </pre>
-                                                </div>
-                                              </div>
-                                            </details>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Risk Distribution for Completed Batches */}
-                          {batch.status === 'completed' && batch.riskDistribution && (
-                            <div className="p-4 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
-                              <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Risk Distribution</h4>
-                              <div className="grid grid-cols-4 gap-3">
-                                <div className="text-center">
-                                  <div className="text-lg font-bold text-green-600">{batch.riskDistribution.low}</div>
-                                  <div className="text-xs text-gray-500">Low Risk</div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-lg font-bold text-yellow-600">{batch.riskDistribution.medium}</div>
-                                  <div className="text-xs text-gray-500">Medium Risk</div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-lg font-bold text-orange-600">{batch.riskDistribution.high}</div>
-                                  <div className="text-xs text-gray-500">High Risk</div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-lg font-bold text-red-600">{batch.riskDistribution.critical}</div>
-                                  <div className="text-xs text-gray-500">Critical Risk</div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
+                          className="bg-blue-600 h-1 rounded-full transition-all duration-300"
+                          style={{ width: `${calculateProgress(batch)}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {calculateProgress(batch)}% complete
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {batchJobs.length === 0 && (
+                <div className="text-sm text-gray-500 text-center py-4">
+                  No batch jobs yet
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Analysis Results Modal */}
-        {selectedBatch && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {selectedBatch.name} - Analysis Results
-                  </h3>
-                  <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
-                    <span>{selectedBatch.totalStories} stories analyzed</span>
-                    <span>•</span>
-                    <span>Avg Score: {selectedBatch.averageScore?.toFixed(1) || 'N/A'}/10</span>
-                    <span>•</span>
-                    <div className="flex items-center space-x-1 text-blue-600 dark:text-blue-400">
-                      <Database className="h-4 w-4" />
-                      <span>Enhanced with Knowledge Base</span>
-                    </div>
+        {/* Main Content */}
+        <div className="col-span-9">
+          {selectedBatch ? (
+            <div className="bg-white rounded-lg border h-full flex flex-col">
+              {/* Header */}
+              <div className="p-6 border-b">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                      {getStatusIcon(selectedBatch.status)}
+                      <span className="ml-2">{selectedBatch.name}</span>
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {selectedBatch.analyzedStories}/{selectedBatch.totalStories} stories analyzed
+                      {selectedBatch.status === 'running' && (
+                        <span className="ml-2">• {calculateProgress(selectedBatch)}% complete</span>
+                      )}
+                    </p>
                   </div>
+                  
+                  {selectedBatch.status === 'completed' && (
+                    <button className="flex items-center px-3 py-2 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200">
+                      <Download className="w-4 h-4 mr-1" />
+                      Export Results
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={() => {
-                    setSelectedBatch(null)
-                    setBatchAnalyses([])
-                  }}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                >
-                  <X className="h-6 w-6" />
-                </button>
               </div>
-              
-              <div className="p-8 overflow-y-auto max-h-[calc(90vh-120px)]">
-                {selectedBatch.status === 'completed' && batchAnalyses.length > 0 ? (
-                  <div className="space-y-6">
-                    {batchAnalyses.map((analysis) => {
-                      // Always use the database score, don't parse from text to avoid inconsistencies
-                      const analysisText = analysis.fullAnalysis || ''
-                      const displayScore = analysis.qualityScore || 0
-                      
-                      // Clean up arrays
-                      const strengths = (analysis.strengths || []).filter((s: string) => s && s.trim().length > 5)
-                      const improvements = (analysis.improvements || []).filter((i: string) => i && i.trim().length > 5)
-                      const risks = (analysis.riskFactors || []).filter((r: string) => r && r.trim().length > 5)
-                      
-                      const getScoreColor = (score: number) => {
-                        if (score >= 8) return 'text-green-600 bg-green-50 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
-                        if (score >= 6) return 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-800'
-                        return 'text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
-                      }
-                      
-                      const getScoreLabel = (score: number) => {
-                        if (score >= 8) return 'Excellent'
-                        if (score >= 6) return 'Good'
-                        return 'Needs Work'
-                      }
 
-                      const cleanText = (text: string) => {
-                        return text.replace(/^\*\*[^*]+\*\*:?\s*/, '').trim()
-                      }
-
-                      return (
-                        <div key={analysis.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
-                          
-                          {/* Header */}
-                          <div className="px-8 py-6 border-b border-gray-200 dark:border-gray-700">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                                  {analysis.userStory?.jiraKey && (
-                                    <span className="text-blue-600 mr-3">{analysis.userStory.jiraKey}</span>
-                                  )}
-                                  {analysis.userStory?.title || 'Analysis Result'}
-                                </h3>
-                                {analysis.userStory?.component && (
-                                  <span className="inline-block mt-2 px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
-                                    {analysis.userStory.component}
-                                  </span>
+              {/* Results */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {resultsLoading ? (
+                  <div className="flex items-center justify-center h-64">
+                    <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+                    <span className="ml-2 text-gray-600">Loading results...</span>
+                  </div>
+                ) : selectedBatch.status === 'running' && batchResults.length === 0 ? (
+                  <div className="flex items-center justify-center h-64">
+                    <Clock className="w-8 h-8 animate-spin text-blue-500" />
+                    <span className="ml-2 text-gray-600">Analysis in progress...</span>
+                  </div>
+                ) : batchResults.length > 0 ? (
+                  <>
+                    <div className="space-y-4">
+                      {currentResults.map((result) => (
+                        <div key={result.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-medium text-gray-900">
+                                {result.userStory.jiraKey ? (
+                                  <span className="text-blue-600">{result.userStory.jiraKey}</span>
+                                ) : (
+                                  <span>Story {result.userStory.id.slice(-8)}</span>
                                 )}
-                              </div>
+                                {result.userStory.title && (
+                                  <span className="ml-2 text-gray-700">{result.userStory.title}</span>
+                                )}
+                              </h3>
                               
-                              {/* Quality Score */}
-                              <div className={`px-6 py-4 rounded-lg border ${getScoreColor(displayScore)}`}>
-                                <div className="text-center">
-                                  <div className="text-3xl font-bold">{displayScore}/10</div>
-                                  <div className="text-base font-medium mt-1">{getScoreLabel(displayScore)}</div>
+                              <div className="flex items-center space-x-4 mt-2">
+                                <div className={`px-2 py-1 rounded text-xs font-medium ${getScoreColor(result.overallScore)}`}>
+                                  Overall: {result.overallScore.toFixed(1)}
+                                </div>
+                                <div className={`px-2 py-1 rounded text-xs font-medium ${getScoreColor(result.completenessScore)}`}>
+                                  Complete: {result.completenessScore.toFixed(1)}
+                                </div>
+                                <div className={`px-2 py-1 rounded text-xs font-medium ${getScoreColor(result.clarityScore)}`}>
+                                  Clarity: {result.clarityScore.toFixed(1)}
+                                </div>
+                                <div className={`px-2 py-1 rounded text-xs font-medium ${getScoreColor(result.testabilityScore)}`}>
+                                  Testable: {result.testabilityScore.toFixed(1)}
                                 </div>
                               </div>
                             </div>
-                          </div>
-
-                          {/* Content */}
-                          <div className="px-8 py-6 space-y-8">
                             
-                            {/* Strengths */}
-                            {strengths.length > 0 && (
-                              <div>
-                                <h4 className="flex items-center text-base font-semibold text-green-700 dark:text-green-300 mb-4">
-                                  <CheckCircle className="h-5 w-5 mr-3" />
-                                  Strengths ({strengths.length})
-                                </h4>
-                                <ul className="space-y-3">
-                                  {strengths.map((strength: string, index: number) => (
-                                    <li key={index} className="flex items-start text-sm text-gray-700 dark:text-gray-300">
-                                      <span className="flex-shrink-0 w-6 h-6 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center text-xs font-medium mr-4 mt-1">
-                                        {index + 1}
-                                      </span>
-                                      <span className="leading-relaxed">{cleanText(strength)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Improvements */}
-                            {improvements.length > 0 && (
-                              <div>
-                                <h4 className="flex items-center text-base font-semibold text-yellow-700 dark:text-yellow-300 mb-4">
-                                  <AlertTriangle className="h-5 w-5 mr-3" />
-                                  Recommended Improvements ({improvements.length})
-                                </h4>
-                                <ul className="space-y-3">
-                                  {improvements.map((improvement: string, index: number) => (
-                                    <li key={index} className="flex items-start text-sm text-gray-700 dark:text-gray-300">
-                                      <span className="flex-shrink-0 w-6 h-6 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-full flex items-center justify-center text-xs font-medium mr-4 mt-1">
-                                        {index + 1}
-                                      </span>
-                                      <span className="leading-relaxed">{cleanText(improvement)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Risk Factors */}
-                            {risks.length > 0 && (
-                              <div>
-                                <h4 className="flex items-center text-base font-semibold text-red-700 dark:text-red-300 mb-4">
-                                  <AlertCircle className="h-5 w-5 mr-3" />
-                                  Risk Factors ({risks.length})
-                                </h4>
-                                <ul className="space-y-3">
-                                  {risks.map((risk: string, index: number) => (
-                                    <li key={index} className="flex items-start text-sm text-gray-700 dark:text-gray-300">
-                                      <span className="flex-shrink-0 w-6 h-6 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center text-xs font-medium mr-4 mt-1">
-                                        {index + 1}
-                                      </span>
-                                      <span className="leading-relaxed">{cleanText(risk)}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Full Analysis Toggle */}
-                            {analysisText && (
-                              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                                <details className="group">
-                                  <summary className="flex items-center cursor-pointer text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
-                                    <FileText className="h-4 w-4 mr-2" />
-                                    Show Complete Analysis Report
-                                    <ChevronDown className="h-4 w-4 ml-2 transform transition-transform group-open:rotate-180" />
-                                  </summary>
-                                  
-                                  <div className="mt-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                                      <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 font-sans leading-relaxed">
-                                        {analysisText}
-                                      </pre>
-                                    </div>
-                                  </div>
-                                </details>
-                              </div>
-                            )}
+                            <button
+                              onClick={() => setSelectedResult(result)}
+                              className="flex items-center px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200"
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View Details
+                            </button>
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                ) : selectedBatch.status === 'running' ? (
-                  <div className="text-center py-8">
-                    <div className="flex items-center justify-center space-x-2 text-blue-600">
-                      <RefreshCw className="h-5 w-5 animate-spin" />
-                      <span>Analysis in progress... {selectedBatch.analyzedStories}/{selectedBatch.totalStories} completed</span>
+                      ))}
                     </div>
-                  </div>
-                ) : selectedBatch.status === 'failed' ? (
-                  <div className="text-center py-8">
-                    <div className="flex items-center justify-center space-x-2 text-red-600">
-                      <AlertTriangle className="h-5 w-5" />
-                      <span>Analysis failed</span>
-                    </div>
-                  </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                        <div className="text-sm text-gray-600">
+                          Showing {startIndex + 1}-{Math.min(endIndex, batchResults.length)} of {batchResults.length} results
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Previous
+                          </button>
+                          
+                          <span className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-md">
+                            {currentPage} of {totalPages}
+                          </span>
+                          
+                          <button
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-2 text-sm border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No analysis results available</p>
+                  <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                      <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">No results yet</p>
+                      <p className="text-sm text-gray-500">Results will appear here as the analysis progresses</p>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
+          ) : (
+            <div className="bg-white rounded-lg border h-full flex items-center justify-center">
+              <div className="text-center">
+                <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Batch Job</h3>
+                <p className="text-gray-600">
+                  Choose a batch analysis job from the sidebar to view its results, or start a new batch analysis.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Results Detail Modal */}
+      {selectedResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">
+                  Analysis Details: {selectedResult.userStory.jiraKey || `Story ${selectedResult.userStory.id.slice(-8)}`}
+                </h2>
+                <button
+                  onClick={() => setSelectedResult(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className={`p-4 rounded-lg ${getScoreColor(selectedResult.overallScore)} border-2 border-opacity-50`}>
+                  <div className="text-2xl font-bold">{selectedResult.overallScore.toFixed(1)}</div>
+                  <div className="text-sm font-medium">Overall Score</div>
+                </div>
+                <div className={`p-4 rounded-lg ${getScoreColor(selectedResult.completenessScore)}`}>
+                  <div className="text-2xl font-bold">{selectedResult.completenessScore.toFixed(1)}</div>
+                  <div className="text-sm">Completeness</div>
+                </div>
+                <div className={`p-4 rounded-lg ${getScoreColor(selectedResult.clarityScore)}`}>
+                  <div className="text-2xl font-bold">{selectedResult.clarityScore.toFixed(1)}</div>
+                  <div className="text-sm">Clarity</div>
+                </div>
+                <div className={`p-4 rounded-lg ${getScoreColor(selectedResult.testabilityScore)}`}>
+                  <div className="text-2xl font-bold">{selectedResult.testabilityScore.toFixed(1)}</div>
+                  <div className="text-sm">Testability</div>
+                </div>
+              </div>
+
+              {/* Quality Summary */}
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-blue-900">Quality Assessment</h4>
+                    <p className="text-sm text-blue-700 mt-1">
+                      {selectedResult.overallScore >= 8 ? '✅ High Quality - Well-defined requirements' :
+                       selectedResult.overallScore >= 6 ? '⚠️ Medium Quality - Some improvements needed' :
+                       selectedResult.overallScore >= 4 ? '🔶 Low Quality - Significant improvements required' :
+                       '🚨 Critical - Major quality issues identified'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-blue-900">{selectedResult.overallScore.toFixed(1)}/10</div>
+                    <div className="text-sm text-blue-700">AI Quality Score</div>
+                  </div>
+                </div>
+              </div>
+
+                             {selectedResult.analysisResult && (
+                 <div className="space-y-6">
+                   <h3 className="font-semibold text-gray-900">Analysis Results</h3>
+                   
+                   {/* Beautiful ReactMarkdown Analysis */}
+                   {selectedResult.analysisResult.analysis && (
+                     <div className="bg-gray-50 p-6 rounded-lg">
+                       <h4 className="font-medium text-gray-900 mb-4">Detailed Analysis</h4>
+                       <div className="prose prose-gray max-w-none">
+                         <ReactMarkdown
+                           components={{
+                             h1: ({ children }) => (
+                               <h1 className="text-xl font-bold text-gray-900 mt-6 mb-4 border-b border-gray-200 pb-2">
+                                 {children}
+                               </h1>
+                             ),
+                             h2: ({ children }) => (
+                               <h2 className="text-lg font-bold text-gray-900 mt-5 mb-3 border-b border-gray-200 pb-1">
+                                 {children}
+                               </h2>
+                             ),
+                             h3: ({ children }) => (
+                               <h3 className="text-base font-semibold text-gray-800 mt-4 mb-2">
+                                 {children}
+                               </h3>
+                             ),
+                             h4: ({ children }) => (
+                               <h4 className="text-sm font-medium text-gray-700 mt-3 mb-2">
+                                 {children}
+                               </h4>
+                             ),
+                             p: ({ children }) => (
+                               <p className="text-gray-700 mb-3 leading-relaxed">
+                                 {children}
+                               </p>
+                             ),
+                             ul: ({ children }) => (
+                               <ul className="list-disc list-outside space-y-1 mb-4 ml-6 pl-2">
+                                 {children}
+                               </ul>
+                             ),
+                             ol: ({ children }) => (
+                               <ol className="list-decimal list-outside space-y-1 mb-4 ml-6 pl-2">
+                                 {children}
+                               </ol>
+                             ),
+                             li: ({ children }) => (
+                               <li className="text-gray-700 leading-relaxed">
+                                 {children}
+                               </li>
+                             ),
+                             strong: ({ children }) => (
+                               <strong className="font-semibold text-gray-900">
+                                 {children}
+                               </strong>
+                             ),
+                             em: ({ children }) => (
+                               <em className="italic text-gray-800">
+                                 {children}
+                               </em>
+                             ),
+                             code: ({ children }) => (
+                               <code className="bg-gray-200 px-2 py-1 rounded text-sm font-mono text-gray-800">
+                                 {children}
+                               </code>
+                             ),
+                             pre: ({ children }) => (
+                               <pre className="bg-gray-200 p-3 rounded-lg overflow-x-auto mb-4">
+                                 {children}
+                               </pre>
+                             ),
+                             blockquote: ({ children }) => (
+                               <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-600 mb-4">
+                                 {children}
+                               </blockquote>
+                             ),
+                           }}
+                         >
+                           {selectedResult.analysisResult.analysis}
+                         </ReactMarkdown>
+                       </div>
+                     </div>
+                   )}
+                   
+                   {/* Structured Data Sections */}
+                   {selectedResult.analysisResult.strengths && selectedResult.analysisResult.strengths.length > 0 && (
+                     <div className="bg-green-50 p-4 rounded-lg">
+                       <h4 className="font-medium text-green-900 mb-3 flex items-center">
+                         <CheckCircle className="w-5 h-5 mr-2" />
+                         Strengths ({selectedResult.analysisResult.strengths.length})
+                       </h4>
+                       <ul className="space-y-2">
+                         {selectedResult.analysisResult.strengths.map((strength: string, index: number) => (
+                           <li key={index} className="flex items-start text-green-800">
+                             <span className="flex-shrink-0 w-5 h-5 bg-green-200 text-green-700 rounded-full flex items-center justify-center text-xs font-medium mr-3 mt-0.5">
+                               {index + 1}
+                             </span>
+                             <span>{strength}</span>
+                           </li>
+                         ))}
+                       </ul>
+                     </div>
+                   )}
+                   
+                   {selectedResult.analysisResult.improvements && selectedResult.analysisResult.improvements.length > 0 && (
+                     <div className="bg-yellow-50 p-4 rounded-lg">
+                       <h4 className="font-medium text-yellow-900 mb-3 flex items-center">
+                         <AlertTriangle className="w-5 h-5 mr-2" />
+                         Recommended Improvements ({selectedResult.analysisResult.improvements.length})
+                       </h4>
+                       <ul className="space-y-2">
+                         {selectedResult.analysisResult.improvements.map((improvement: string, index: number) => (
+                           <li key={index} className="flex items-start text-yellow-800">
+                             <span className="flex-shrink-0 w-5 h-5 bg-yellow-200 text-yellow-700 rounded-full flex items-center justify-center text-xs font-medium mr-3 mt-0.5">
+                               {index + 1}
+                             </span>
+                             <span>{improvement}</span>
+                           </li>
+                         ))}
+                       </ul>
+                     </div>
+                   )}
+                   
+                   {selectedResult.analysisResult.riskFactors && selectedResult.analysisResult.riskFactors.length > 0 && (
+                     <div className="bg-red-50 p-4 rounded-lg">
+                       <h4 className="font-medium text-red-900 mb-3 flex items-center">
+                         <AlertCircle className="w-5 h-5 mr-2" />
+                         Risk Factors ({selectedResult.analysisResult.riskFactors.length})
+                       </h4>
+                       <ul className="space-y-2">
+                         {selectedResult.analysisResult.riskFactors.map((risk: string, index: number) => (
+                           <li key={index} className="flex items-start text-red-800">
+                             <span className="flex-shrink-0 w-5 h-5 bg-red-200 text-red-700 rounded-full flex items-center justify-center text-xs font-medium mr-3 mt-0.5">
+                               {index + 1}
+                             </span>
+                             <span>{risk}</span>
+                           </li>
+                         ))}
+                       </ul>
+                     </div>
+                   )}
+                 </div>
+               )}
+            </div>
           </div>
-        )}
-      </main>
+        </div>
+      )}
     </PageLayout>
   )
 } 

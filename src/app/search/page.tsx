@@ -177,6 +177,37 @@ export default function SearchPage() {
     // You could add a toast notification here
   }
 
+  const getDisplayIdentifier = (result: SearchResult) => {
+    // Priority 1: Jira Key
+    if (result.entityData?.jiraKey) {
+      return result.entityData.jiraKey
+    }
+    
+    // Priority 2: Title (truncated if too long)
+    if (result.entityData?.title) {
+      const title = result.entityData.title
+      return title.length > 50 ? `${title.substring(0, 50)}...` : title
+    }
+    
+    // Priority 3: Content-based identifier
+    if (result.title) {
+      return result.title.length > 50 ? `${result.title.substring(0, 50)}...` : result.title
+    }
+    
+    // Priority 4: Generate meaningful ID based on type
+    const typePrefix = {
+      'user_story': 'Story',
+      'defect': 'Defect', 
+      'test_case': 'Test',
+      'document': 'Doc'
+    }
+    
+    const prefix = typePrefix[result.type as keyof typeof typePrefix] || result.type
+    const shortId = result.id.substring(result.id.length - 8) // Last 8 chars
+    
+    return `${prefix}-${shortId}`
+  }
+
   const downloadResponse = (ragResponse: RAGResponse) => {
     const content = `Knowledge Search Results
 Query: ${ragResponse.query || query}
@@ -563,16 +594,6 @@ ${ragResponse.sources?.map((source, index) =>
             </div>
             
             {results.map((result, index) => {
-              // Get display title from entity data, fallback to jiraKey or title
-              let displayTitle = result.title
-              if (result.entityData) {
-                if (result.entityData.jiraKey) {
-                  displayTitle = result.entityData.jiraKey
-                } else if (result.entityData.title) {
-                  displayTitle = result.entityData.title
-                }
-              }
-              
               return (
                 <div key={result.id || index} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
                   <div className="flex items-start justify-between mb-3">
@@ -596,7 +617,7 @@ ${ragResponse.sources?.map((source, index) =>
                   </div>
                   
                   <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    {displayTitle}
+                    {getDisplayIdentifier(result)}
                   </h4>
                   
                   <p className="text-gray-600 dark:text-gray-300 text-sm line-clamp-3">
