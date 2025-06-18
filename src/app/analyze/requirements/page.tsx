@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, ReactNode } from 'react'
-import { BarChart3, Loader2, CheckCircle, AlertTriangle, History, Trash2, Clock, FileText, AlertCircle, Database, ChevronDown, Copy, Check } from 'lucide-react'
+import { BarChart3, Loader2, CheckCircle, AlertTriangle, History, Trash2, Clock, FileText, AlertCircle, Database, ChevronDown, Copy, Check, Save } from 'lucide-react'
 import PageLayout from '@/components/ui/page-layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -412,6 +412,8 @@ export default function AnalyzeRequirementsPage() {
   const [refinementError, setRefinementError] = useState<string | null>(null)
   const [rawRefinementError, setRawRefinementError] = useState<string | null>(null)
   const [isCopied, setIsCopied] = useState(false)
+  const [isUpdatingStory, setIsUpdatingStory] = useState(false)
+  const [updateSuccess, setUpdateSuccess] = useState(false)
 
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [historyStoryId, setHistoryStoryId] = useState<string | null>(null)
@@ -509,6 +511,65 @@ export default function AnalyzeRequirementsPage() {
       setRefinedStory(null);
     } finally {
       setIsRefining(false);
+    }
+  };
+
+  // Handle updating the user story with refined content
+  const handleUpdateUserStory = async () => {
+    if (!selectedStory || !refinedStory?.text) {
+      setToastMessage({ type: 'error', message: 'No refined story available to update.' });
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+
+    setIsUpdatingStory(true);
+    setUpdateSuccess(false);
+
+    try {
+      const response = await fetch(`/api/user-stories/${selectedStory.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: refinedStory.text,
+          // Optionally update other fields if the refined story contains them
+          // title: refinedStory.title !== selectedStory.title ? refinedStory.title : undefined
+        }),
+      });
+
+      if (response.ok) {
+        const updatedStory = await response.json();
+        
+        // Update the local state to reflect the changes
+        setUserStories(prev => prev.map(story => 
+          story.id === selectedStory.id 
+            ? { ...story, description: refinedStory.text }
+            : story
+        ));
+
+        setUpdateSuccess(true);
+        setToastMessage({ type: 'success', message: 'User story updated successfully!' });
+        setTimeout(() => {
+          setToastMessage(null);
+          setUpdateSuccess(false);
+          setIsRefinementModalOpen(false); // Close modal after successful update
+        }, 3000);
+      } else {
+        const errorData = await response.json();
+        setToastMessage({ 
+          type: 'error', 
+          message: `Failed to update user story: ${errorData.error || 'Unknown error'}` 
+        });
+        setTimeout(() => setToastMessage(null), 5000);
+      }
+    } catch (error: any) {
+      console.error('Error updating user story:', error);
+      setToastMessage({ 
+        type: 'error', 
+        message: 'An unexpected error occurred while updating the story.' 
+      });
+      setTimeout(() => setToastMessage(null), 5000);
+    } finally {
+      setIsUpdatingStory(false);
     }
   };
 
@@ -1235,17 +1296,34 @@ export default function AnalyzeRequirementsPage() {
                 </Button>
               </DialogClose>
               {refinedStory?.text && !isRefining && !refinementError && (
-                <Button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(refinedStory.text || '');
-                    setIsCopied(true);
-                    setTimeout(() => setIsCopied(false), 2000);
-                  }}
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-150 flex items-center"
-                >
-                  {isCopied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                  {isCopied ? 'Copied!' : 'Copy Refined Text'}
-                </Button>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(refinedStory.text || '');
+                      setIsCopied(true);
+                      setTimeout(() => setIsCopied(false), 2000);
+                    }}
+                    variant="outline"
+                    className="flex-1 sm:flex-none border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-150 flex items-center"
+                  >
+                    {isCopied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                    {isCopied ? 'Copied!' : 'Copy Text'}
+                  </Button>
+                  <Button 
+                    onClick={handleUpdateUserStory}
+                    disabled={isUpdatingStory || updateSuccess}
+                    className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white transition-colors duration-150 flex items-center"
+                  >
+                    {isUpdatingStory ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : updateSuccess ? (
+                      <Check className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    {isUpdatingStory ? 'Updating...' : updateSuccess ? 'Updated!' : 'Update User Story'}
+                  </Button>
+                </div>
               )}
             </DialogFooter>
           </DialogContent>
@@ -1293,6 +1371,24 @@ export default function AnalyzeRequirementsPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
+          toastMessage.type === 'success' 
+            ? 'bg-green-500 text-white' 
+            : 'bg-red-500 text-white'
+        }`}>
+          <div className="flex items-center">
+            {toastMessage.type === 'success' ? (
+              <Check className="h-5 w-5 mr-2" />
+            ) : (
+              <AlertCircle className="h-5 w-5 mr-2" />
+            )}
+            <span>{toastMessage.message}</span>
           </div>
         </div>
       )}
