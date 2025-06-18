@@ -237,7 +237,8 @@ ${report.response}`
         "What are the top 10 Business Risk Coverage priorities for new automation engineers?",
         "Create a comprehensive defect hotspot map with technical debt indicators",
         "Analyze quality trajectory and predict intervention points needed",
-        "Generate role-specific action intelligence for the entire development team"
+        "Generate role-specific action intelligence for the entire development team",
+        "Test Automation ROI Report - Create a comprehensive test automation business case report that demonstrates cost savings and implementation strategy for the current project"
       ]
     } else {
       return [
@@ -245,7 +246,8 @@ ${report.response}`
         "What Business Risk Coverage patterns emerged and what's the damage × frequency analysis?",
         "Identify quality momentum changes and trend velocity for strategic planning",
         "Create automation ROI calculator for the highest impact opportunities",
-        "Generate predictive intelligence for upcoming quality interventions needed"
+        "Generate predictive intelligence for upcoming quality interventions needed",
+        "Test Automation ROI Report - Create a focused test automation business case for this timeframe with cost-benefit analysis"
       ]
     }
   }

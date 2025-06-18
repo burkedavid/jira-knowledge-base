@@ -576,6 +576,102 @@ Please provide a comprehensive analysis with the following sections:
 
 Focus on INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable) and industry best practices.`,
     example: 'Batch analyzes multiple user stories for quality, risk, and provides improvement recommendations'
+  },
+  {
+    id: 'test-automation-roi-report',
+    category: 'Analytics',
+    name: 'Test Automation ROI Report',
+    description: 'Creates comprehensive test automation business case report with cost savings and implementation strategy',
+    endpoint: '/api/analytics/defects/query',
+    model: 'Claude Sonnet 4',
+    parameters: {
+      maxTokens: 4000,
+      temperature: 0.3
+    },
+    usage: 'Used to generate comprehensive test automation ROI reports with financial analysis and implementation strategy',
+    prompt: `You are a senior test automation consultant specializing in business case development and ROI analysis. Create a comprehensive Test Automation ROI Report that demonstrates cost savings and implementation strategy for the current project.
+
+**Objective:** Create a comprehensive test automation business case report that demonstrates cost savings and implementation strategy for the current project.
+
+**Analysis Context:**
+- Timeframe: {timeframe}
+- Total Defects: {totalDefects}
+- Defects by Severity: {defectsBySeverity}
+- Top Components: {defectsByComponent}
+- Root Cause Patterns: {defectPatterns}
+
+**RAG Context from Knowledge Base:**
+{enrichedContext}
+
+**REQUIREMENTS:**
+
+## 1. Financial Analysis (UK Pounds £)
+Generate a detailed cost-benefit analysis including:
+- Current defect remediation costs (support + development time)
+- Industry benchmark data for similar projects
+- Projected savings with test automation implementation
+- ROI calculations and payback period
+- Cost breakdown of manual testing vs automated testing
+
+## 2. Current State Analysis
+Based on existing defects data, calculate:
+- Time spent on defect triage and resolution
+- Development effort wasted on preventable issues
+- Support team overhead for defect management
+- Customer impact and potential revenue loss
+- Release delays caused by late-stage defect discovery
+
+## 3. Implementation Strategy
+Provide a detailed plan covering:
+
+### Schedule & Milestones
+- Phase-by-phase implementation timeline
+- Key deliverables and deadlines
+- Risk mitigation strategies
+
+### Resource Requirements
+- Personnel needs (roles, skills, FTE requirements)
+- Tooling and infrastructure costs
+- Training and upskilling budget
+- Ongoing maintenance resources
+
+### Technical Approach
+- Test automation framework recommendations
+- Integration with existing CI/CD pipeline
+- Coverage strategy (unit, integration, E2E testing)
+- Metrics and monitoring setup
+
+## 4. Defect Prevention Strategy
+Demonstrate how test automation will:
+- Catch defects before release through automated testing
+- Reduce regression issues in production
+- Improve code quality through continuous testing
+- Minimize support escalations and hotfixes
+
+## 5. Success Metrics
+Define measurable outcomes:
+- Defect reduction targets
+- Testing efficiency improvements
+- Release cycle time reduction
+- Cost savings benchmarks
+
+**Output Format:**
+- Executive summary with key findings
+- Detailed financial projections with charts/graphs
+- Implementation roadmap with Gantt chart
+- Resource allocation matrix
+- Risk assessment and mitigation plan
+
+**CRITICAL REQUIREMENTS:**
+- Use industry-standard data sources and cite references where applicable
+- All monetary figures must be in GBP (£)
+- Base recommendations on actual defect data provided
+- Include specific timelines and milestones
+- Provide realistic cost estimates based on current market rates
+- Focus on measurable business outcomes and ROI
+
+Generate a comprehensive report that can be used for executive decision-making and budget approval.`,
+    example: 'Creates detailed business case showing £150K annual savings with 18-month ROI for test automation implementation'
   }
 ]
 
