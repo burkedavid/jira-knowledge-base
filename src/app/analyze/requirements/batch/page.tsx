@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Play, Pause, RefreshCw, Filter, X, Calendar, CheckCircle, AlertTriangle, Clock, BarChart3, FileText, Users, Target, TrendingUp, Shield, Lightbulb, Bug, Zap, Award, AlertCircle, Download, StopCircle, Trash2, Database, ExternalLink, ChevronDown } from 'lucide-react'
+import { Play, Pause, RefreshCw, Filter, X, Calendar, CheckCircle, AlertTriangle, Clock, BarChart3, FileText, Users, Target, TrendingUp, Shield, Lightbulb, Bug, Zap, Award, AlertCircle, Download, StopCircle, Trash2, Database, ExternalLink, ChevronDown } from 'lucide-react'
+import PageLayout from '@/components/ui/page-layout'
 
 interface UserStory {
   id: string
@@ -456,35 +457,24 @@ export default function BatchAnalysisPage() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link 
-                href="/analyze/requirements" 
-                className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-              >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Requirements Analysis
-              </Link>
-            </div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Batch Requirements Analysis
-            </h1>
-            <button
-              onClick={fetchBatches}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </button>
-          </div>
-        </div>
-      </header>
+  const actionButtons = [
+    {
+      label: 'Refresh',
+      onClick: fetchBatches,
+      icon: <RefreshCw className="h-4 w-4" />,
+      variant: 'outline' as const
+    }
+  ];
 
+  return (
+    <PageLayout
+      title="Batch Requirements Analysis"
+      subtitle="Start and monitor batch analysis of user stories with real-time progress tracking"
+      icon={<BarChart3 className="h-6 w-6 text-blue-600" />}
+      backUrl="/analyze/requirements"
+      backLabel="Back to Requirements Analysis"
+      actionButtons={actionButtons}
+    >
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Start New Batch */}
@@ -1154,6 +1144,6 @@ export default function BatchAnalysisPage() {
           </div>
         )}
       </main>
-    </div>
+    </PageLayout>
   )
 } 

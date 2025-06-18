@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { vectorSearch } from '@/lib/vector-db'
 import { generateTextWithClaude } from '@/lib/aws-bedrock'
+import { prisma } from '@/lib/prisma'
 
 interface RAGSearchRequest {
   query: string
@@ -147,13 +148,77 @@ Please provide a comprehensive, helpful response that gives the user a full pict
     const confidence = Math.min(avgSimilarity * 1.5, 1.0) // Boost confidence, cap at 1.0
 
     // Step 6: Format sources for response with more detail
-    const sources: SearchResult[] = searchResults.slice(0, maxResults).map(result => ({
-      id: result.sourceId,
-      type: result.sourceType,
-      title: `${result.sourceType.toUpperCase()}: ${result.sourceId}`,
-      content: result.content.substring(0, 300) + (result.content.length > 300 ? '...' : ''),
-      similarity: result.similarity
-    }))
+    const sources: SearchResult[] = await Promise.all(
+      searchResults.slice(0, maxResults).map(async (result) => {
+        let displayTitle = `${result.sourceType.toUpperCase()}: ${result.sourceId}`
+        
+        try {
+          // Fetch entity data to get jiraKey and title
+          switch (result.sourceType) {
+            case 'user_story':
+              const userStory = await prisma.userStory.findUnique({
+                where: { id: result.sourceId },
+                select: { jiraKey: true, title: true }
+              })
+              if (userStory) {
+                displayTitle = userStory.jiraKey || userStory.title || displayTitle
+              }
+              break
+            case 'defect':
+              const defect = await prisma.defect.findUnique({
+                where: { id: result.sourceId },
+                select: { jiraKey: true, title: true }
+              })
+              if (defect) {
+                displayTitle = defect.jiraKey || defect.title || displayTitle
+              }
+              break
+            case 'test_case':
+              const testCase = await prisma.testCase.findUnique({
+                where: { id: result.sourceId },
+                select: { title: true }
+              })
+              if (testCase) {
+                displayTitle = testCase.title || displayTitle
+              }
+              break
+            case 'document':
+              const document = await prisma.document.findUnique({
+                where: { id: result.sourceId },
+                select: { title: true }
+              })
+              if (document) {
+                displayTitle = document.title || displayTitle
+              }
+              break
+            case 'document_section':
+              const documentSection = await prisma.document.findFirst({
+                where: { 
+                  sections: {
+                    some: { id: result.sourceId }
+                  }
+                },
+                select: { title: true }
+              })
+              if (documentSection) {
+                displayTitle = `${documentSection.title} (Section)`
+              }
+              break
+          }
+        } catch (error) {
+          console.error(`Error fetching entity data for ${result.sourceType}:`, error)
+          // Keep default title if fetch fails
+        }
+
+        return {
+          id: result.sourceId,
+          type: result.sourceType,
+          title: displayTitle,
+          content: result.content.substring(0, 300) + (result.content.length > 300 ? '...' : ''),
+          similarity: result.similarity
+        }
+      })
+    )
 
     return NextResponse.json({
       answer: claudeResponse,
@@ -195,13 +260,64 @@ export async function GET(request: NextRequest) {
   try {
     const searchResults = await vectorSearch(query, undefined, 10, 0.1) // Search all types, lower threshold
 
-    const sources: SearchResult[] = searchResults.map(result => ({
-      id: result.sourceId,
-      type: result.sourceType,
-      title: `${result.sourceType.toUpperCase()}: ${result.sourceId}`,
-      content: result.content.substring(0, 300) + (result.content.length > 300 ? '...' : ''),
-      similarity: result.similarity
-    }))
+    const sources: SearchResult[] = await Promise.all(
+      searchResults.map(async (result) => {
+        let displayTitle = `${result.sourceType.toUpperCase()}: ${result.sourceId}`
+        
+        try {
+          // Fetch entity data to get jiraKey and title
+          switch (result.sourceType) {
+            case 'user_story':
+              const userStory = await prisma.userStory.findUnique({
+                where: { id: result.sourceId },
+                select: { jiraKey: true, title: true }
+              })
+              if (userStory) {
+                displayTitle = userStory.jiraKey || userStory.title || displayTitle
+              }
+              break
+            case 'defect':
+              const defect = await prisma.defect.findUnique({
+                where: { id: result.sourceId },
+                select: { jiraKey: true, title: true }
+              })
+              if (defect) {
+                displayTitle = defect.jiraKey || defect.title || displayTitle
+              }
+              break
+            case 'test_case':
+              const testCase = await prisma.testCase.findUnique({
+                where: { id: result.sourceId },
+                select: { title: true }
+              })
+              if (testCase) {
+                displayTitle = testCase.title || displayTitle
+              }
+              break
+            case 'document':
+              const document = await prisma.document.findUnique({
+                where: { id: result.sourceId },
+                select: { title: true }
+              })
+              if (document) {
+                displayTitle = document.title || displayTitle
+              }
+              break
+          }
+        } catch (error) {
+          console.error(`Error fetching entity data for ${result.sourceType}:`, error)
+          // Keep default title if fetch fails
+        }
+
+        return {
+          id: result.sourceId,
+          type: result.sourceType,
+          title: displayTitle,
+          content: result.content.substring(0, 300) + (result.content.length > 300 ? '...' : ''),
+          similarity: result.similarity
+        }
+      })
+    )
 
     return NextResponse.json({
       query,

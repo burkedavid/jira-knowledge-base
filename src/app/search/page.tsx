@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { ArrowLeft, Search, Brain, FileText, TestTube, AlertTriangle, Loader2, Sparkles, Copy, Download, History, Trash2, Clock } from 'lucide-react'
+import { Search, Brain, FileText, TestTube, AlertTriangle, Loader2, Sparkles, Copy, Download, History, Trash2, Clock } from 'lucide-react'
+import PageLayout from '@/components/ui/page-layout'
 
 interface SearchResult {
   id: string
@@ -12,6 +13,11 @@ interface SearchResult {
   content: string
   similarity: number
   metadata?: any
+  entityData?: {
+    jiraKey?: string
+    title?: string
+    [key: string]: any
+  }
 }
 
 interface RAGResponse {
@@ -227,25 +233,23 @@ ${ragResponse.sources?.map((source, index) =>
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Home
-              </Link>
-            </div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Knowledge Search
-            </h1>
-          </div>
-        </div>
-      </header>
+  const actionButtons = [
+    {
+      label: `History (${searchHistory.length})`,
+      onClick: () => setShowHistory(!showHistory),
+      icon: <History className="h-4 w-4" />,
+      variant: 'outline' as const
+    }
+  ];
 
+  return (
+    <PageLayout
+      title="Knowledge Search"
+      subtitle="AI-powered search across your knowledge base using semantic similarity and RAG"
+      icon={<Brain className="h-6 w-6 text-indigo-600" />}
+      actionButtons={actionButtons}
+      className="min-h-screen bg-gray-50 dark:bg-gray-900"
+    >
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search Bar */}
@@ -258,41 +262,30 @@ ${ragResponse.sources?.map((source, index) =>
               </h2>
             </div>
             
-            {/* Search Mode Toggle and History Button */}
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600 dark:text-gray-300">Mode:</span>
-                <button
-                  onClick={() => setSearchMode('rag')}
-                  className={`px-3 py-1 rounded text-sm font-medium ${
-                    searchMode === 'rag'
-                      ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <Sparkles className="h-4 w-4 inline mr-1" />
-                  RAG
-                </button>
-                <button
-                  onClick={() => setSearchMode('semantic')}
-                  className={`px-3 py-1 rounded text-sm font-medium ${
-                    searchMode === 'semantic'
-                      ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <Search className="h-4 w-4 inline mr-1" />
-                  Semantic
-                </button>
-              </div>
-              
-              {/* History Button */}
+            {/* Search Mode Toggle */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600 dark:text-gray-300">Mode:</span>
               <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="flex items-center px-3 py-1 rounded text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                onClick={() => setSearchMode('rag')}
+                className={`px-3 py-1 rounded text-sm font-medium ${
+                  searchMode === 'rag'
+                    ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
               >
-                <History className="h-4 w-4 mr-1" />
-                History ({searchHistory.length})
+                <Sparkles className="h-4 w-4 inline mr-1" />
+                RAG
+              </button>
+              <button
+                onClick={() => setSearchMode('semantic')}
+                className={`px-3 py-1 rounded text-sm font-medium ${
+                  searchMode === 'semantic'
+                    ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Search className="h-4 w-4 inline mr-1" />
+                Semantic
               </button>
             </div>
           </div>
@@ -543,6 +536,9 @@ ${ragResponse.sources?.map((source, index) =>
                           {Math.round(source.similarity * 100)}% match
                         </span>
                       </div>
+                      <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-1 line-clamp-1">
+                        {source.title}
+                      </h5>
                       <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2">
                         {source.content}
                       </p>
@@ -566,43 +562,55 @@ ${ragResponse.sources?.map((source, index) =>
               </div>
             </div>
             
-            {results.map((result, index) => (
-              <div key={result.id || index} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center">
-                    {getTypeIcon(result.type)}
-                    <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(result.type)}`}>
-                      {getTypeLabel(result.type)}
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {Math.round(result.similarity * 100)}% match
-                    </span>
-                    <div className="ml-2 w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
-                        style={{ width: `${result.similarity * 100}%` }}
-                      ></div>
+            {results.map((result, index) => {
+              // Get display title from entity data, fallback to jiraKey or title
+              let displayTitle = result.title
+              if (result.entityData) {
+                if (result.entityData.jiraKey) {
+                  displayTitle = result.entityData.jiraKey
+                } else if (result.entityData.title) {
+                  displayTitle = result.entityData.title
+                }
+              }
+              
+              return (
+                <div key={result.id || index} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center">
+                      {getTypeIcon(result.type)}
+                      <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(result.type)}`}>
+                        {getTypeLabel(result.type)}
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {Math.round(result.similarity * 100)}% match
+                      </span>
+                      <div className="ml-2 w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full" 
+                          style={{ width: `${result.similarity * 100}%` }}
+                        ></div>
+                      </div>
                     </div>
                   </div>
+                  
+                  <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    {displayTitle}
+                  </h4>
+                  
+                  <p className="text-gray-600 dark:text-gray-300 text-sm line-clamp-3">
+                    {result.content}
+                  </p>
+                  
+                  <div className="mt-4 flex justify-end">
+                    <button className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium">
+                      View Details →
+                    </button>
+                  </div>
                 </div>
-                
-                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  {result.title}
-                </h4>
-                
-                <p className="text-gray-600 dark:text-gray-300 text-sm line-clamp-3">
-                  {result.content}
-                </p>
-                
-                <div className="mt-4 flex justify-end">
-                  <button className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium">
-                    View Details →
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
@@ -827,6 +835,6 @@ ${ragResponse.sources?.map((source, index) =>
           </div>
         )}
       </main>
-    </div>
+    </PageLayout>
   )
 } 

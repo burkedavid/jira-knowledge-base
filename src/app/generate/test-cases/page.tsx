@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, TestTube, Loader2, Copy, Download, CheckCircle, XCircle, AlertTriangle, History, Trash2, Clock, FileText, Code, Eye, FileDown, Settings, TrendingUp, Users, Shield, Wifi, ChevronDown, ChevronRight, X } from 'lucide-react'
+import { TestTube, Loader2, Copy, Download, CheckCircle, XCircle, AlertTriangle, History, Trash2, Clock, FileText, Code, Eye, FileDown, Settings, TrendingUp, Users, Shield, Wifi, ChevronDown, ChevronRight, X } from 'lucide-react'
 import SmartFilter from '../../../components/SmartFilter'
+import PageLayout from '@/components/ui/page-layout'
 
 interface UserStory {
   id: string
@@ -774,8 +775,23 @@ ${tc.testData.length > 0 ? `      // Test Data: ${tc.testData.join(', ')}` : ''}
 
 
 
+  const actionButtons = [
+    {
+      label: `History (${savedTestCases.length})`,
+      onClick: () => setShowHistory(!showHistory),
+      icon: <History className="h-4 w-4" />,
+      variant: 'outline' as const
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 relative">
+    <PageLayout
+      title="Generate Test Cases"
+      subtitle="Generate comprehensive test cases from your user stories using Claude AI and historical defect patterns"
+      icon={<TestTube className="h-6 w-6 text-green-600" />}
+      actionButtons={actionButtons}
+      className="min-h-screen bg-gray-50 dark:bg-gray-900 relative"
+    >
       {/* History Sidebar */}
       {showHistory && (
         <div className="fixed inset-0 z-50 overflow-hidden">
@@ -857,34 +873,7 @@ ${tc.testData.length > 0 ? `      // Test Data: ${tc.testData.join(', ')}` : ''}
         </div>
       )}
 
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <button 
-                onClick={() => router.push('/')}
-                className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Home
-              </button>
-            </div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Generate Test Cases
-            </h1>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                <History className="h-4 w-4 mr-2" />
-                History ({savedTestCases.length})
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1433,7 +1422,7 @@ ${tc.testData.length > 0 ? `      // Test Data: ${tc.testData.join(', ')}` : ''}
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   )
 }
 

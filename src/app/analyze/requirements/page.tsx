@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, useCallback, ReactNode } from 'react'
-import { ArrowLeft, BarChart3, Loader2, CheckCircle, AlertTriangle, History, Trash2, Clock, FileText, AlertCircle, Database, ChevronDown, Copy, Check } from 'lucide-react'
+import { BarChart3, Loader2, CheckCircle, AlertTriangle, History, Trash2, Clock, FileText, AlertCircle, Database, ChevronDown, Copy, Check } from 'lucide-react'
+import PageLayout from '@/components/ui/page-layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog'
@@ -725,40 +726,28 @@ export default function AnalyzeRequirementsPage() {
       .replace(/^h([1-6])\.\s/gm, (_: string, level: string) => '#'.repeat(parseInt(level)) + ' ');
   }, [refinedStory?.text]);
 
+  const actionButtons = [
+    {
+      label: 'Batch Analysis',
+      onClick: () => router.push('/analyze/requirements/batch'),
+      icon: <BarChart3 className="h-4 w-4" />,
+      variant: 'primary' as const
+    },
+    {
+      label: `History (${savedAnalyses.length})`,
+      onClick: () => setShowHistory(!showHistory),
+      icon: <History className="h-4 w-4" />,
+      variant: 'outline' as const
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <button 
-                onClick={() => router.push('/')}
-                className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Home
-              </button>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link 
-                href="/analyze/requirements/batch" 
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Batch Analysis
-              </Link>
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                <History className="h-4 w-4 mr-2" />
-                History ({savedAnalyses.length})
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <PageLayout
+      title="Requirements Analysis"
+      subtitle="Analyze user story quality, identify risks, and get AI-powered improvement suggestions"
+      icon={<BarChart3 className="h-6 w-6 text-blue-600" />}
+      actionButtons={actionButtons}
+    >
 
       {/* History Panel */}
       {showHistory && (
@@ -1158,6 +1147,6 @@ export default function AnalyzeRequirementsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   )
 } 

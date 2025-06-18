@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Database, Upload, FileText, Settings, CheckCircle, AlertCircle, Loader2, FolderOpen, File, Brain, Save, RotateCcw } from 'lucide-react'
+import { Database, Upload, FileText, Settings, CheckCircle, AlertCircle, Loader2, FolderOpen, File, Brain, Save, RotateCcw } from 'lucide-react'
+import PageLayout from '@/components/ui/page-layout'
 
 interface ImportJob {
   id: string
@@ -41,8 +42,8 @@ export default function ImportPage() {
   const [exploreResult, setExploreResult] = useState<any | null>(null)
   const [currentJob, setCurrentJob] = useState<ImportJob | null>(null)
   const [jqlMappings, setJqlMappings] = useState<JQLMapping[]>([
-    { type: 'user_stories', label: 'User Stories', jql: 'project = "PROJ" AND type = "Story"', enabled: false, count: 0 },
-    { type: 'defects', label: 'Defects/Bugs', jql: 'project = "PROJ" AND type = "Bug"', enabled: false, count: 0 }
+    { type: 'user_stories', label: 'User Stories', jql: 'project = "PROJ" AND type = "Story" AND status IN ("Released", "Ready to Release", "Ready to Release (Pending Docs)")', enabled: false, count: 0 },
+    { type: 'defects', label: 'Defects/Bugs', jql: 'project = "PROJ" AND type = "Bug" AND status != "Will not Implement"', enabled: false, count: 0 }
   ])
   const [formData, setFormData] = useState({
     jiraUrl: 'https://your-company.atlassian.net',
@@ -210,28 +211,28 @@ export default function ImportPage() {
           const issueTypeName = suggestion.jql.match(/type = "([^"]+)"/)?.[1] || ''
           const lowerType = issueTypeName.toLowerCase()
           
-                     if (lowerType.includes('story') || lowerType.includes('user story') || lowerType.includes('change request')) {
-             userStoryType = issueTypeName
-             const userStoryMapping = newMappings.find(m => m.type === 'user_stories')
-             if (userStoryMapping) {
-               userStoryMapping.jql = `project = "${formData.projectKey}" AND type = "${issueTypeName}"`
-               userStoryMapping.count = suggestion.count
-               userStoryMapping.enabled = suggestion.count > 0
-             }
+                               if (lowerType.includes('story') || lowerType.includes('user story') || lowerType.includes('change request')) {
+            userStoryType = issueTypeName
+            const userStoryMapping = newMappings.find(m => m.type === 'user_stories')
+            if (userStoryMapping) {
+              userStoryMapping.jql = `project = "${formData.projectKey}" AND type = "${issueTypeName}" AND status IN ("Released", "Ready to Release", "Ready to Release (Pending Docs)")`
+              userStoryMapping.count = suggestion.count
+              userStoryMapping.enabled = suggestion.count > 0
+            }
           } else if (lowerType.includes('bug') || lowerType.includes('defect')) {
             defectTypes.push(issueTypeName)
                      }
         })
         
-                 // Handle defects - combine multiple defect types into one JQL
-         if (defectTypes.length > 0) {
-           const defectMapping = newMappings.find(m => m.type === 'defects')
-           if (defectMapping) {
-             if (defectTypes.length === 1) {
-               defectMapping.jql = `project = "${formData.projectKey}" AND type = "${defectTypes[0]}"`
-             } else {
-               defectMapping.jql = `project = "${formData.projectKey}" AND type in (${defectTypes.map(t => `"${t}"`).join(', ')})`
-             }
+                         // Handle defects - combine multiple defect types into one JQL
+        if (defectTypes.length > 0) {
+          const defectMapping = newMappings.find(m => m.type === 'defects')
+          if (defectMapping) {
+            if (defectTypes.length === 1) {
+              defectMapping.jql = `project = "${formData.projectKey}" AND type = "${defectTypes[0]}" AND status != "Will not Implement"`
+            } else {
+              defectMapping.jql = `project = "${formData.projectKey}" AND type in (${defectTypes.map(t => `"${t}"`).join(', ')}) AND status != "Will not Implement"`
+            }
             // Sum up counts for all defect types
             const totalDefectCount = result.suggestions.recommendedJQL
               .filter((s: any) => {
@@ -329,24 +330,12 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Home
-              </Link>
-            </div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Data Import
-            </h1>
-          </div>
-        </div>
-      </header>
-
+    <PageLayout
+      title="Data Import"
+      subtitle="Import data from Jira or upload documents to your knowledge base"
+      icon={<Database className="h-6 w-6 text-blue-600" />}
+      className="min-h-screen bg-gray-50 dark:bg-gray-900"
+    >
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs */}
@@ -832,7 +821,7 @@ export default function ImportPage() {
           )}
         </div>
       </main>
-    </div>
+    </PageLayout>
   )
 }
 

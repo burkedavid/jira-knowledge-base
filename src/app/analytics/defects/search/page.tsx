@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Search, Filter, Brain, FileText, Users, AlertTriangle, Calendar, Component, Tag, RefreshCw, MessageSquare, Lightbulb, BookOpen, Bug, History, Download, Clock, X } from 'lucide-react'
+import { Search, Filter, Brain, FileText, Users, AlertTriangle, Calendar, Component, Tag, RefreshCw, MessageSquare, Lightbulb, BookOpen, Bug, History, Download, Clock, X } from 'lucide-react'
+import PageLayout from '@/components/ui/page-layout'
 
 interface Defect {
   id: string
@@ -330,45 +331,25 @@ export default function DefectSearchPage() {
     })
   }
 
+  const actionButtons = [
+    {
+      label: `History (${analysisHistory.length})`,
+      onClick: () => setShowHistory(!showHistory),
+      icon: <History className="h-4 w-4" />,
+      variant: 'outline' as const
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <PageLayout
+      title="AI Defect Root Cause Analysis"
+      subtitle="Search defects and use AI + RAG to understand root causes through user stories and documentation"
+      icon={<AlertTriangle className="h-6 w-6 text-red-600" />}
+      backUrl="/analytics/defects"
+      backLabel="Back to Defect Analytics"
+      actionButtons={actionButtons}
+    >
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Link
-              href="/analytics/defects"
-              className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Back to Defect Analytics
-            </Link>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                AI Defect Root Cause Analysis
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300 mt-2">
-                Search defects and use AI + RAG to understand root causes through user stories and documentation
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
-              >
-                <History className="h-4 w-4" />
-                Analysis History ({analysisHistory.length})
-              </button>
-              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <Brain className="h-4 w-4" />
-                <span>Powered by Claude 4 + RAG</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
@@ -864,6 +845,6 @@ export default function DefectSearchPage() {
           </div>
         </div>
       </main>
-    </div>
+    </PageLayout>
   )
 } 

@@ -2,13 +2,13 @@
   "searchTypes": {
     "defects": true,
     "userStories": true,
-    "testCases": true,
+    "testCases": false,
     "documents": true
   },
   "maxResults": {
     "defects": 3,
     "userStories": 3,
-    "testCases": 3,
+    "testCases": 0,
     "documents": 3
   },
   "similarityThresholds": {

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Brain, Search, TestTube, FileText, AlertTriangle, Database, Copy, Check, Filter, Eye, Code, Zap, ArrowLeft } from 'lucide-react'
+import { Brain, Search, TestTube, FileText, AlertTriangle, Database, Copy, Check, Filter, Eye, Code, Zap } from 'lucide-react'
+import PageLayout from '@/components/ui/page-layout'
 
 interface AIPrompt {
   id: string
@@ -734,36 +735,14 @@ export default function AIPromptsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white mr-6">
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Home
-              </Link>
-              <Brain className="h-8 w-8 text-blue-600" />
-              <h1 className="ml-3 text-xl font-bold text-gray-900 dark:text-white">
-                AI Prompts Viewer
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <PageLayout
+      title="AI Prompts Viewer"
+      subtitle="Explore all the AI prompts used throughout the platform to generate test cases, analyze requirements, and provide intelligent insights"
+      icon={<Brain className="h-6 w-6 text-blue-600" />}
+      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800"
+    >
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Hero Section */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            AI Prompts & Templates
-          </h2>
-          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Explore all the AI prompts used throughout the platform. See how Claude Sonnet 4 
-            generates test cases, analyzes requirements, identifies defect patterns, and provides intelligent insights.
-          </p>
-        </div>
+
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -973,6 +952,6 @@ export default function AIPromptsPage() {
           </div>
         </div>
       </main>
-    </div>
+    </PageLayout>
   )
 }
