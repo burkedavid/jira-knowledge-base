@@ -9,7 +9,7 @@ const nextConfig = {
     return config;
   },
 
-  // Force dynamic rendering for API routes that use authentication
+  // CRITICAL: Trust proxy headers for K8s/proxy environments
   async headers() {
     return [
       {
@@ -19,9 +19,23 @@ const nextConfig = {
             key: 'Cache-Control',
             value: 'no-cache, no-store, must-revalidate',
           },
+          // Trust proxy headers
+          {
+            key: 'X-Forwarded-Proto',
+            value: 'https',
+          },
         ],
       },
     ];
+  },
+
+  // Handle proxy rewrites if needed
+  async rewrites() {
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [],
+    };
   },
 }
 

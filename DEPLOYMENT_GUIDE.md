@@ -208,6 +208,41 @@ EOF
 docker-compose up -d
 ```
 
+#### Option C: Kubernetes Deployment (RECOMMENDED for Production)
+
+**⚠️ CRITICAL: This application has been tested and fixed for proxy/K8s issues**
+
+```bash
+# Build and tag Docker image
+docker build -t knowledge-base:latest .
+docker tag knowledge-base:latest your-registry/knowledge-base:v1.0.0
+docker push your-registry/knowledge-base:v1.0.0
+
+# Update image in k8s-deployment.yaml
+sed -i 's|knowledge-base:latest|your-registry/knowledge-base:v1.0.0|' k8s-deployment.yaml
+
+# Create namespace
+kubectl create namespace knowledge-base
+
+# Apply secrets (update with your values first)
+kubectl apply -f k8s-deployment.yaml -n knowledge-base
+
+# Verify deployment
+kubectl get pods -n knowledge-base
+kubectl get ingress -n knowledge-base
+
+# Check health status
+kubectl exec -it deployment/knowledge-base-v2 -n knowledge-base -- curl http://localhost:3000/api/health/k8s
+```
+
+**Key K8s Features Implemented:**
+- ✅ Proper proxy header handling
+- ✅ NextAuth URL configuration for proxies  
+- ✅ Kubernetes-optimized health checks
+- ✅ Resource limits and security contexts
+- ✅ Ingress with SSL termination
+- ✅ Secret management for sensitive data
+
 ### 4. Reverse Proxy Configuration (Nginx)
 
 ```nginx
@@ -416,6 +451,31 @@ server {
 
 ## 🚨 Troubleshooting
 
+### Critical Proxy/K8s Issues
+
+1. **NextAuth Authentication Failures Behind Proxy**
+   ```bash
+   # Check if NEXTAUTH_URL_INTERNAL is set correctly
+   echo $NEXTAUTH_URL_INTERNAL
+   
+   # Verify proxy headers are being forwarded
+   curl -H "X-Forwarded-Proto: https" -H "X-Forwarded-For: 192.168.1.1" https://your-domain.com/api/health/k8s
+   ```
+
+2. **Cookie/Session Issues in K8s**
+   ```bash
+   # Check cookie domain configuration
+   # Ensure COOKIE_DOMAIN is set to your domain
+   # Example: COOKIE_DOMAIN=".your-company.com"
+   ```
+
+3. **URL Redirect Loops**
+   ```bash
+   # Verify NEXTAUTH_URL matches external domain
+   # NEXTAUTH_URL=https://your-external-domain.com
+   # NEXTAUTH_URL_INTERNAL=http://localhost:3000
+   ```
+
 ### Common Issues
 
 1. **Database Connection Issues**
@@ -425,6 +485,9 @@ server {
    
    # Test connection
    psql -h localhost -U kb_user -d knowledge_base
+   
+   # K8s database connectivity
+   kubectl exec -it deployment/knowledge-base-v2 -- curl http://localhost:3000/api/health/k8s
    ```
 
 2. **Application Won't Start**
@@ -432,8 +495,12 @@ server {
    # Check logs
    pm2 logs knowledge-base
    
+   # K8s logs
+   kubectl logs deployment/knowledge-base-v2
+   
    # Check environment variables
    pm2 env 0
+   kubectl exec -it deployment/knowledge-base-v2 -- printenv
    ```
 
 3. **High Memory Usage**
@@ -441,8 +508,13 @@ server {
    # Monitor memory usage
    pm2 monit
    
+   # K8s resource monitoring
+   kubectl top pods
+   kubectl describe pod <pod-name>
+   
    # Restart application
    pm2 restart knowledge-base
+   kubectl rollout restart deployment/knowledge-base-v2
    ```
 
 ### Performance Optimization

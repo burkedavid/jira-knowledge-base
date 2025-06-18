@@ -1,0 +1,191 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: knowledge-base-v2
+  labels:
+    app: knowledge-base-v2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: knowledge-base-v2
+  template:
+    metadata:
+      labels:
+        app: knowledge-base-v2
+    spec:
+      containers:
+      - name: knowledge-base-v2
+        image: knowledge-base:latest
+        ports:
+        - containerPort: 3000
+        env:
+        # Database Configuration
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: knowledge-base-secrets
+              key: database-url
+        
+        # NextAuth Configuration - CRITICAL for proxy environments
+        - name: NEXTAUTH_URL
+          value: "https://your-domain.com"  # External URL
+        - name: NEXTAUTH_URL_INTERNAL
+          value: "http://localhost:3000"    # Internal URL
+        - name: NEXTAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: knowledge-base-secrets
+              key: nextauth-secret
+        
+        # Trust proxy headers
+        - name: TRUST_PROXY
+          value: "true"
+        
+        # AI Service Configuration
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: knowledge-base-secrets
+              key: aws-access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: knowledge-base-secrets
+              key: aws-secret-access-key
+        - name: AWS_REGION
+          value: "us-east-1"
+        
+        # JIRA Integration (Optional)
+        - name: JIRA_BASE_URL
+          value: "https://your-jira.com"
+        - name: JIRA_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: knowledge-base-secrets
+              key: jira-email
+        - name: JIRA_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: knowledge-base-secrets
+              key: jira-api-token
+        
+        # Production Configuration
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        
+        # Proxy Configuration
+        - name: COOKIE_DOMAIN
+          value: ".your-domain.com"
+        
+        # Health Checks - CRITICAL for K8s
+        livenessProbe:
+          httpGet:
+            path: /api/health/k8s
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /api/health/k8s
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        
+        # Resource limits
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: knowledge-base-v2-service
+spec:
+  selector:
+    app: knowledge-base-v2
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: knowledge-base-v2-ingress
+  annotations:
+    # CRITICAL: Proxy annotations for proper header handling
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "75"
+    
+    # Trust proxy headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header Host $host;
+    
+    # SSL redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    
+spec:
+  tls:
+  - hosts:
+    - your-domain.com
+    secretName: knowledge-base-tls
+  rules:
+  - host: your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: knowledge-base-v2-service
+            port:
+              number: 80
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: knowledge-base-secrets
+type: Opaque
+stringData:
+  database-url: "postgresql://user:password@postgres-service:5432/knowledge_base"
+  nextauth-secret: "your-very-secure-nextauth-secret-here"
+  aws-access-key-id: "your-aws-access-key"
+  aws-secret-access-key: "your-aws-secret-key"
+  jira-email: "your-email@company.com"
+  jira-api-token: "your-jira-api-token" 

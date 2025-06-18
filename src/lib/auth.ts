@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
 export const authOptions: NextAuthOptions = {
+  
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -42,7 +43,9 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   session: {
-    strategy: 'jwt'
+    strategy: 'jwt',
+    // Increase session timeout for proxy environments
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -57,10 +60,38 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role
       }
       return session
+    },
+    // Handle proxy URL redirects properly
+    async redirect({ url, baseUrl }) {
+      // Allow relative URLs
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`
+      }
+      // Allow same origin URLs
+      if (new URL(url).origin === baseUrl) {
+        return url
+      }
+      // Default to base URL for security
+      return baseUrl
     }
   },
   pages: {
     signIn: '/login',
   },
   secret: process.env.NEXTAUTH_SECRET,
+  
+  // Additional proxy-friendly options
+  useSecureCookies: process.env.NODE_ENV === 'production',
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
+      }
+    }
+  }
 } 
