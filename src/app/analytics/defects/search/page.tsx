@@ -261,6 +261,7 @@ export default function DefectSearchPage() {
     try {
       setAnalysisLoading(true)
       setAiAnalysis(null)
+      setSelectedDefect(defect) // Ensure we set the current defect being analyzed
       
       const response = await fetch('/api/analyze/defect-root-cause', {
         method: 'POST',
@@ -632,7 +633,10 @@ export default function DefectSearchPage() {
                   {filteredDefects.map((defect) => (
                     <div
                       key={defect.id}
-                      onClick={() => setSelectedDefect(defect)}
+                      onClick={() => {
+                        setSelectedDefect(defect)
+                        setAiAnalysis(null) // Clear any previous analysis when selecting a new defect
+                      }}
                       className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
                         selectedDefect?.id === defect.id ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500' : ''
                       }`}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, BarChart3, TrendingUp, AlertTriangle, Target, RefreshCw, Calendar, Filter, Send, MessageSquare, HelpCircle, Shield, Activity, Brain, Play, Settings, Save, History, Clock, Trash2, FileText, Copy } from 'lucide-react'
+import AIHeader from '@/components/ui/ai-header'
 import DefectPatternsAnalysis from '@/components/DefectPatternsAnalysis'
 import ReactMarkdown from 'react-markdown'
 
@@ -61,6 +62,8 @@ function DefectQueryInterface({ timeframe, component, onAnalyze }: DefectQueryIn
   const [savedReports, setSavedReports] = useState<SavedReport[]>([])
   const [showSavedReports, setShowSavedReports] = useState(false)
   const [reportTitle, setReportTitle] = useState('')
+  const [analysisContext, setAnalysisContext] = useState<any>(null)
+  const [showTransparency, setShowTransparency] = useState(false)
 
   // Load saved reports on component mount
   useEffect(() => {
@@ -168,6 +171,7 @@ ${report.response}`
     setLoading(true)
     setError(null)
     setResponse(null)
+    setAnalysisContext(null)
 
     try {
       const res = await fetch('/api/analytics/defects/query', {
@@ -188,6 +192,7 @@ ${report.response}`
 
       const data = await res.json()
       setResponse(data.analysis)
+      setAnalysisContext(data.ragContext)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -202,6 +207,7 @@ ${report.response}`
     setLoading(true)
     setError(null)
     setResponse(null)
+    setAnalysisContext(null)
 
     try {
       const res = await fetch('/api/analytics/defects/query', {
@@ -222,6 +228,7 @@ ${report.response}`
 
       const data = await res.json()
       setResponse(data.analysis)
+      setAnalysisContext(data.ragContext)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -404,6 +411,243 @@ ${report.response}`
           </div>
         </div>
       </form>
+
+      {/* Transparency Panel */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                Analysis Transparency
+              </h3>
+            </div>
+            <button
+              onClick={() => setShowTransparency(!showTransparency)}
+              className="flex items-center gap-2 px-3 py-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              {showTransparency ? 'Hide Details' : 'Show What AI Analyzes'}
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+            See exactly what data and analysis framework is sent to the AI
+          </p>
+        </div>
+        
+        {showTransparency && (
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+                  📊 Raw Database Analysis
+                </h4>
+                <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                  <p>• Total defects count by severity</p>
+                  <p>• Top 5 components with defect counts</p>
+                  <p>• Root cause patterns with frequencies</p>
+                  <p>• Monthly trend data</p>
+                  <p>• Component risk assessments</p>
+                </div>
+              </div>
+              
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+                <h4 className="font-medium text-purple-900 dark:text-purple-100 mb-2">
+                  🧠 RAG Knowledge Search
+                </h4>
+                <div className="text-sm text-purple-800 dark:text-purple-200 space-y-1">
+                  <p>• Semantic search through defects</p>
+                  <p>• Related user stories analysis</p>
+                  <p>• Similar test cases patterns</p>
+                  <p>• Documentation references</p>
+                  <p>• Similarity scoring (0-100%)</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3">
+                🎯 Intelligence Generation Framework (What AI Is Asked To Do)
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-300">
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">Executive Intelligence Layer:</p>
+                  <ul className="space-y-1 ml-4">
+                    <li>• Risk assessment with business impact</li>
+                    <li>• Trend velocity calculations</li>
+                    <li>• Quality debt indicators</li>
+                    <li>• Investment ROI predictions</li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">Strategic Pattern Recognition:</p>
+                  <ul className="space-y-1 ml-4">
+                    <li>• Defect hotspot identification</li>
+                    <li>• Seasonal pattern analysis</li>
+                    <li>• Cascade effect mapping</li>
+                    <li>• Quality momentum tracking</li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">Business Risk Coverage (BRC):</p>
+                  <ul className="space-y-1 ml-4">
+                    <li>• Component risk scoring (0-100)</li>
+                    <li>• Business impact assessment</li>
+                    <li>• Usage level evaluation</li>
+                    <li>• Priority action recommendations</li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">Role-Specific Intelligence:</p>
+                  <ul className="space-y-1 ml-4">
+                    <li>• Test automation engineer guidance</li>
+                    <li>• QA engineer recommendations</li>
+                    <li>• Developer code quality insights</li>
+                    <li>• Product owner metrics</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            
+            {analysisContext && (
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                <h4 className="font-medium text-green-900 dark:text-green-100 mb-3">
+                  📈 Last Analysis Context (What Was Actually Sent)
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      {analysisContext.totalDefects || 0}
+                    </div>
+                    <div className="text-green-800 dark:text-green-200">Total Defects</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {analysisContext.semanticResultsCount || 0}
+                    </div>
+                    <div className="text-blue-800 dark:text-blue-200">RAG Results</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                      {analysisContext.relevantDefectsFound || 0}
+                    </div>
+                    <div className="text-purple-800 dark:text-purple-200">Related Defects</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      {analysisContext.relatedUserStoriesFound || 0}
+                    </div>
+                    <div className="text-orange-800 dark:text-orange-200">User Stories</div>
+                  </div>
+                </div>
+                
+                {analysisContext.topComponents && analysisContext.topComponents.length > 0 && (
+                  <div className="mt-4">
+                    <p className="font-medium text-green-900 dark:text-green-100 mb-2">Top Components Analyzed:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {analysisContext.topComponents.map((comp: any, index: number) => (
+                        <span key={index} className="px-2 py-1 bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded text-xs">
+                          {comp.component}: {comp.count} defects
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Enhanced Loading State with Scrolling Analysis Components */}
+      {loading && (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white">
+                  Generating Intelligence Report...
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Processing {timeframe === 'all' ? 'comprehensive system baseline' : 'tactical intelligence'} analysis
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Analysis Progress</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Processing...</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '65%' }}></div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h5 className="font-medium text-gray-900 dark:text-gray-100 mb-3">
+                🔍 Current Analysis Components:
+              </h5>
+              <div className="max-h-48 overflow-y-auto space-y-2">
+                <div className="animate-pulse space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping"></div>
+                    <span>Extracting defect patterns from database...</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" style={{ animationDelay: '0.2s' }}></div>
+                    <span>Performing semantic search through knowledge base...</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-ping" style={{ animationDelay: '0.4s' }}></div>
+                    <span>Analyzing component risk scores and business impact...</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping" style={{ animationDelay: '0.6s' }}></div>
+                    <span>Calculating trend velocity and quality momentum...</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-ping" style={{ animationDelay: '0.8s' }}></div>
+                    <span>Generating executive intelligence layer insights...</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-ping" style={{ animationDelay: '1.0s' }}></div>
+                    <span>Creating role-specific action intelligence...</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-pink-500 rounded-full animate-ping" style={{ animationDelay: '1.2s' }}></div>
+                    <span>Performing strategic pattern recognition...</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-teal-500 rounded-full animate-ping" style={{ animationDelay: '1.4s' }}></div>
+                    <span>Applying Business Risk Coverage (BRC) methodology...</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-ping" style={{ animationDelay: '1.6s' }}></div>
+                    <span>Generating predictive intelligence and intervention points...</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-cyan-500 rounded-full animate-ping" style={{ animationDelay: '1.8s' }}></div>
+                    <span>Creating automation ROI calculations...</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="w-2 h-2 bg-lime-500 rounded-full animate-ping" style={{ animationDelay: '2.0s' }}></div>
+                    <span>Formatting executive-ready intelligence report...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Analyzing {timeframe === 'all' ? 'complete system history' : 'recent patterns'} with AI-powered insights...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -831,34 +1075,32 @@ ${report.response}`
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
+      {/* AI Header */}
+      <AIHeader />
+      
+      {/* Breadcrumb */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
             <button
               onClick={() => router.push('/')}
               className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
             >
-              <ArrowLeft className="h-5 w-5 mr-2" />
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Home
             </button>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+              <BarChart3 className="h-6 w-6 mr-3 text-blue-600" />
+              AI-Powered Defect Analytics
+            </h1>
           </div>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                AI-Powered Defect Analytics
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300 mt-2">
-                Comprehensive defect pattern analysis using Claude 4 and RAG technology
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <Brain className="h-4 w-4" />
-              <span>Powered by Claude 4 + RAG</span>
-            </div>
-          </div>
+          <p className="text-gray-600 dark:text-gray-300 mt-2 text-center">
+            Comprehensive defect pattern analysis using Claude 4 and RAG technology
+          </p>
         </div>
+      </div>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">

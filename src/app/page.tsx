@@ -15,6 +15,7 @@ import {
   Calendar
 } from 'lucide-react'
 import UserMenu from '@/components/auth/user-menu'
+import AIHeader from '@/components/ui/ai-header'
 
 interface PlatformStats {
   userStories: number
@@ -135,22 +136,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Brain className="h-8 w-8 text-blue-600" />
-              <h1 className="ml-3 text-xl font-bold text-gray-900 dark:text-white">
-                RAG Knowledge Base
-              </h1>
-            </div>
-            <nav className="flex items-center space-x-4">
-              <UserMenu />
-            </nav>
-          </div>
-        </div>
-      </header>
+      {/* AI Header */}
+      <AIHeader />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -160,8 +147,7 @@ export default function HomePage() {
             AI-Powered Testing & Requirements Platform
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Leverage RAG technology powered by Claude Sonnet 4 to generate comprehensive test cases, analyze requirements quality, 
-            and identify defect patterns from your Jira data and documentation.
+            Analyze requirements, generate test cases and identify defect patterns using AI and your data.
           </p>
         </div>
 
@@ -354,79 +340,245 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Date Range Information */}
+          {/* Enhanced RAG Data Coverage */}
           {!isLoading && dateRange && dateRange.hasData && (
-            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    RAG Data Coverage
-                  </span>
+            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+              {/* Header with animated status */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg blur-sm opacity-30 animate-pulse"></div>
+                    <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-lg">
+                      <Database className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      RAG Data Coverage Analysis
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Comprehensive data span and freshness metrics
+                    </p>
+                  </div>
                 </div>
-                <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  dateRange.freshness.status === 'current' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
-                  dateRange.freshness.status === 'recent' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
-                  dateRange.freshness.status === 'moderate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
-                  'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                }`}>
-                  {dateRange.freshness.status === 'current' ? '🟢 Current' :
-                   dateRange.freshness.status === 'recent' ? '🔵 Recent' :
-                   dateRange.freshness.status === 'moderate' ? '🟡 Moderate' :
-                   '🔴 Stale'}
+                
+                {/* Status Badge with glow effect */}
+                <div className="relative">
+                  <div className={`absolute inset-0 rounded-full blur-md opacity-50 ${
+                    dateRange.freshness.status === 'current' ? 'bg-green-400' :
+                    dateRange.freshness.status === 'recent' ? 'bg-blue-400' :
+                    dateRange.freshness.status === 'moderate' ? 'bg-yellow-400' :
+                    'bg-red-400'
+                  }`}></div>
+                  <div className={`relative px-4 py-2 rounded-full text-sm font-semibold flex items-center space-x-2 ${
+                    dateRange.freshness.status === 'current' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                    dateRange.freshness.status === 'recent' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                    dateRange.freshness.status === 'moderate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                    'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full animate-pulse ${
+                      dateRange.freshness.status === 'current' ? 'bg-green-500' :
+                      dateRange.freshness.status === 'recent' ? 'bg-blue-500' :
+                      dateRange.freshness.status === 'moderate' ? 'bg-yellow-500' :
+                      'bg-red-500'
+                    }`}></div>
+                    <span>
+                      {dateRange.freshness.status === 'current' ? 'Current' :
+                       dateRange.freshness.status === 'recent' ? 'Recent' :
+                       dateRange.freshness.status === 'moderate' ? 'Moderate' :
+                       'Stale'}
+                    </span>
+                  </div>
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">Date Range</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{dateRange.overall.spanDays} days</span>
-                  </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                    <div className="flex justify-between">
-                      <span>From:</span>
-                      <span>{new Date(dateRange.overall.startDate).toLocaleDateString()}</span>
+              {/* Main Coverage Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                {/* Date Range Card */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <h5 className="font-semibold text-blue-900 dark:text-blue-100">Date Range</h5>
                     </div>
-                    <div className="flex justify-between mt-1">
-                      <span>To:</span>
-                      <span>{new Date(dateRange.overall.endDate).toLocaleDateString()}</span>
+                    <div className="bg-blue-100 dark:bg-blue-800 px-3 py-1 rounded-full">
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        {dateRange.overall.spanDays} days
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700 dark:text-blue-300">From:</span>
+                      <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        {new Date(dateRange.overall.startDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-blue-700 dark:text-blue-300">To:</span>
+                      <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        {new Date(dateRange.overall.endDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    {/* Visual timeline */}
+                    <div className="mt-4">
+                      <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full" style={{width: '100%'}}></div>
+                      </div>
+                      <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        <span>Start</span>
+                        <span>Current</span>
+                      </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">Data Freshness</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {dateRange.freshness.daysSinceLastUpdate === 0 ? 'Today' : 
-                       `${dateRange.freshness.daysSinceLastUpdate} days ago`}
-                    </span>
+                {/* Data Freshness Card */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      <h5 className="font-semibold text-green-900 dark:text-green-100">Data Freshness</h5>
+                    </div>
+                    <div className="bg-green-100 dark:bg-green-800 px-3 py-1 rounded-full">
+                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                        {dateRange.freshness.daysSinceLastUpdate === 0 ? 'Today' : 
+                         `${dateRange.freshness.daysSinceLastUpdate}d ago`}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                    Last updated: {new Date(dateRange.freshness.lastUpdateDate).toLocaleDateString()}
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-green-700 dark:text-green-300">Last Update:</span>
+                      <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                        {new Date(dateRange.freshness.lastUpdateDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    {/* Freshness indicator */}
+                    <div className="mt-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-sm text-green-700 dark:text-green-300">Freshness Score:</span>
+                        <div className={`px-2 py-1 rounded text-xs font-medium ${
+                          dateRange.freshness.status === 'current' ? 'bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200' :
+                          dateRange.freshness.status === 'recent' ? 'bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200' :
+                          dateRange.freshness.status === 'moderate' ? 'bg-yellow-200 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200' :
+                          'bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200'
+                        }`}>
+                          {dateRange.freshness.status === 'current' ? '95%' :
+                           dateRange.freshness.status === 'recent' ? '80%' :
+                           dateRange.freshness.status === 'moderate' ? '60%' :
+                           '30%'}
+                        </div>
+                      </div>
+                      <div className="w-full bg-green-200 dark:bg-green-800 rounded-full h-2">
+                        <div className={`h-2 rounded-full ${
+                          dateRange.freshness.status === 'current' ? 'bg-green-500 w-[95%]' :
+                          dateRange.freshness.status === 'recent' ? 'bg-blue-500 w-[80%]' :
+                          dateRange.freshness.status === 'moderate' ? 'bg-yellow-500 w-[60%]' :
+                          'bg-red-500 w-[30%]'
+                        }`}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Data Breakdown Card */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <BarChart3 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      <h5 className="font-semibold text-purple-900 dark:text-purple-100">Coverage Breakdown</h5>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {/* User Stories */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span className="text-sm text-purple-700 dark:text-purple-300">User Stories</span>
+                      </div>
+                      <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                        {dateRange.breakdown.userStories.spanDays}d
+                      </span>
+                    </div>
+                    
+                    {/* Defects */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                        <span className="text-sm text-purple-700 dark:text-purple-300">Defects</span>
+                      </div>
+                      <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                        {dateRange.breakdown.defects.spanDays}d
+                      </span>
+                    </div>
+                    
+                    {/* Documents */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span className="text-sm text-purple-700 dark:text-purple-300">Documents</span>
+                      </div>
+                      <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                        {dateRange.breakdown.documents.spanDays}d
+                      </span>
+                    </div>
+                    
+                    {/* Test Cases */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                        <span className="text-sm text-purple-700 dark:text-purple-300">Test Cases</span>
+                      </div>
+                      <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                        {dateRange.breakdown.testCases.spanDays}d
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* RAG System Status */}
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">RAG System Active</span>
+                    </div>
+                    
+                    {stats.embeddings > 0 && (
+                      <div className="flex items-center space-x-2">
+                        <Brain className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Vector Search Enabled</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center space-x-1">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                      <span>Semantic Search</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                      <span>AI Analysis</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                      <span>Real-time</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
-          
-          {!isLoading && (stats.userStories > 0 || stats.defects > 0 || stats.documents > 0) && (
-            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-center space-x-6 text-sm text-gray-600 dark:text-gray-300">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                  RAG System Active
-                </div>
-                {stats.embeddings > 0 && (
-                  <div className="flex items-center">
-                    <Brain className="h-4 w-4 mr-1 text-indigo-600" />
-                    Vector Search Enabled
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+
         </div>
       </main>
 

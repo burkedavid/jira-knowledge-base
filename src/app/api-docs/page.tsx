@@ -580,6 +580,89 @@ const API_ENDPOINTS: APIEndpoint[] = [
     tags: ['Embeddings', 'Generation']
   },
 
+  {
+    method: 'GET',
+    path: '/api/test/embeddings',
+    summary: 'Test Embeddings System',
+    description: 'Test AWS Titan embeddings connectivity and semantic similarity functionality',
+    responses: [
+      {
+        status: 200,
+        description: 'Embeddings test results',
+        example: {
+          available: true,
+          modelInfo: {
+            model: "amazon.titan-embed-text-v2:0",
+            dimensions: 1024,
+            provider: "AWS Bedrock"
+          },
+          testSuggestions: [
+            {
+              text1: "User wants to login to the system",
+              text2: "Authentication and user access",
+              expectedSimilarity: "High - both about login/authentication"
+            }
+          ]
+        }
+      }
+    ],
+    tags: ['Embeddings', 'Testing']
+  },
+
+  {
+    method: 'POST',
+    path: '/api/test/embeddings',
+    summary: 'Test Semantic Similarity',
+    description: 'Test semantic similarity between two text inputs using AWS Titan embeddings',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        required: ['text1'],
+        properties: {
+          text1: { type: 'string', description: 'First text to compare' },
+          text2: { type: 'string', description: 'Second text to compare (optional)' }
+        }
+      },
+      example: {
+        text1: "User wants to login to the system",
+        text2: "Authentication and user access"
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Similarity test results',
+        example: {
+          success: true,
+          modelInfo: {
+            model: "amazon.titan-embed-text-v2:0",
+            dimensions: 1024,
+            provider: "AWS Bedrock"
+          },
+          results: {
+            text1: {
+              text: "User wants to login to the system",
+              embeddingLength: 1024,
+              embeddingPreview: [0.123, -0.456, 0.789, -0.234, 0.567]
+            },
+            text2: {
+              text: "Authentication and user access",
+              embeddingLength: 1024,
+              embeddingPreview: [0.134, -0.445, 0.798, -0.245, 0.578]
+            },
+            similarity: {
+              score: 0.87,
+              interpretation: "Very Similar"
+            }
+          }
+        }
+      }
+    ],
+    tags: ['Embeddings', 'Testing']
+  },
+
   // Documents API
   {
     method: 'GET',
@@ -899,6 +982,124 @@ const API_ENDPOINTS: APIEndpoint[] = [
     tags: ['AI Audit', 'Monitoring']
   },
 
+  {
+    method: 'GET',
+    path: '/api/ai-audit/stats',
+    summary: 'Get AI Audit Statistics',
+    description: 'Retrieve usage statistics and cost analytics for AI operations',
+    parameters: [
+      { name: 'timeframe', in: 'query', required: false, type: 'string', description: 'Time period for stats', example: 'month' }
+    ],
+    responses: [
+      {
+        status: 200,
+        description: 'AI audit statistics',
+        example: {
+          totalRequests: 1250,
+          totalCostUSD: 45.67,
+          totalCostGBP: 33.79,
+          averageTokensPerRequest: 1850,
+          costByPromptType: {
+            "test-case-generation": { requests: 450, costUSD: 18.23 },
+            "requirements-analysis": { requests: 380, costUSD: 15.67 }
+          },
+          dailyUsage: [
+            { date: "2025-01-27", requests: 45, costUSD: 2.34 }
+          ]
+        }
+      }
+    ],
+    tags: ['AI Audit', 'Statistics']
+  },
+
+  {
+    method: 'GET',
+    path: '/api/ai-audit/settings',
+    summary: 'Get AI Audit Settings',
+    description: 'Retrieve current AI audit and cost tracking configuration',
+    responses: [
+      {
+        status: 200,
+        description: 'AI audit settings',
+        example: {
+          id: "settings-123",
+          inputTokenCostUSD: 0.000003,
+          outputTokenCostUSD: 0.000015,
+          exchangeRateUSDToGBP: 0.74,
+          model: "Claude Sonnet 4",
+          trackingEnabled: true,
+          retentionDays: 90
+        }
+      }
+    ],
+    tags: ['AI Audit', 'Settings']
+  },
+
+  {
+    method: 'PUT',
+    path: '/api/ai-audit/settings',
+    summary: 'Update AI Audit Settings',
+    description: 'Update AI audit configuration and cost tracking settings (Admin only)',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        properties: {
+          inputTokenCostUSD: { type: 'number', description: 'Cost per input token in USD' },
+          outputTokenCostUSD: { type: 'number', description: 'Cost per output token in USD' },
+          exchangeRateUSDToGBP: { type: 'number', description: 'USD to GBP exchange rate' },
+          model: { type: 'string', description: 'AI model name' },
+          trackingEnabled: { type: 'boolean', description: 'Enable usage tracking' },
+          retentionDays: { type: 'integer', description: 'Log retention period in days' }
+        }
+      },
+      example: {
+        inputTokenCostUSD: 0.000003,
+        outputTokenCostUSD: 0.000015,
+        exchangeRateUSDToGBP: 0.74,
+        trackingEnabled: true,
+        retentionDays: 90
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Settings updated successfully',
+        example: {
+          id: "settings-123",
+          inputTokenCostUSD: 0.000003,
+          outputTokenCostUSD: 0.000015,
+          updatedAt: "2025-01-27T10:00:00Z"
+        }
+      }
+    ],
+    tags: ['AI Audit', 'Settings']
+  },
+
+  {
+    method: 'DELETE',
+    path: '/api/ai-audit/clear',
+    summary: 'Clear AI Audit Logs',
+    description: 'Clear AI audit logs with optional filtering (Admin only)',
+    parameters: [
+      { name: 'promptType', in: 'query', required: false, type: 'string', description: 'Filter by prompt type' },
+      { name: 'userId', in: 'query', required: false, type: 'string', description: 'Filter by user ID' },
+      { name: 'olderThanDays', in: 'query', required: false, type: 'integer', description: 'Clear logs older than N days' }
+    ],
+    responses: [
+      {
+        status: 200,
+        description: 'Logs cleared successfully',
+        example: {
+          message: "Successfully cleared 245 audit log entries",
+          count: 245
+        }
+      }
+    ],
+    tags: ['AI Audit', 'Management']
+  },
+
   // Document Upload APIs
   {
     method: 'POST',
@@ -1103,6 +1304,269 @@ const API_ENDPOINTS: APIEndpoint[] = [
       }
     ],
     tags: ['Analytics', 'Defects', 'Advanced']
+  },
+
+  {
+    method: 'POST',
+    path: '/api/analytics/defects/query',
+    summary: 'RAG-Enhanced Defect Query',
+    description: 'Natural language queries for defect analytics with AI-powered insights using RAG context',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        required: ['query'],
+        properties: {
+          query: { type: 'string', description: 'Natural language query about defects' },
+          timeframe: { type: 'string', description: 'Time period for analysis', example: '30d' }
+        }
+      },
+      example: {
+        query: "What are the worst performing components?",
+        timeframe: "90d"
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'AI-powered defect analysis',
+        example: {
+          query: "What are the worst performing components?",
+          timeframe: "90d",
+          analysis: "## Worst Functionality Analysis\n\n**Authentication** is the worst performing component with **45 defects** (32% of all defects)...",
+          ragContext: {
+            semanticResultsCount: 15,
+            relevantDefectsFound: 8,
+            relatedUserStoriesFound: 5,
+            totalDefects: 142,
+            topComponents: [
+              { component: "Authentication", count: 45 }
+            ]
+          }
+        }
+      }
+    ],
+    tags: ['Analytics', 'AI', 'RAG']
+  },
+
+  {
+    method: 'POST',
+    path: '/api/analyze/defect-patterns',
+    summary: 'Analyze Defect Patterns',
+    description: 'AI-powered analysis of defect patterns with prevention strategies',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        properties: {
+          component: { type: 'string', description: 'Filter by component' },
+          timeRange: { type: 'integer', description: 'Time range in days', default: 90 },
+          severity: { type: 'string', description: 'Filter by severity' },
+          includeResolved: { type: 'boolean', description: 'Include resolved defects', default: true }
+        }
+      },
+      example: {
+        component: "Authentication",
+        timeRange: 90,
+        severity: "High",
+        includeResolved: true
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Defect pattern analysis',
+        example: {
+          patterns: [
+            {
+              id: "auth_validation_pattern",
+              name: "Input Validation Failures",
+              description: "Recurring pattern of authentication failures due to improper input validation",
+              severity: "High",
+              frequency: 12,
+              affectedComponents: ["Authentication", "User Management"],
+              rootCauses: ["Missing input sanitization", "Weak validation rules"],
+              businessImpact: "User login failures affecting customer satisfaction",
+              preventionStrategy: "Implement comprehensive input validation framework",
+              testingRecommendations: ["Add boundary value testing", "Implement security testing"],
+              confidence: 0.89
+            }
+          ],
+          insights: {
+            overallTrend: "Quality declining in authentication module",
+            riskAssessment: "High risk due to customer-facing impact",
+            priorityActions: ["Immediate input validation review", "Enhanced security testing"]
+          },
+          recommendations: {
+            immediate: ["Review all authentication input validation"],
+            shortTerm: ["Implement automated security testing"],
+            longTerm: ["Establish security-first development practices"]
+          }
+        }
+      }
+    ],
+    tags: ['Analysis', 'AI', 'Defects']
+  },
+
+  {
+    method: 'POST',
+    path: '/api/analyze/defect-patterns-ai',
+    summary: 'Advanced AI Defect Pattern Analysis',
+    description: 'Comprehensive defect pattern analysis with smart sampling and manager metrics',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        properties: {
+          component: { type: 'string', description: 'Filter by component' },
+          timeRange: { type: 'integer', description: 'Time range in days (36500 for all time)', default: 90 },
+          severity: { type: 'string', description: 'Filter by severity' },
+          includeResolved: { type: 'boolean', description: 'Include resolved defects', default: true }
+        }
+      },
+      example: {
+        component: "all",
+        timeRange: 36500,
+        severity: "all",
+        includeResolved: true
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Advanced defect pattern analysis with manager metrics',
+        example: {
+          patterns: [
+            {
+              id: "critical_pattern_1",
+              name: "Authentication System Failures",
+              severity: "Critical",
+              frequency: 25,
+              businessImpact: "High customer impact with login failures",
+              confidence: 0.92
+            }
+          ],
+          insights: {
+            overallTrend: "Quality improving with 15% reduction in critical defects",
+            riskAssessment: "Medium risk with focused hotspots in authentication",
+            qualityMetrics: {
+              patternDiversity: 8,
+              componentCoverage: 12,
+              severityDistribution: { "Critical": 5, "High": 15, "Medium": 25, "Low": 8 }
+            }
+          },
+          metadata: {
+            managerMetrics: {
+              totalDefects: 2983,
+              qualityScore: 6.8,
+              costImpactEstimate: 179000,
+              topComponents: ["Authentication", "Payment", "User Management"]
+            },
+            samplingInfo: {
+              strategy: "intelligent_stratified",
+              totalDefectsInPeriod: 2983,
+              representativenesScore: 0.95
+            }
+          }
+        }
+      }
+    ],
+    tags: ['Analysis', 'AI', 'Advanced']
+  },
+
+  {
+    method: 'POST',
+    path: '/api/analyze/defect-patterns-ai/preprocessing',
+    summary: 'Quick Defect Analysis Preprocessing',
+    description: 'Fast preprocessing for defect analysis with manager metrics (5-second response)',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        properties: {
+          component: { type: 'string', description: 'Filter by component' },
+          timeRange: { type: 'integer', description: 'Time range in days' },
+          severity: { type: 'string', description: 'Filter by severity' }
+        }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Quick preprocessing metrics',
+        example: {
+          success: true,
+          metrics: {
+            totalDefects: 2983,
+            qualityScore: 6.8,
+            costImpactEstimate: 179000,
+            severityBreakdown: { "Critical": 89, "High": 234, "Medium": 1456, "Low": 1204 },
+            componentBreakdown: { "Authentication": 345, "Payment": 289, "UI": 234 }
+          },
+          samplingInfo: {
+            strategy: "manager_metrics_preprocessing",
+            totalDefectsInPeriod: 2983,
+            representativenesScore: 1.0
+          }
+        }
+      }
+    ],
+    tags: ['Analysis', 'Preprocessing']
+  },
+
+  {
+    method: 'POST',
+    path: '/api/analyze/defect-root-cause',
+    summary: 'Defect Root Cause Analysis',
+    description: 'AI-powered root cause analysis for individual defects with RAG context',
+    requestBody: {
+      required: true,
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        required: ['defect'],
+        properties: {
+          defect: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              title: { type: 'string' },
+              description: { type: 'string' },
+              stepsToReproduce: { type: 'string' },
+              component: { type: 'string' },
+              severity: { type: 'string' }
+            }
+          }
+        }
+      },
+      example: {
+        defect: {
+          id: "defect-123",
+          title: "Login fails with special characters",
+          description: "Users cannot login when password contains special characters",
+          component: "Authentication",
+          severity: "High"
+        }
+      }
+    },
+    responses: [
+      {
+        status: 200,
+        description: 'Root cause analysis results',
+        example: {
+          rootCause: "Input validation bypass in authentication module",
+          confidence: 0.87,
+          relatedDefects: ["defect-456", "defect-789"],
+          preventionStrategy: "Implement comprehensive input sanitization",
+          testingRecommendations: ["Add special character boundary testing", "Security penetration testing"]
+        }
+      }
+    ],
+    tags: ['Analysis', 'AI', 'Root Cause']
   },
 
   // Defect Pattern Analysis APIs
@@ -1388,6 +1852,110 @@ const API_ENDPOINTS: APIEndpoint[] = [
       }
     ],
     tags: ['Analysis', 'Batch', 'Processing']
+  },
+
+  // Debug and Diagnostic APIs
+  {
+    method: 'GET',
+    path: '/api/debug/rag-status',
+    summary: 'RAG System Diagnostics',
+    description: 'Comprehensive diagnostics for the RAG (Retrieval-Augmented Generation) system',
+    responses: [
+      {
+        status: 200,
+        description: 'RAG system status and diagnostics',
+        example: {
+          diagnostics: {
+            timestamp: "2025-01-27T10:00:00Z",
+            dataAvailability: {
+              userStories: 450,
+              defects: 289,
+              testCases: 156,
+              documents: 23,
+              total: 918
+            },
+            embeddings: {
+              total: 1250,
+              byType: {
+                user_story: 450,
+                defect: 289,
+                test_case: 156,
+                document: 355
+              }
+            },
+            searchTest: {
+              success: true,
+              resultsFound: 5,
+              topResult: {
+                sourceType: "user_story",
+                similarity: 0.85,
+                contentPreview: "As a user, I want to authenticate..."
+              }
+            },
+            bedrockStatus: {
+              available: true,
+              model: "amazon.titan-embed-text-v2:0"
+            },
+            ragSystemHealth: {
+              status: "healthy",
+              issues: []
+            }
+          },
+          recommendations: [
+            "RAG system is functioning properly",
+            "Consider generating more embeddings for better coverage"
+          ]
+        }
+      }
+    ],
+    tags: ['Debug', 'RAG', 'Diagnostics']
+  },
+
+  {
+    method: 'GET',
+    path: '/api/debug/database-status',
+    summary: 'Database Status Check',
+    description: 'Check database connectivity and basic statistics',
+    responses: [
+      {
+        status: 200,
+        description: 'Database status information',
+        example: {
+          connected: true,
+          databaseType: "postgresql",
+          statistics: {
+            userStories: 450,
+            defects: 289,
+            testCases: 156,
+            documents: 23,
+            embeddings: 1250
+          },
+          health: "healthy"
+        }
+      }
+    ],
+    tags: ['Debug', 'Database']
+  },
+
+  {
+    method: 'POST',
+    path: '/api/test-ai-audit',
+    summary: 'Test AI Audit System',
+    description: 'Create a test AI audit log entry to verify audit logging functionality',
+    responses: [
+      {
+        status: 200,
+        description: 'Test audit log created',
+        example: {
+          success: true,
+          message: "Test audit log created",
+          logId: "log-123",
+          costUSD: 0.0045,
+          costGBP: 0.0033
+        }
+      }
+    ],
+    tags: ['Testing', 'AI Audit']
   }
 ]
 
@@ -1418,7 +1986,13 @@ const API_TAGS = [
   { name: 'Batch', description: 'Batch processing operations' },
   { name: 'Validation', description: 'Data validation and verification' },
   { name: 'Requirements', description: 'Requirements analysis and management' },
-  { name: 'Processing', description: 'Background processing and job management' }
+  { name: 'Processing', description: 'Background processing and job management' },
+  { name: 'Debug', description: 'System debugging and diagnostic tools' },
+  { name: 'Diagnostics', description: 'System health and status diagnostics' },
+  { name: 'Root Cause', description: 'Root cause analysis and investigation' },
+  { name: 'Preprocessing', description: 'Data preprocessing and preparation' },
+  { name: 'Statistics', description: 'Statistical analysis and metrics' },
+  { name: 'Management', description: 'System management and administration' }
 ]
 
 export default function APIDocsPage() {
