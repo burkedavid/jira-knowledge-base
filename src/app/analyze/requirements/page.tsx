@@ -2,15 +2,14 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, useEffect, useMemo, useCallback, ReactNode } from 'react'
+import { useState, useEffect, useMemo, ReactNode } from 'react'
 import { BarChart3, Loader2, CheckCircle, AlertTriangle, History, Trash2, Clock, FileText, AlertCircle, Database, ChevronDown, Copy, Check } from 'lucide-react'
 import PageLayout from '@/components/ui/page-layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog'
 import ReactMarkdown from 'react-markdown'
-import SmartFilter from '../../../components/SmartFilter'
-import StorySearchSelector from '../../../components/StorySearchSelector'
+import SharedStorySelector from '../../../components/SharedStorySelector'
 
 interface UserStory {
   id: string
@@ -427,7 +426,7 @@ export default function AnalyzeRequirementsPage() {
   const [selectedStoryQualityScore, setSelectedStoryQualityScore] = useState<number | null>(null);
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
   const [existingAnalysis, setExistingAnalysis] = useState<any | null>(null);
-  const [filteredUserStories, setFilteredUserStories] = useState<UserStory[]>([]);
+
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -559,15 +558,7 @@ export default function AnalyzeRequirementsPage() {
     }
   }, [])
 
-  // Initialize filtered stories with all stories
-  useEffect(() => {
-    setFilteredUserStories(userStories)
-  }, [userStories])
 
-  // Handle filter changes from SmartFilter component
-  const handleFilterChange = useCallback((filtered: UserStory[]) => {
-    setFilteredUserStories(filtered)
-  }, [])
 
   const saveAnalysisToStorage = (result: any, userStoryTitle: string, userStoryKey?: string) => {
     const newAnalysis = {
@@ -903,31 +894,23 @@ export default function AnalyzeRequirementsPage() {
                       </Link>
                     </div>
                   ) : (
-                    <StorySearchSelector
+                    <SharedStorySelector
                       selectedStoryId={selectedStoryId || ''}
-                      onStorySelect={(storyId) => {
+                      onStorySelect={(storyId: string) => {
                         handleStorySelection(storyId)
                         // Clear previous results when selecting a new story
                         if (result) {
                           setResult(null)
                         }
                       }}
-                      recentStories={userStories}
-                      qualityThreshold={qualityThreshold}
                       placeholder="Search all user stories by title, Jira key, or component..."
+                      showQualityScore={true}
+                      context="analysis"
                     />
                   )}
                 </div>
 
-                {/* Additional Filters */}
-                <div className="mb-6">
-                  <SmartFilter
-                    userStories={userStories}
-                    onFilterChange={handleFilterChange}
-                    qualityThreshold={qualityThreshold}
-                    showQualityFilter={true}
-                  />
-                </div>
+
               </div>
 
               {/* Show selected story details */}
