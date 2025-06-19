@@ -601,7 +601,7 @@ export default function DefectSearchPage() {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Total number of defects in the system">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
                 <Bug className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -609,11 +609,12 @@ export default function DefectSearchPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Defects</p>
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">{originalTotal}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">All defects in system</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Number of defects matching your current search and filter criteria">
             <div className="flex items-center">
               <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
                 <Search className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -621,11 +622,12 @@ export default function DefectSearchPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Matching Results</p>
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">{totalDefects}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Found by search/filters</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Number of AI root cause analyses you've performed">
             <div className="flex items-center">
               <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
                 <Brain className="h-6 w-6 text-purple-600 dark:text-purple-400" />
@@ -633,11 +635,12 @@ export default function DefectSearchPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">AI Analyses</p>
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">{analysisHistory.length}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Completed analyses</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Percentage of defects that match your current search criteria">
             <div className="flex items-center">
               <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
                 <AlertTriangle className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -647,14 +650,15 @@ export default function DefectSearchPage() {
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">
                   {originalTotal > 0 ? Math.round((totalDefects / originalTotal) * 100) : 0}%
                 </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Search effectiveness</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Defects List - Takes up 2/3 of the width on large screens */}
-          <div className="xl:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Defects List - Takes up 2/5 of the width on large screens */}
+          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
@@ -756,8 +760,8 @@ export default function DefectSearchPage() {
             </div>
           </div>
 
-          {/* AI Analysis Panel - Takes up 1/3 of the width on large screens */}
-          <div className="xl:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow">
+          {/* AI Analysis Panel - Takes up 3/5 of the width on large screens */}
+          <div className="lg:col-span-3 bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/50 dark:to-blue-900/50 rounded-lg">
@@ -867,30 +871,32 @@ export default function DefectSearchPage() {
 
                   {/* AI Analysis Results */}
                   {aiAnalysis && (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {/* Root Cause Analysis */}
-                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                        <div className="flex items-start gap-2 mb-2">
-                          <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                          <h4 className="font-medium text-blue-900 dark:text-blue-100">Root Cause Analysis</h4>
+                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-start gap-3 mb-4">
+                          <Lightbulb className="h-6 w-6 text-blue-600 dark:text-blue-400 mt-0.5" />
+                          <h4 className="text-lg font-semibold text-blue-900 dark:text-blue-100">Root Cause Analysis</h4>
                         </div>
-                        <p className="text-sm text-blue-800 dark:text-blue-200">
-                          {aiAnalysis.rootCauseAnalysis}
-                        </p>
+                        <div className="prose prose-blue dark:prose-invert max-w-none">
+                          <p className="text-base text-blue-800 dark:text-blue-200 leading-relaxed whitespace-pre-wrap">
+                            {aiAnalysis.rootCauseAnalysis}
+                          </p>
+                        </div>
                       </div>
 
                       {/* Requirement Gaps */}
                       {aiAnalysis.requirementGaps.length > 0 && (
-                        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
-                          <div className="flex items-start gap-2 mb-2">
-                            <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5" />
-                            <h4 className="font-medium text-orange-900 dark:text-orange-100">Requirement Gaps</h4>
+                        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-6 border border-orange-200 dark:border-orange-800">
+                          <div className="flex items-start gap-3 mb-4">
+                            <AlertTriangle className="h-6 w-6 text-orange-600 dark:text-orange-400 mt-0.5" />
+                            <h4 className="text-lg font-semibold text-orange-900 dark:text-orange-100">Requirement Gaps</h4>
                           </div>
-                          <ul className="text-sm text-orange-800 dark:text-orange-200 space-y-1">
+                          <ul className="space-y-3">
                             {aiAnalysis.requirementGaps.map((gap, index) => (
-                              <li key={index} className="flex items-start gap-2">
-                                <span className="text-orange-600 dark:text-orange-400 mt-1">•</span>
-                                {gap}
+                              <li key={index} className="flex items-start gap-3">
+                                <span className="flex-shrink-0 w-2 h-2 bg-orange-600 dark:bg-orange-400 rounded-full mt-2"></span>
+                                <p className="text-base text-orange-800 dark:text-orange-200 leading-relaxed">{gap}</p>
                               </li>
                             ))}
                           </ul>
@@ -899,16 +905,16 @@ export default function DefectSearchPage() {
 
                       {/* Related User Stories */}
                       {aiAnalysis.relatedUserStories.length > 0 && (
-                        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                          <div className="flex items-start gap-2 mb-2">
-                            <Users className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-                            <h4 className="font-medium text-green-900 dark:text-green-100">Related User Stories</h4>
+                        <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
+                          <div className="flex items-start gap-3 mb-4">
+                            <Users className="h-6 w-6 text-green-600 dark:text-green-400 mt-0.5" />
+                            <h4 className="text-lg font-semibold text-green-900 dark:text-green-100">Related User Stories</h4>
                           </div>
-                          <div className="space-y-2">
+                          <div className="space-y-4">
                             {aiAnalysis.relatedUserStories.map((story, index) => (
-                              <div key={index} className="text-sm">
-                                <p className="font-medium text-green-900 dark:text-green-100">{story.title}</p>
-                                <p className="text-green-800 dark:text-green-200">{story.relevance}</p>
+                              <div key={index} className="bg-white dark:bg-green-800/20 rounded-lg p-4 border border-green-200 dark:border-green-700">
+                                <p className="font-semibold text-green-900 dark:text-green-100 mb-2">{story.title}</p>
+                                <p className="text-base text-green-800 dark:text-green-200 leading-relaxed">{story.relevance}</p>
                               </div>
                             ))}
                           </div>
@@ -917,16 +923,16 @@ export default function DefectSearchPage() {
 
                       {/* Documentation References */}
                       {aiAnalysis.documentationReferences.length > 0 && (
-                        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
-                          <div className="flex items-start gap-2 mb-2">
-                            <BookOpen className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5" />
-                            <h4 className="font-medium text-purple-900 dark:text-purple-100">Documentation References</h4>
+                        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
+                          <div className="flex items-start gap-3 mb-4">
+                            <BookOpen className="h-6 w-6 text-purple-600 dark:text-purple-400 mt-0.5" />
+                            <h4 className="text-lg font-semibold text-purple-900 dark:text-purple-100">Documentation References</h4>
                           </div>
-                          <div className="space-y-2">
+                          <div className="space-y-4">
                             {aiAnalysis.documentationReferences.map((doc, index) => (
-                              <div key={index} className="text-sm">
-                                <p className="font-medium text-purple-900 dark:text-purple-100">{doc.title} - {doc.section}</p>
-                                <p className="text-purple-800 dark:text-purple-200">{doc.relevance}</p>
+                              <div key={index} className="bg-white dark:bg-purple-800/20 rounded-lg p-4 border border-purple-200 dark:border-purple-700">
+                                <p className="font-semibold text-purple-900 dark:text-purple-100 mb-2">{doc.title} - {doc.section}</p>
+                                <p className="text-base text-purple-800 dark:text-purple-200 leading-relaxed">{doc.relevance}</p>
                               </div>
                             ))}
                           </div>
@@ -935,16 +941,16 @@ export default function DefectSearchPage() {
 
                       {/* Prevention Recommendations */}
                       {aiAnalysis.preventionRecommendations.length > 0 && (
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                          <div className="flex items-start gap-2 mb-2">
-                            <MessageSquare className="h-5 w-5 text-gray-600 dark:text-gray-400 mt-0.5" />
-                            <h4 className="font-medium text-gray-900 dark:text-gray-100">Prevention Recommendations</h4>
+                        <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
+                          <div className="flex items-start gap-3 mb-4">
+                            <MessageSquare className="h-6 w-6 text-gray-600 dark:text-gray-400 mt-0.5" />
+                            <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Prevention Recommendations</h4>
                           </div>
-                          <ul className="text-sm text-gray-800 dark:text-gray-200 space-y-1">
+                          <ul className="space-y-3">
                             {aiAnalysis.preventionRecommendations.map((rec, index) => (
-                              <li key={index} className="flex items-start gap-2">
-                                <span className="text-gray-600 dark:text-gray-400 mt-1">•</span>
-                                {rec}
+                              <li key={index} className="flex items-start gap-3">
+                                <span className="flex-shrink-0 w-2 h-2 bg-gray-600 dark:bg-gray-400 rounded-full mt-2"></span>
+                                <p className="text-base text-gray-800 dark:text-gray-200 leading-relaxed">{rec}</p>
                               </li>
                             ))}
                           </ul>
