@@ -164,3 +164,13 @@ Dockerfile*
 # Misc
 *.tgz
 *.tar.gz
+
+# PostgreSQL tools
+pg_dump*
+pg_restore*
+psql*
+
+# Database dumps and exports
+*.sql
+database-dump.sql
+api-exports/

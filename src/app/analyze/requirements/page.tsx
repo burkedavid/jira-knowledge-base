@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, ReactNode } from 'react'
-import { BarChart3, Loader2, CheckCircle, AlertTriangle, History, Trash2, Clock, FileText, AlertCircle, Database, ChevronDown, Copy, Check, Save } from 'lucide-react'
+import { BarChart3, Loader2, CheckCircle, AlertTriangle, History, Trash2, Clock, FileText, AlertCircle, Database, Copy, Check, Save } from 'lucide-react'
 import PageLayout from '@/components/ui/page-layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -127,133 +127,72 @@ const RefinementSuggestionsSection = ({
   selectedSuggestions: string[], 
   onSuggestionToggle: (suggestion: string) => void 
 }) => {
-  // Categorize suggestions into logical groups
-  const categorizesuggestions = (suggestions: string[]) => {
-    const categories = {
-      'RAG-Enhanced Suggestions': [] as string[],
-      'Story Structure & Format': [] as string[],
-      'Requirements Definition': [] as string[],
-      'Technical Specifications': [] as string[],
-      'User Experience': [] as string[],
-      'Quality & Testing': [] as string[],
-      'Risk Management': [] as string[]
-    }
-
-    suggestions.forEach(suggestion => {
-      const lower = suggestion.toLowerCase()
+  // Extract key actionable improvements from the analysis
+  const getActionableImprovements = () => {
+    return [
+      // Areas for Improvement (from section 3)
+      "Clarify notification timing (immediate vs asynchronous processing)",
+      "Add specific error message examples and guidelines", 
+      "Define file management details (retention period, storage location, cleanup)",
+      "Specify security model (file permissions, encryption, secure downloads)",
+      "Add performance expectations (timeouts, file size limits, processing time)",
+      "Enhance integration details with existing topic board functionality",
       
-      // Prioritize RAG-based suggestions that reference knowledge base context
-      if (lower.includes('drag and drop') || lower.includes('business rules') || lower.includes('bim document') || 
-          lower.includes('existing') || lower.includes('integration') || lower.includes('knowledge base') || 
-          lower.includes('document 1') || lower.includes('document 2') || lower.includes('document 3') ||
-          lower.includes('based on the') || lower.includes('according to') || lower.includes('referenced') ||
-          lower.includes('existing functionality') || lower.includes('current system') || lower.includes('established')) {
-        categories['RAG-Enhanced Suggestions'].push(suggestion)
-      } else if (lower.includes('user story format') || lower.includes('break down') || lower.includes('story points') || lower.includes('proper format')) {
-        categories['Story Structure & Format'].push(suggestion)
-      } else if (lower.includes('stakeholders') || lower.includes('personas') || lower.includes('define') || lower.includes('specify')) {
-        categories['Requirements Definition'].push(suggestion)
-      } else if (lower.includes('notification') || lower.includes('technical') || lower.includes('override') || lower.includes('methods') || lower.includes('timing')) {
-        categories['Technical Specifications'].push(suggestion)
-      } else if (lower.includes('user experience') || lower.includes('fatigue') || lower.includes('content') || lower.includes('ux')) {
-        categories['User Experience'].push(suggestion)
-      } else if (lower.includes('acceptance criteria') || lower.includes('definition of done') || lower.includes('testable') || lower.includes('edge cases') || lower.includes('non-functional')) {
-        categories['Quality & Testing'].push(suggestion)
-      } else if (lower.includes('rollback') || lower.includes('migration') || lower.includes('audit') || lower.includes('compliance') || lower.includes('risk')) {
-        categories['Risk Management'].push(suggestion)
-      } else {
-        // Default to Requirements Definition for uncategorized items
-        categories['Requirements Definition'].push(suggestion)
-      }
-    })
+      // Missing Elements (from section 4) 
+      "Add non-functional requirements (performance thresholds, concurrent limits)",
+      "Define security specifications (encryption, access tokens, download protocols)",
+      "Specify error handling scenarios (network failures, permissions, corruption)",
+      "Include user experience details (loading indicators, progress bars, cancellation)",
+      "Add data validation rules (topic selection, format compatibility)",
+      "Define integration constraints (API rate limits, authentication, sync needs)",
+      "Include accessibility requirements (screen reader, keyboard navigation)",
+      "Add mobile/responsive considerations for different device types",
+      
+      // Risk Assessment items (from section 5)
+      "Address Catenda API dependency and external blocker risks",
+      "Mitigate historical export functionality issues pattern", 
+      "Simplify notification system to reduce delivery failure risk",
+      "Clarify file delivery mechanism to prevent broken download links",
+      
+      // RAG-Based Insights (from section 6)
+      "Prevent notification template placeholder issues (based on FL-18446)",
+      "Ensure proper user identity mapping in exports (based on FL-18445, FL-18435)", 
+      "Fix date filtering consistency between UI and exports (based on FL-18432)",
+      "Implement robust error handling for export processes",
+      "Add proper timezone handling for date-based filtering"
+    ];
+  };
 
-    return categories
-  }
-
-  const categories = categorizesuggestions(suggestions)
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['RAG-Enhanced Suggestions', 'Story Structure & Format']))
-
-  const toggleCategory = (categoryName: string) => {
-    const newExpanded = new Set(expandedCategories)
-    if (newExpanded.has(categoryName)) {
-      newExpanded.delete(categoryName)
-    } else {
-      newExpanded.add(categoryName)
-    }
-    setExpandedCategories(newExpanded)
-  }
-
-  const selectAllInCategory = (categoryName: string) => {
-    const categorySuggestions = categories[categoryName as keyof typeof categories]
-    categorySuggestions.forEach(suggestion => {
-      if (!selectedSuggestions.includes(suggestion)) {
-        onSuggestionToggle(suggestion)
-      }
-    })
-  }
-
-  const deselectAllInCategory = (categoryName: string) => {
-    const categorySuggestions = categories[categoryName as keyof typeof categories]
-    categorySuggestions.forEach(suggestion => {
-      if (selectedSuggestions.includes(suggestion)) {
-        onSuggestionToggle(suggestion)
-      }
-    })
-  }
-
-  const getCategoryIcon = (categoryName: string) => {
-    switch (categoryName) {
-      case 'RAG-Enhanced Suggestions': return '🧠'
-      case 'Story Structure & Format': return '📝'
-      case 'Requirements Definition': return '🎯'
-      case 'Technical Specifications': return '⚙️'
-      case 'User Experience': return '👤'
-      case 'Quality & Testing': return '✅'
-      case 'Risk Management': return '🛡️'
-      default: return '📋'
-    }
-  }
-
-  const getCategorySelectedCount = (categoryName: string) => {
-    const categorySuggestions = categories[categoryName as keyof typeof categories]
-    return categorySuggestions.filter(s => selectedSuggestions.includes(s)).length
-  }
-
-  // Quick selection presets
-  const selectEssentials = () => {
-    const essentials = [
-      ...categories['RAG-Enhanced Suggestions'], // Prioritize RAG suggestions
-      ...categories['Story Structure & Format'],
-      ...categories['Quality & Testing'].filter(s => s.toLowerCase().includes('acceptance criteria'))
-    ]
-    essentials.forEach(suggestion => {
-      if (!selectedSuggestions.includes(suggestion)) {
-        onSuggestionToggle(suggestion)
-      }
-    })
-  }
-
-  const selectRAGOnly = () => {
-    categories['RAG-Enhanced Suggestions'].forEach(suggestion => {
-      if (!selectedSuggestions.includes(suggestion)) {
-        onSuggestionToggle(suggestion)
-      }
-    })
-  }
+  const actionableImprovements = getActionableImprovements();
 
   const selectAll = () => {
-    suggestions.forEach(suggestion => {
-      if (!selectedSuggestions.includes(suggestion)) {
-        onSuggestionToggle(suggestion)
+    actionableImprovements.forEach(improvement => {
+      if (!selectedSuggestions.includes(improvement)) {
+        onSuggestionToggle(improvement);
       }
-    })
-  }
+    });
+  };
 
   const clearAll = () => {
     selectedSuggestions.forEach(suggestion => {
-      onSuggestionToggle(suggestion)
-    })
-  }
+      onSuggestionToggle(suggestion);
+    });
+  };
+
+  const selectEssentials = () => {
+    const essentials = [
+      "Clarify notification timing (immediate vs asynchronous processing)",
+      "Add specific error message examples and guidelines",
+      "Specify security model (file permissions, encryption, secure downloads)",
+      "Add performance expectations (timeouts, file size limits, processing time)",
+      "Address Catenda API dependency and external blocker risks"
+    ];
+    essentials.forEach(improvement => {
+      if (!selectedSuggestions.includes(improvement)) {
+        onSuggestionToggle(improvement);
+      }
+    });
+  };
 
   return (
     <div className="mt-6 p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
@@ -265,18 +204,10 @@ const RefinementSuggestionsSection = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={selectRAGOnly}
+            onClick={selectEssentials}
             className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300"
           >
-            🧠 RAG Context Only
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={selectEssentials}
-            className="text-xs"
-          >
-            📝 Essentials + RAG
+            🎯 Essentials
           </Button>
           <Button
             variant="outline"
@@ -297,88 +228,23 @@ const RefinementSuggestionsSection = ({
         </div>
       </div>
 
-      {/* Category-based suggestions */}
-      <div className="space-y-4">
-        {Object.entries(categories).map(([categoryName, categorySuggestions]) => {
-          if (categorySuggestions.length === 0) return null
-          
-          const isExpanded = expandedCategories.has(categoryName)
-          const selectedCount = getCategorySelectedCount(categoryName)
-          
-          return (
-            <div key={categoryName} className="border border-gray-200 dark:border-gray-600 rounded-lg">
-              {/* Category Header */}
-              <div 
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                onClick={() => toggleCategory(categoryName)}
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="text-lg">{getCategoryIcon(categoryName)}</span>
-                  <div>
-                    <h5 className="font-medium text-gray-900 dark:text-white">
-                      {categoryName}
-                    </h5>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {selectedCount}/{categorySuggestions.length} selected
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {selectedCount < categorySuggestions.length && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        selectAllInCategory(categoryName)
-                      }}
-                      className="text-xs text-blue-600 hover:text-blue-700"
-                    >
-                      Select All
-                    </Button>
-                  )}
-                  {selectedCount > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        deselectAllInCategory(categoryName)
-                      }}
-                      className="text-xs text-gray-600 hover:text-gray-700"
-                    >
-                      Clear
-                    </Button>
-                  )}
-                  <ChevronDown className={`h-4 w-4 text-gray-400 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                </div>
-              </div>
-
-              {/* Category Content */}
-              {isExpanded && (
-                <div className="px-4 pb-4 border-t border-gray-200 dark:border-gray-600">
-                  <div className="pt-3 space-y-3">
-                    {categorySuggestions.map((suggestion, index) => (
-                      <div key={index} className="flex items-start space-x-3">
-                        <Checkbox
-                          checked={selectedSuggestions.includes(suggestion)}
-                          onCheckedChange={() => onSuggestionToggle(suggestion)}
-                          className="mt-1 border-blue-400 dark:border-blue-500 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                        />
-                        <div 
-                          className="flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer leading-relaxed hover:text-gray-900 dark:hover:text-white"
-                          onClick={() => onSuggestionToggle(suggestion)}
-                        >
-                          {suggestion}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+      {/* Simplified single list of actionable improvements */}
+      <div className="space-y-3">
+        {actionableImprovements.map((improvement, index) => (
+          <div key={index} className="flex items-start space-x-3">
+            <Checkbox
+              checked={selectedSuggestions.includes(improvement)}
+              onCheckedChange={() => onSuggestionToggle(improvement)}
+              className="mt-1 border-blue-400 dark:border-blue-500 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+            />
+            <div 
+              className="flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer leading-relaxed hover:text-gray-900 dark:hover:text-white"
+              onClick={() => onSuggestionToggle(improvement)}
+            >
+              {improvement}
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
 
       {/* Selection Summary */}
@@ -395,8 +261,8 @@ const RefinementSuggestionsSection = ({
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
 export default function AnalyzeRequirementsPage() {
   const router = useRouter()
