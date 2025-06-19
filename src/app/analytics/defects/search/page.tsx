@@ -193,14 +193,15 @@ export default function DefectSearchPage() {
       }
       
       const data = await response.json()
-      setDefects(data)
+      const defectsArray = data.defects || []
+      setDefects(defectsArray)
       
       // Extract unique values for filters with proper typing
-      const severities = Array.from(new Set(data.map((d: Defect) => d.severity).filter(Boolean))) as string[]
-      const priorities = Array.from(new Set(data.map((d: Defect) => d.priority).filter(Boolean))) as string[]
-      const components = Array.from(new Set(data.map((d: Defect) => d.component).filter(Boolean))) as string[]
-      const statuses = Array.from(new Set(data.map((d: Defect) => d.status).filter(Boolean))) as string[]
-      const assignees = Array.from(new Set(data.map((d: Defect) => d.assignee).filter(Boolean))) as string[]
+      const severities = Array.from(new Set(defectsArray.map((d: Defect) => d.severity).filter(Boolean))) as string[]
+      const priorities = Array.from(new Set(defectsArray.map((d: Defect) => d.priority).filter(Boolean))) as string[]
+      const components = Array.from(new Set(defectsArray.map((d: Defect) => d.component).filter(Boolean))) as string[]
+      const statuses = Array.from(new Set(defectsArray.map((d: Defect) => d.status).filter(Boolean))) as string[]
+      const assignees = Array.from(new Set(defectsArray.map((d: Defect) => d.assignee).filter(Boolean))) as string[]
       
       setFilterOptions({
         severities,
