@@ -54,7 +54,7 @@ const StorySearchSelector: React.FC<StorySearchSelectorProps> = ({
     setShowingRecentStories(false)
 
     try {
-      const response = await fetch(`/api/user-stories?search=${encodeURIComponent(query)}&limit=50`)
+      const response = await fetch(`/api/user-stories?search=${encodeURIComponent(query)}&limit=500`)
       if (response.ok) {
         const data = await response.json()
         setSearchResults(data.userStories || [])
