@@ -57,25 +57,25 @@ model VerificationToken {
 }
 
 model UserStory {
-  id                 String         @id @default(cuid())
-  title              String
-  description        String
-  acceptanceCriteria String?
-  storyPoints        Int?
-  jiraId             String?        @unique
-  jiraKey            String?
-  priority           String?
-  status             String?
-  qualityScore       Float?
-  riskLevel          String?
-  component          String?
-  assignee           String?
-  reporter           String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  qualityScores      QualityScore[]
-  testCases          TestCase[]
+  id                  String                @id @default(cuid())
+  title               String
+  description         String
+  acceptanceCriteria  String?
+  storyPoints         Int?
+  jiraId              String?               @unique
+  jiraKey             String?
+  priority            String?
+  status              String?
+  qualityScore        Float?
+  riskLevel           String?
+  component           String?
+  assignee            String?
+  reporter            String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  qualityScores       QualityScore[]
   requirementAnalyses RequirementAnalysis[]
+  testCases           TestCase[]
 
   @@index([jiraId])
   @@index([status])
@@ -109,18 +109,18 @@ model Defect {
 }
 
 model Document {
-  id            String            @id @default(cuid())
-  title         String
-  content       String
-  type          String
-  version       String            @default("1.0")
-  changelog     String?
-  metadata      String?
-  fileName      String?
-  fileSize      Int?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  sections      DocumentSection[]
+  id        String            @id @default(cuid())
+  title     String
+  content   String
+  type      String
+  version   String            @default("1.0")
+  changelog String?
+  metadata  String?
+  fileName  String?
+  fileSize  Int?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  sections  DocumentSection[]
 
   @@index([type])
   @@index([version])
@@ -142,33 +142,33 @@ model DocumentSection {
 }
 
 model TestCase {
-  id                String         @id @default(cuid())
+  id                String     @id @default(cuid())
   title             String
   steps             String
   expectedResults   String
   sourceStoryId     String?
   generatedFrom     String?
-  affectedByChanges Boolean        @default(false)
+  affectedByChanges Boolean    @default(false)
   priority          String?
   status            String?
   lastExecuted      DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  sourceStory       UserStory?     @relation(fields: [sourceStoryId], references: [id])
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  sourceStory       UserStory? @relation(fields: [sourceStoryId], references: [id])
 
   @@index([sourceStoryId])
   @@index([generatedFrom])
 }
 
 model Embedding {
-  id         String   @id @default(cuid())
-  content    String
-  vector     String
-  sourceId   String
-  sourceType String
-  version    String   @default("1.0")
+  id           String    @id @default(cuid())
+  content      String
+  vector       String
+  sourceId     String
+  sourceType   String
+  version      String    @default("1.0")
   documentDate DateTime?
-  createdAt  DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   @@index([sourceType, sourceId])
   @@index([sourceType])
@@ -219,18 +219,18 @@ model QualityScore {
 }
 
 model RequirementAnalysis {
-  id                String   @id @default(cuid())
-  batchId           String   // Groups multiple analyses together
-  userStoryId       String
-  qualityScore      Float
-  riskLevel         String   // Low, Medium, High, Critical
-  strengths         String   // JSON array of strengths
-  improvements      String   // JSON array of improvement suggestions
-  riskFactors       String   // JSON array of risk factors
-  aiAnalysis        String   // Full AI analysis text
-  analysisVersion   String   @default("1.0")
-  createdAt         DateTime @default(now())
-  userStory         UserStory @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  batchId         String
+  userStoryId     String
+  qualityScore    Float
+  riskLevel       String
+  strengths       String
+  improvements    String
+  riskFactors     String
+  aiAnalysis      String
+  analysisVersion String    @default("1.0")
+  createdAt       DateTime  @default(now())
+  userStory       UserStory @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
 
   @@index([batchId])
   @@index([userStoryId])
@@ -240,15 +240,15 @@ model RequirementAnalysis {
 }
 
 model AnalysisBatch {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   name            String
   description     String?
-  totalStories    Int      @default(0)
-  analyzedStories Int      @default(0)
+  totalStories    Int       @default(0)
+  analyzedStories Int       @default(0)
   averageScore    Float?
-  status          String   @default("pending") // pending, running, completed, failed
-  filters         String?  // JSON of applied filters
-  startedAt       DateTime @default(now())
+  status          String    @default("pending")
+  filters         String?
+  startedAt       DateTime  @default(now())
   completedAt     DateTime?
   createdBy       String?
 
@@ -273,8 +273,8 @@ model DefectClusterDefect {
   id              String        @id @default(cuid())
   defectClusterId String
   defectId        String
-  defect          Defect        @relation(fields: [defectId], references: [id], onDelete: Cascade)
   defectCluster   DefectCluster @relation(fields: [defectClusterId], references: [id], onDelete: Cascade)
+  defect          Defect        @relation(fields: [defectId], references: [id], onDelete: Cascade)
 
   @@unique([defectClusterId, defectId])
 }
@@ -283,7 +283,7 @@ model ChangeImpact {
   id             String   @id @default(cuid())
   changeId       String
   changeType     String
-  affectedType   String // 'user_story', 'defect', 'document', 'test_case'
+  affectedType   String
   affectedId     String
   impactLevel    String
   requiresAction Boolean  @default(false)
@@ -322,24 +322,24 @@ model JiraProjectConfig {
 }
 
 model AIAuditLog {
-  id              String   @id @default(cuid())
-  promptType      String   // 'test-case-generation', 'requirements-analysis', etc.
-  promptName      String   // Human readable name
-  endpoint        String   // API endpoint used
-  model           String   // Claude model used
-  inputTokens     Int      // Tokens in the request
-  outputTokens    Int      // Tokens in the response
-  totalTokens     Int      // Total tokens used
-  costUSD         Float    // Cost in USD
-  costGBP         Float    // Cost in GBP (calculated)
-  userId          String?  // User who triggered the request
-  userEmail       String?  // User email for reference
-  requestData     String?  // JSON of request parameters (optional)
-  responseData    String?  // JSON of response data (optional)
-  duration        Int?     // Request duration in milliseconds
-  success         Boolean  @default(true)
-  errorMessage    String?  // Error message if failed
-  createdAt       DateTime @default(now())
+  id           String   @id @default(cuid())
+  promptType   String
+  promptName   String
+  endpoint     String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  totalTokens  Int
+  costUSD      Float
+  costGBP      Float
+  userId       String?
+  userEmail    String?
+  requestData  String?
+  responseData String?
+  duration     Int?
+  success      Boolean  @default(true)
+  errorMessage String?
+  createdAt    DateTime @default(now())
 
   @@index([promptType])
   @@index([userId])
@@ -349,15 +349,15 @@ model AIAuditLog {
 }
 
 model AISettings {
-  id                    String   @id @default(cuid())
-  inputTokenCostUSD     Float    @default(0.000003)  // Cost per input token in USD ($3 per 1M tokens)
-  outputTokenCostUSD    Float    @default(0.000015)  // Cost per output token in USD ($15 per 1M tokens)
-  exchangeRateUSDToGBP  Float    @default(0.74)   // USD to GBP exchange rate
-  model                 String   @default("Claude Sonnet 4")
-  trackingEnabled       Boolean  @default(true)
-  retentionDays         Int      @default(90)     // How long to keep audit logs
-  updatedAt             DateTime @updatedAt
-  updatedBy             String?  // User who last updated settings
+  id                   String   @id @default(cuid())
+  inputTokenCostUSD    Float    @default(0.000003)
+  outputTokenCostUSD   Float    @default(0.000015)
+  exchangeRateUSDToGBP Float    @default(0.74)
+  model                String   @default("Claude Sonnet 4")
+  trackingEnabled      Boolean  @default(true)
+  retentionDays        Int      @default(90)
+  updatedAt            DateTime @updatedAt
+  updatedBy            String?
 
   @@index([updatedAt])
 }

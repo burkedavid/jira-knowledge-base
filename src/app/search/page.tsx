@@ -361,32 +361,108 @@ ${ragResponse.sources?.map((source, index) =>
 
           {/* Date Range Filter */}
           {searchMode === 'rag' && (
-            <div className="flex items-center space-x-4 mt-4">
-              <div className="flex-1">
-                <label htmlFor="startDate" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  id="startDate"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Filter results created on or after this date.</p>
+            <div className="mt-4 space-y-4">
+              {/* Quick Date Suggestions */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  📅 Quick Date Ranges:
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      const today = new Date()
+                      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+                      setStartDate(lastWeek.toISOString().split('T')[0])
+                      setEndDate(today.toISOString().split('T')[0])
+                    }}
+                    className="px-3 py-1 text-xs bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-800 dark:text-red-300 rounded-full transition-colors"
+                  >
+                    Last 7 Days
+                  </button>
+                  <button
+                    onClick={() => {
+                      const today = new Date()
+                      const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+                      setStartDate(lastMonth.toISOString().split('T')[0])
+                      setEndDate(today.toISOString().split('T')[0])
+                    }}
+                    className="px-3 py-1 text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 rounded-full transition-colors"
+                  >
+                    Last 30 Days
+                  </button>
+                  <button
+                    onClick={() => {
+                      const today = new Date()
+                      const lastQuarter = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
+                      setStartDate(lastQuarter.toISOString().split('T')[0])
+                      setEndDate(today.toISOString().split('T')[0])
+                    }}
+                    className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-800 dark:text-green-300 rounded-full transition-colors"
+                  >
+                    Last 3 Months
+                  </button>
+                  <button
+                    onClick={() => {
+                      const today = new Date()
+                      const currentYear = today.getFullYear()
+                      setStartDate(`${currentYear}-01-01`)
+                      setEndDate(today.toISOString().split('T')[0])
+                    }}
+                    className="px-3 py-1 text-xs bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-800 dark:text-purple-300 rounded-full transition-colors"
+                  >
+                    This Year
+                  </button>
+                  <button
+                    onClick={() => {
+                      const today = new Date()
+                      const lastYear = today.getFullYear() - 1
+                      setStartDate(`${lastYear}-01-01`)
+                      setEndDate(`${lastYear}-12-31`)
+                    }}
+                    className="px-3 py-1 text-xs bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-800 dark:text-orange-300 rounded-full transition-colors"
+                  >
+                    Last Year
+                  </button>
+                  <button
+                    onClick={() => {
+                      setStartDate('')
+                      setEndDate('')
+                    }}
+                    className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300 rounded-full transition-colors"
+                  >
+                    Clear Dates
+                  </button>
+                </div>
               </div>
-              <div className="flex-1">
-                <label htmlFor="endDate" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  id="endDate"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Filter results created on or before this date.</p>
+
+              {/* Manual Date Inputs */}
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <label htmlFor="startDate" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    id="startDate"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Filter results created on or after this date.</p>
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="endDate" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    id="endDate"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Filter results created on or before this date.</p>
+                </div>
               </div>
             </div>
           )}
@@ -719,161 +795,294 @@ ${ragResponse.sources?.map((source, index) =>
               </h4>
               
               {searchMode === 'rag' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Defect Analysis */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* FusionLive Core Features */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🐞 Defect Analysis</h5>
+                    <h5 className="text-xs font-semibold text-purple-800 dark:text-purple-200 uppercase tracking-wide flex items-center">
+                      📁 Document Management
+                    </h5>
                     <button
-                      onClick={() => { setQuery('Analyze the root causes of high-priority defects in the last quarter.'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('What are the common document upload issues and how can they be resolved?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      Analyze the root causes of high-priority defects in the last quarter.
+                      What are the common document upload issues and how can they be resolved?
                     </button>
                     <button
-                      onClick={() => { setQuery('What are the recurring defect patterns in the checkout module, and what is the user impact?'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('Explain the FFC (Fusion File Converter) supported file formats and conversion process.'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      What are the recurring defect patterns in the checkout module, and what is the user impact?
+                      Explain the FFC (Fusion File Converter) supported file formats and conversion process.
+                    </button>
+                    <button
+                      onClick={() => { setQuery('How does the PDFTron viewer handle markup conversion and what are the accuracy improvements?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      How does the PDFTron viewer handle markup conversion and what are the accuracy improvements?
                     </button>
                   </div>
 
-                  {/* System Architecture */}
+                  {/* Activities & Workflows */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🏛️ System Architecture</h5>
+                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide flex items-center">
+                      ⚡ Activities & Workflows
+                    </h5>
                     <button
-                      onClick={() => { setQuery('Provide a technical overview of the authentication and authorization flow, including key components.'); handleSearch(); }}
+                      onClick={() => { setQuery('What are the different approval statuses available in FusionLive and when should each be used?'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      Provide a technical overview of the authentication and authorization flow, including key components.
+                      What are the different approval statuses available in FusionLive and when should each be used?
                     </button>
                     <button
-                      onClick={() => { setQuery('Explain the data synchronization process between the mobile app and the backend.'); handleSearch(); }}
+                      onClick={() => { setQuery('How do Technical Query (TQ) stakeholders receive alerts and notifications?'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      Explain the data synchronization process between the mobile app and the backend.
+                      How do Technical Query (TQ) stakeholders receive alerts and notifications?
+                    </button>
+                    <button
+                      onClick={() => { setQuery('What issues exist with submittal visibility for document controllers?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      What issues exist with submittal visibility for document controllers?
                     </button>
                   </div>
 
-                  {/* User Feedback & Requirements */}
+                  {/* Mobile & Desktop Issues */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">💬 User Feedback & Requirements</h5>
+                    <h5 className="text-xs font-semibold text-green-800 dark:text-green-200 uppercase tracking-wide flex items-center">
+                      📱 Mobile & Desktop
+                    </h5>
                     <button
-                      onClick={() => { setQuery('Summarize user feedback related to performance issues on the dashboard.'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('What are the key mobile issue management features and cross-company assignment capabilities?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      Summarize user feedback related to performance issues on the dashboard.
+                      What are the key mobile issue management features and cross-company assignment capabilities?
                     </button>
                     <button
-                      onClick={() => { setQuery('How do our current user stories for the reporting feature align with the original business requirements?'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('What are the common .NET archiver application crashes and their solutions?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      How do our current user stories for the reporting feature align with the original business requirements?
+                      What are the common .NET archiver application crashes and their solutions?
+                    </button>
+                    <button
+                      onClick={() => { setQuery('How do language preferences affect workspace loading in desktop applications?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      How do language preferences affect workspace loading in desktop applications?
                     </button>
                   </div>
 
-                  {/* Test Coverage & Strategy */}
+                  {/* Web Services & Integration */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🔬 Test Coverage & Strategy</h5>
+                    <h5 className="text-xs font-semibold text-orange-800 dark:text-orange-200 uppercase tracking-wide flex items-center">
+                      🔗 Web Services & APIs
+                    </h5>
                     <button
-                      onClick={() => { setQuery('Identify gaps in our API test coverage based on recent critical defects.'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('What webservice improvements are needed for document search API paging and performance?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      Identify gaps in our API test coverage based on recent critical defects.
+                      What webservice improvements are needed for document search API paging and performance?
                     </button>
                     <button
-                      onClick={() => { setQuery('What is our regression testing strategy for the payment processing module?'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('How do code table metadata filters work in registerDocument and searchDocument webservices?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      What is our regression testing strategy for the payment processing module?
+                      How do code table metadata filters work in registerDocument and searchDocument webservices?
+                    </button>
+                    <button
+                      onClick={() => { setQuery('What reporting webservice upgrades support deleted document information?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      What reporting webservice upgrades support deleted document information?
                     </button>
                   </div>
 
-                  
-
-                  {/* Business Impact */}
+                  {/* Critical Defects & Showstoppers */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">💼 Business Impact</h5>
+                    <h5 className="text-xs font-semibold text-red-800 dark:text-red-200 uppercase tracking-wide flex items-center">
+                      🚨 Critical Issues
+                    </h5>
                     <button
-                      onClick={() => { setQuery('What are the key business metrics that our product impacts, and how can we measure success?'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('What are the showstopper defects in PDFTron viewer and mobile issue management?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      What are the key business metrics that our product impacts, and how can we measure success?
+                      What are the showstopper defects in PDFTron viewer and mobile issue management?
                     </button>
                     <button
-                      onClick={() => { setQuery('How can we prioritize features and development based on business value and customer needs?'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('Analyze the high-severity defects in search functionality and date filtering.'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      How can we prioritize features and development based on business value and customer needs?
+                      Analyze the high-severity defects in search functionality and date filtering.
+                    </button>
+                    <button
+                      onClick={() => { setQuery('What are the recent archiver and FFC rendition failure patterns?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      What are the recent archiver and FFC rendition failure patterns?
+                    </button>
+                  </div>
+
+                  {/* User Experience & Documentation */}
+                  <div className="space-y-2">
+                    <h5 className="text-xs font-semibold text-indigo-800 dark:text-indigo-200 uppercase tracking-wide flex items-center">
+                      📚 User Experience
+                    </h5>
+                    <button
+                      onClick={() => { setQuery('What user guide documentation updates are needed for BPA and file conversion?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      What user guide documentation updates are needed for BPA and file conversion?
+                    </button>
+                    <button
+                      onClick={() => { setQuery('How do browser zoom levels affect the user interface layout and controls?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      How do browser zoom levels affect the user interface layout and controls?
+                    </button>
+                    <button
+                      onClick={() => { setQuery('What are the user preferences and settings available in FusionLive?'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      What are the user preferences and settings available in FusionLive?
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Technical Searches */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* FusionLive Components */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🔧 Technical Issues</h5>
+                    <h5 className="text-xs font-semibold text-purple-800 dark:text-purple-200 uppercase tracking-wide">🏗️ FusionLive Components</h5>
                     <button
-                      onClick={() => { setQuery('authentication login failure critical'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('PDFTron viewer markup conversion'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      authentication login failure critical
+                      PDFTron viewer markup conversion
                     </button>
                     <button
-                      onClick={() => { setQuery('mobile UI responsive touch interface'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('Tag Extraction FusionLive features'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      mobile UI responsive touch interface
+                      Tag Extraction FusionLive features
+                    </button>
+                    <button
+                      onClick={() => { setQuery('Issue Management Web mobile'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      Issue Management Web mobile
                     </button>
                   </div>
 
-                  {/* Component Searches */}
+                  {/* Critical Defects */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🏗️ Components</h5>
+                    <h5 className="text-xs font-semibold text-red-800 dark:text-red-200 uppercase tracking-wide">🚨 Critical Issues</h5>
                     <button
-                      onClick={() => { setQuery('component defect pattern root cause'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('showstopper severity archiver crash'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      component defect pattern root cause
+                      showstopper severity archiver crash
                     </button>
                     <button
-                      onClick={() => { setQuery('high severity critical business impact'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('high severity search date filter'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      high severity critical business impact
+                      high severity search date filter
+                    </button>
+                    <button
+                      onClick={() => { setQuery('FFC rendition failure conversion'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      FFC rendition failure conversion
                     </button>
                   </div>
 
-                  {/* Testing Searches */}
+                  {/* Document Management */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🧪 Testing</h5>
+                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">📄 Document Management</h5>
                     <button
-                      onClick={() => { setQuery('test case coverage edge case scenario'); handleSearch(); }}
+                      onClick={() => { setQuery('document upload size limit 9GB'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      test case coverage edge case scenario
+                      document upload size limit 9GB
                     </button>
                     <button
-                      onClick={() => { setQuery('field usage offline sync validation'); handleSearch(); }}
+                      onClick={() => { setQuery('file formats xlsm msg conversion'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      field usage offline sync validation
+                      file formats xlsm msg conversion
+                    </button>
+                    <button
+                      onClick={() => { setQuery('work packages repackage folder'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      work packages repackage folder
                     </button>
                   </div>
 
-                  {/* Requirements Searches */}
+                  {/* Activities & Approvals */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">📋 Requirements</h5>
+                    <h5 className="text-xs font-semibold text-green-800 dark:text-green-200 uppercase tracking-wide">⚡ Activities & Approvals</h5>
                     <button
-                      onClick={() => { setQuery('user story acceptance criteria quality'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('approval status handed over operations'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      user story acceptance criteria quality
+                      approval status handed over operations
                     </button>
                     <button
-                      onClick={() => { setQuery('requirement gap prevention recommendation'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      onClick={() => { setQuery('technical query TQ stakeholders alerts'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      requirement gap prevention recommendation
+                      technical query TQ stakeholders alerts
+                    </button>
+                    <button
+                      onClick={() => { setQuery('submittal document controller visibility'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      submittal document controller visibility
+                    </button>
+                  </div>
+
+                  {/* Web Services & APIs */}
+                  <div className="space-y-2">
+                    <h5 className="text-xs font-semibold text-orange-800 dark:text-orange-200 uppercase tracking-wide">🔗 Web Services</h5>
+                    <button
+                      onClick={() => { setQuery('webservice document search API paging'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      webservice document search API paging
+                    </button>
+                    <button
+                      onClick={() => { setQuery('code table metadata filter register'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      code table metadata filter register
+                    </button>
+                    <button
+                      onClick={() => { setQuery('reporting webservice deleted documents'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      reporting webservice deleted documents
+                    </button>
+                  </div>
+
+                  {/* User Experience */}
+                  <div className="space-y-2">
+                    <h5 className="text-xs font-semibold text-indigo-800 dark:text-indigo-200 uppercase tracking-wide">👥 User Experience</h5>
+                    <button
+                      onClick={() => { setQuery('user guide BPA prerequisites update'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      user guide BPA prerequisites update
+                    </button>
+                    <button
+                      onClick={() => { setQuery('browser zoom layout controls misaligned'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      browser zoom layout controls misaligned
+                    </button>
+                    <button
+                      onClick={() => { setQuery('single sign-on preferences settings'); handleSearch(); }}
+                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      single sign-on preferences settings
                     </button>
                   </div>
                 </div>
@@ -881,8 +1090,8 @@ ${ragResponse.sources?.map((source, index) =>
               
               <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
                 <p className="text-xs text-indigo-800 dark:text-indigo-200">
-                  <strong>💡 Pro Tip:</strong> Click any suggestion above to automatically run that search, or type your own questions. 
-                  {searchMode === 'rag' ? ' RAG mode provides intelligent answers with context from your knowledge base.' : ' Semantic mode finds the most similar content using AI embeddings.'}
+                  <strong>💡 Pro Tip:</strong> These suggestions are based on your actual FusionLive data - click any to get instant results! 
+                  {searchMode === 'rag' ? ' RAG mode provides intelligent answers with context from your user stories, defects, and documents.' : ' Semantic mode finds the most similar content using AI embeddings across all your imported data.'}
                 </p>
               </div>
             </div>

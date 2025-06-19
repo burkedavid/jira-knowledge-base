@@ -31,7 +31,7 @@ This guide covers the complete deployment of the Knowledge Base v2 application o
 ## 🚀 Deployment Steps
 
 ### **Step 1: Database Setup**
-Initialize and seed your database:
+Initialize and seed your PostgreSQL database:
 ```bash
 # Deploy the database schema
 npx prisma migrate deploy
@@ -118,17 +118,14 @@ effective_io_concurrency = 200
 # Install dependencies
 npm install
 
-# Generate Prisma client
+# Generate Prisma client for PostgreSQL
 npx prisma generate
 
 # Run database migrations
 npx prisma migrate deploy
 
-# Seed initial data
-npm run seed
-
-# Create initial user accounts
-node scripts/create-auth-users.js
+# Create initial user accounts (includes demo data)
+npm run auth:setup
 ```
 
 ### 3. Application Deployment
@@ -492,11 +489,14 @@ server {
 
 1. **Database Connection Issues**
    ```bash
-   # Check PostgreSQL status
+   # Check PostgreSQL status (if self-hosted)
    systemctl status postgresql
    
    # Test connection
    psql -h localhost -U kb_user -d knowledge_base
+   
+   # Test from application
+   npx prisma db pull
    
    # K8s database connectivity
    kubectl exec -it deployment/knowledge-base-v2 -- curl http://localhost:3000/api/health/k8s

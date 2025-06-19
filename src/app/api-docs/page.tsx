@@ -321,14 +321,18 @@ const API_ENDPOINTS: APIEndpoint[] = [
           query: { type: 'string', description: 'Natural language search query' },
           maxResults: { type: 'integer', default: 10, description: 'Maximum number of sources to include' },
           includeTypes: { type: 'array', items: { type: 'string' }, description: 'Content types to search' },
-          threshold: { type: 'number', default: 0.1, description: 'Similarity threshold (0-1)' }
+          threshold: { type: 'number', default: 0.1, description: 'Similarity threshold (0-1)' },
+          startDate: { type: 'string', format: 'date', description: 'Filter results from this date (YYYY-MM-DD)' },
+          endDate: { type: 'string', format: 'date', description: 'Filter results to this date (YYYY-MM-DD)' }
         }
       },
       example: {
         query: "How does user authentication work in the mobile app?",
         maxResults: 10,
         includeTypes: ["user_story", "document"],
-        threshold: 0.3
+        threshold: 0.3,
+        startDate: "2025-01-01",
+        endDate: "2025-01-31"
       }
     },
     responses: [

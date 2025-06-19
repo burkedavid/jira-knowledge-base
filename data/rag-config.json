@@ -6,16 +6,16 @@
     "documents": true
   },
   "maxResults": {
-    "defects": 5,
-    "userStories": 5,
-    "testCases": 5,
-    "documents": 5
+    "defects": 3,
+    "userStories": 3,
+    "testCases": 3,
+    "documents": 15
   },
   "similarityThresholds": {
-    "defects": 0.4,
-    "userStories": 0.4,
-    "testCases": 0.4,
-    "documents": 0.4
+    "defects": 0.05,
+    "userStories": 0.05,
+    "testCases": 0.05,
+    "documents": 0.05
   },
   "contentLimits": {
     "maxItemLength": 200,

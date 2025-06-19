@@ -120,7 +120,7 @@ A comprehensive AI-powered platform that revolutionizes software testing and req
 - **AWS Bedrock**: Claude 4 Sonnet integration with regional model support
 - **Vector Database**: Custom implementation with cosine similarity search
 - **tRPC**: End-to-end type-safe APIs
-- **Prisma ORM**: Type-safe database operations with SQLite
+- **Prisma ORM**: Type-safe database operations with PostgreSQL
 - **NextAuth**: Authentication system with JWT tokens and session management
 - **bcrypt**: Secure password hashing with salt rounds
 - **File Processing**: Multi-format document parsing and text extraction
@@ -160,9 +160,8 @@ npm install
 Create `.env` file with your configuration:
 
 ```env
-# Database (SQLite for local development)
-DATABASE_URL="file:./dev.db"
-# For PostgreSQL (production): DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require"
+# Database (PostgreSQL)
+DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require"
 
 # AWS Bedrock (Required for AI features)
 AWS_ACCESS_KEY_ID=your-aws-access-key
@@ -183,12 +182,11 @@ NEXTAUTH_URL=http://localhost:3000
 ### 3. **Database Setup**
 
 ```bash
-# Initialize database
+# Generate Prisma client
 npm run db:generate
-npm run db:push
 
-# Seed with sample data
-npm run db:seed
+# Deploy database migrations
+npm run db:migrate
 
 # Setup authentication users (demo accounts)
 npm run auth:setup
@@ -237,15 +235,15 @@ npm run auth:reset
 - **Claude 4**: Pay-per-use, optimized prompts for efficiency
 - **Caching**: Vector embeddings cached in database
 
-## 🚀 Production Deployment (Vercel + Neon PostgreSQL)
+## 🚀 Production Deployment (Vercel + PostgreSQL)
 
 ### **Prerequisites**
 - **Vercel Account**: For hosting the Next.js application
-- **Neon PostgreSQL**: For production database (free tier available)
+- **PostgreSQL Database**: Neon, Supabase, or any PostgreSQL provider
 - **AWS Account**: For Bedrock AI services
 
-### **Step 1: Database Setup**
-1. Create a [Neon PostgreSQL](https://neon.tech) database
+### **Step 1: PostgreSQL Database Setup**
+1. Create a PostgreSQL database (e.g., [Neon](https://neon.tech), [Supabase](https://supabase.com), or self-hosted)
 2. Copy your connection string (format: `postgresql://username:password@host:port/database?sslmode=require`)
 
 ### **Step 2: Vercel Deployment**
@@ -550,7 +548,7 @@ Once import completes, you can:
 - **Model**: AWS Titan Text Embeddings V2
 - **Dimensions**: 1024 (optimal balance of performance/accuracy)
 - **Content**: Title + Description + Acceptance Criteria + Document Content
-- **Storage**: JSON arrays in SQLite with efficient indexing
+- **Storage**: JSON arrays in PostgreSQL with efficient indexing
 - **Generation**: Automatic for all uploaded documents and imported data
 
 ### **Semantic Search**
@@ -602,19 +600,23 @@ DocumentSection  -- Document sections for granular search
 - **Pattern Analysis**: AI-powered defect patterns with confidence scoring
 - **Test Generation**: Test cases linked to source user stories with RAG context
 - **Document Sections**: Granular document processing for better search
+- **PostgreSQL Features**: Advanced indexing, JSON support, and scalable storage
 
 ## 🛠 Development Tools
 
 ### **Database Management**
 ```bash
-# Prisma Studio (Visual database editor)
+# Prisma Studio (Visual database editor for PostgreSQL)
 npx prisma studio --port 5555
 
 # Database migrations
-npm run db:migrate
+npx prisma migrate deploy
 
-# Reset database
-npm run db:reset
+# Generate Prisma client
+npx prisma generate
+
+# Setup authentication users
+npm run auth:setup
 ```
 
 ### **Testing & Debugging**

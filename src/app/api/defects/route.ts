@@ -3,6 +3,13 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const limit = parseInt(searchParams.get('limit') || '50')
+    const offset = parseInt(searchParams.get('offset') || '0')
+
+    // Get total count first
+    const total = await prisma.defect.count()
+
     const defects = await prisma.defect.findMany({
       select: {
         id: true,
@@ -25,10 +32,19 @@ export async function GET(request: NextRequest) {
       },
       orderBy: {
         createdAt: 'desc'
-      }
+      },
+      take: limit,
+      skip: offset
     })
 
-    return NextResponse.json(defects)
+    return NextResponse.json({
+      defects,
+      total,
+      originalTotal: total,
+      limit,
+      offset,
+      hasMore: offset + limit < total
+    })
   } catch (error) {
     console.error('Error fetching defects:', error)
     return NextResponse.json(

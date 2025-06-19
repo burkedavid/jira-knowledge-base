@@ -110,10 +110,10 @@ export default function HomePage() {
       }
 
       setStats({
-        userStories: userStoriesData.total || userStoriesData.userStories?.length || (Array.isArray(userStoriesData) ? userStoriesData.length : 0),
-        testCases: testCasesData.total || testCasesData.testCases?.length || (Array.isArray(testCasesData) ? testCasesData.length : 0),
-        defects: defectsData.total || defectsData.defects?.length || (Array.isArray(defectsData) ? defectsData.length : 0),
-        documents: documentsData.total || documentsData.documents?.length || (Array.isArray(documentsData) ? documentsData.length : 0),
+        userStories: userStoriesData.originalTotal || userStoriesData.total || userStoriesData.userStories?.length || (Array.isArray(userStoriesData) ? userStoriesData.length : 0),
+        testCases: testCasesData.originalTotal || testCasesData.total || testCasesData.testCases?.length || (Array.isArray(testCasesData) ? testCasesData.length : 0),
+        defects: defectsData.originalTotal || defectsData.total || defectsData.defects?.length || (Array.isArray(defectsData) ? defectsData.length : 0),
+        documents: documentsData.originalTotal || documentsData.total || documentsData.documents?.length || (Array.isArray(documentsData) ? documentsData.length : 0),
         embeddings: embeddingsCount,
         requirementAnalyses: requirementAnalysesCount,
         averageQualityScore: Math.round(averageQualityScore * 10) / 10 // Round to 1 decimal place

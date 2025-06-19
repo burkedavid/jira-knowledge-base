@@ -128,15 +128,35 @@ export async function POST(request: NextRequest) {
           }
         : undefined;
 
-    const searchPromises = enabledSearchTypes.map(type =>
-      vectorSearch(
+    const searchPromises = enabledSearchTypes.map(type => {
+      // Map config types to actual source types
+      let sourceTypes: SourceType[];
+      switch (type) {
+        case 'documents':
+          // When documents are enabled, search both document and document_section
+          sourceTypes = ['document', 'document_section'];
+          break;
+        case 'defects':
+          sourceTypes = ['defect'];
+          break;
+        case 'userStories':
+          sourceTypes = ['user_story'];
+          break;
+        case 'testCases':
+          sourceTypes = ['test_case'];
+          break;
+        default:
+          sourceTypes = [type as SourceType];
+      }
+      
+      return vectorSearch(
         query,
-        [type as SourceType],
+        sourceTypes,
         config.maxResults[type] || 3,
         body.threshold || config.similarityThresholds[type] || 0.5,
         dateFilter
-      )
-    );
+      );
+    });
 
     const searchResultsArrays = await Promise.all(searchPromises);
     const combinedResults = searchResultsArrays.flat().sort((a, b) => b.similarity - a.similarity);
