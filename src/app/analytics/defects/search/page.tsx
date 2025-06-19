@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Search, Filter, Brain, FileText, Users, AlertTriangle, Calendar, Component, Tag, RefreshCw, MessageSquare, Lightbulb, BookOpen, Bug, History, Download, Clock, X } from 'lucide-react'
+import { Search, Filter, Brain, FileText, Users, Calendar, Component, Tag, RefreshCw, MessageSquare, Lightbulb, BookOpen, Bug, History, Download, Clock, X } from 'lucide-react'
 import PageLayout from '@/components/ui/page-layout'
 
 interface Defect {
@@ -360,7 +360,7 @@ export default function DefectSearchPage() {
     <PageLayout
       title="AI Defect Root Cause Analysis"
       subtitle="Search defects and use AI + RAG to understand root causes through user stories and documentation"
-      icon={<AlertTriangle className="h-6 w-6 text-red-600" />}
+      icon={<Bug className="h-6 w-6 text-red-600" />}
       backUrl="/analytics/defects"
       backLabel="Back to Defect Analytics"
       actionButtons={actionButtons}
@@ -618,7 +618,7 @@ export default function DefectSearchPage() {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Total number of defects in the system">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
@@ -654,30 +654,6 @@ export default function DefectSearchPage() {
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">AI Analyses</p>
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">{analysisHistory.length}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Completed analyses (max 50)</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Shows how specific your current search is. Higher percentage = broader search finding more defects. Lower percentage = more specific search with fewer matches. Formula: (matching defects / total defects) × 100.">
-            <div className="flex items-center">
-              <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
-                <AlertTriangle className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Filter Match Rate</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  {originalTotal > 0 ? 
-                    (() => {
-                      const percentage = (totalDefects / originalTotal) * 100;
-                      return percentage < 1 && percentage > 0 ? 
-                        percentage.toFixed(2) + '%' : 
-                        Math.round(percentage) + '%';
-                    })() 
-                    : '0%'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {totalDefects}/{originalTotal} defects match
-                </p>
               </div>
             </div>
           </div>
@@ -916,7 +892,7 @@ export default function DefectSearchPage() {
                       {aiAnalysis.requirementGaps.length > 0 && (
                         <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-6 border border-orange-200 dark:border-orange-800">
                           <div className="flex items-start gap-3 mb-4">
-                            <AlertTriangle className="h-6 w-6 text-orange-600 dark:text-orange-400 mt-0.5" />
+                            <RefreshCw className="h-6 w-6 text-orange-600 dark:text-orange-400 mt-0.5" />
                             <h4 className="text-lg font-semibold text-orange-900 dark:text-orange-100">Requirement Gaps</h4>
                           </div>
                           <ul className="space-y-3">

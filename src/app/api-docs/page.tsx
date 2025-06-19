@@ -185,6 +185,15 @@ const API_ENDPOINTS: APIEndpoint[] = [
           userStoryId: { type: 'string', description: 'ID of user story to generate tests for' },
           userStory: { type: 'object', description: 'Direct user story object (alternative to userStoryId)' },
           testTypes: { type: 'array', items: { type: 'string' }, default: ['positive', 'negative', 'edge'], description: 'Types of tests to generate' },
+          testTypeCounts: { 
+            type: 'object', 
+            description: 'Number of test cases to generate per type',
+            properties: {
+              positive: { type: 'integer', minimum: 1, maximum: 10, default: 1 },
+              negative: { type: 'integer', minimum: 1, maximum: 10, default: 1 },
+              edge: { type: 'integer', minimum: 1, maximum: 10, default: 1 }
+            }
+          },
           industryContext: { type: 'string', default: 'comprehensive', description: 'Industry context for test scenarios' },
           modelId: { type: 'string', description: 'Claude model ID to use' }
         }
@@ -192,6 +201,11 @@ const API_ENDPOINTS: APIEndpoint[] = [
       example: {
         userStoryId: "story-123",
         testTypes: ["positive", "negative", "edge"],
+        testTypeCounts: {
+          positive: 2,
+          negative: 2,
+          edge: 1
+        },
         industryContext: "field-usage",
         modelId: "anthropic.claude-sonnet-4-20250514-v1:0"
       }
@@ -237,18 +251,23 @@ const API_ENDPOINTS: APIEndpoint[] = [
     method: 'GET',
     path: '/api/defects',
     summary: 'Get Defects',
-    description: 'Retrieve defects with filtering and search capabilities',
+    description: 'Retrieve defects with server-side filtering, search, and pagination capabilities',
     parameters: [
-      { name: 'limit', in: 'query', required: false, type: 'integer', description: 'Number of items to return', example: 50 },
-      { name: 'search', in: 'query', required: false, type: 'string', description: 'Search in title or description', example: 'login error' },
-      { name: 'severity', in: 'query', required: false, type: 'string', description: 'Filter by severity', example: 'Critical' },
-      { name: 'status', in: 'query', required: false, type: 'string', description: 'Filter by status', example: 'Open' },
-      { name: 'component', in: 'query', required: false, type: 'string', description: 'Filter by component', example: 'Authentication' }
+      { name: 'limit', in: 'query', required: false, type: 'integer', description: 'Number of items to return (default: 100)', example: 100 },
+      { name: 'offset', in: 'query', required: false, type: 'integer', description: 'Number of items to skip for pagination (default: 0)', example: 0 },
+      { name: 'search', in: 'query', required: false, type: 'string', description: 'Search across title, description, Jira key, component, steps to reproduce, and root cause', example: 'login error' },
+      { name: 'severity', in: 'query', required: false, type: 'string', description: 'Filter by severity level', example: 'Critical' },
+      { name: 'priority', in: 'query', required: false, type: 'string', description: 'Filter by priority level', example: 'High' },
+      { name: 'component', in: 'query', required: false, type: 'string', description: 'Filter by component name', example: 'Authentication' },
+      { name: 'status', in: 'query', required: false, type: 'string', description: 'Filter by defect status', example: 'Open' },
+      { name: 'assignee', in: 'query', required: false, type: 'string', description: 'Filter by assignee name', example: 'john.doe' },
+      { name: 'dateFrom', in: 'query', required: false, type: 'string', description: 'Filter defects created from this date (YYYY-MM-DD)', example: '2025-01-01' },
+      { name: 'dateTo', in: 'query', required: false, type: 'string', description: 'Filter defects created up to this date (YYYY-MM-DD)', example: '2025-01-31' }
     ],
     responses: [
       {
         status: 200,
-        description: 'Successful response',
+        description: 'Successful response with server-side filtered results',
         example: {
           defects: [
             {
@@ -259,10 +278,13 @@ const API_ENDPOINTS: APIEndpoint[] = [
               status: "Open",
               component: "Authentication",
               rootCause: "Input validation issue",
-              jiraKey: "BUG-456"
+              jiraKey: "BUG-456",
+              assignee: "john.doe",
+              createdAt: "2025-01-15T10:30:00Z"
             }
           ],
-          total: 89
+          total: 89,
+          originalTotal: 7213
         }
       }
     ],

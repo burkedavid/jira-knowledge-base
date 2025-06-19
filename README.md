@@ -450,15 +450,17 @@ Once import completes, you can:
 ```
 1. Navigate to "Generate Test Cases"
 2. Select a user story from the dropdown
-3. Review story details, quality score, and context
-4. Click "Generate Test Cases"
-5. Handle quality threshold warnings if score is below configured threshold
-6. View structured, color-coded results
-7. Switch between Formatted and Raw views
-8. Copy all tests or download as file
+3. Configure test case counts per type (1-10 range)
+4. Review story details, quality score, and context
+5. Click "Generate Test Cases"
+6. Handle quality threshold warnings if score is below configured threshold
+7. View structured, color-coded results
+8. Switch between Formatted and Raw views
+9. Copy all tests or download as file
 ```
 
 **Enhanced Features**:
+- **Configurable Test Counts**: Set custom counts for positive, negative, and edge test cases (1-10 per type)
 - **RAG-Powered Context**: Uses configurable semantic search to find relevant historical defects and test cases
 - **Quality Protection**: Configurable quality threshold (default: 7/10) with warning dialog for low-quality requirements
 - **Quality Score Display**: Shows existing quality scores in story selection and preview
@@ -509,7 +511,28 @@ Once import completes, you can:
 - **Confidence Scoring**: AI confidence levels for each pattern
 - **Action Plans**: Immediate, short-term, and long-term recommendations
 
-### **8. Enhanced Knowledge Search**
+### **8. AI-Powered Defect Search & Root Cause Analysis**
+```
+1. Visit "Analytics" → "Defects" → "Search"
+2. Use comprehensive search across all defects with server-side filtering
+3. Apply filters: severity, priority, component, status, assignee, date ranges
+4. Select defects from the enhanced list view
+5. Click "Analyze Root Cause with AI" for detailed RAG-enhanced analysis
+6. Review AI analysis including requirement gaps, related user stories, and prevention recommendations
+7. Access analysis history with persistent localStorage storage
+8. Export analysis results and maintain search history
+```
+
+**Advanced Features**:
+- **Server-Side Search**: Real-time search across title, description, Jira keys, components, and root causes
+- **Comprehensive Filtering**: Multiple filter types with debounced search (500ms) for optimal performance
+- **Enhanced UI**: Modern card-based layout with improved space utilization and readability
+- **AI Root Cause Analysis**: RAG-enhanced analysis using Claude 4 with historical context
+- **Analysis History**: Persistent storage of up to 50 analyses with replay functionality
+- **Statistics Dashboard**: Real-time metrics showing total defects, matching results, and AI analysis count
+- **Export Capabilities**: Download analysis results and search history
+
+### **9. Enhanced Knowledge Search**
 ```
 1. Use the search functionality
 2. Enter natural language queries
@@ -526,7 +549,7 @@ Once import completes, you can:
 - **Result Management**: Copy, download, and replay searches
 - **Confidence Scoring**: AI confidence and similarity percentages
 
-### **9. Interactive Defect Analytics**
+### **10. Interactive Defect Analytics**
 ```
 1. Visit "Analytics" → "Defects"
 2. Use the "Ask About Defect Patterns" interface
@@ -650,10 +673,18 @@ curl -X PUT http://localhost:3000/api/settings/rag-config \
   -H "Content-Type: application/json" \
   -d '{"searchTypes":{"defects":true,"testCases":true}}'
 
-# Test RAG-enhanced test case generation
+# Test RAG-enhanced test case generation with custom counts
 curl -X POST http://localhost:3000/api/generate/test-cases \
   -H "Content-Type: application/json" \
-  -d '{"userStoryId":"your-story-id"}'
+  -d '{"userStoryId":"your-story-id","testTypeCounts":{"positive":2,"negative":1,"edge":1}}'
+
+# Test defect search with server-side filtering
+curl "http://localhost:3000/api/defects?search=authentication&severity=High&limit=100"
+
+# Test AI defect root cause analysis
+curl -X POST http://localhost:3000/api/analyze/defect-root-cause \
+  -H "Content-Type: application/json" \
+  -d '{"defect":{"id":"defect-123","title":"Login fails","component":"Authentication"}}'
 ```
 
 ### **Monitoring**
@@ -879,4 +910,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - 👤 **User Menu Integration** with settings access and session management
 - 🛡️ **Route Protection** with middleware-based authentication
 - 🔑 **Demo Accounts** for testing and demonstration purposes
-- ⚙️ **RAG Configuration System** with comprehensive API for tuning semantic search and AI analysis parameters 
+- ⚙️ **RAG Configuration System** with comprehensive API for tuning semantic search and AI analysis parameters
+- 🔧 **Configurable Test Case Counts** with UI controls for 1-10 test cases per type (positive, negative, edge)
+- 🔍 **AI-Powered Defect Search Page** with server-side filtering, root cause analysis, and enhanced UI
+- 📈 **Server-Side Search Performance** with debounced search, comprehensive filtering, and statistics dashboard
+- 💾 **Analysis History Management** with persistent localStorage storage of up to 50 AI analyses
+- 🎯 **Enhanced Statistics** with real-time metrics and improved data visualization 
