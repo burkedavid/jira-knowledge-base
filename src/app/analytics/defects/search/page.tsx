@@ -452,22 +452,31 @@ export default function DefectSearchPage() {
             <div className="flex gap-4 mb-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Search defects by title, description, Jira key, or component..."
+                    placeholder="Search across all defects by title, description, Jira key, or component..."
                     value={filters.search}
                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-base"
                   />
                 </div>
               </div>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
+                className={`flex items-center gap-2 px-6 py-3 border rounded-lg transition-all duration-200 ${
+                  showFilters 
+                    ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/20 dark:border-blue-600 dark:text-blue-300' 
+                    : 'border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                }`}
               >
                 <Filter className="h-4 w-4" />
-                Filters
+                <span className="font-medium">Filters</span>
+                {Object.values(filters).some(v => v) && (
+                  <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-500 rounded-full">
+                    {Object.values(filters).filter(v => v).length}
+                  </span>
+                )}
               </button>
             </div>
 
@@ -590,18 +599,82 @@ export default function DefectSearchPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Defects List */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-                Defects ({totalDefects})
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                {totalDefects < originalTotal ? `Showing ${defects.length} of ${totalDefects} matching defects (${originalTotal} total)` : 'Select a defect to analyze with AI'}
-              </p>
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                <Bug className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Defects</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{originalTotal}</p>
+              </div>
             </div>
-            <div className="max-h-96 overflow-y-auto">
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                <Search className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Matching Results</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{totalDefects}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                <Brain className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">AI Analyses</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{analysisHistory.length}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
+                <AlertTriangle className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Filter Match Rate</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+                  {originalTotal > 0 ? Math.round((totalDefects / originalTotal) * 100) : 0}%
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Defects List - Takes up 2/3 of the width on large screens */}
+          <div className="xl:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Defects Library
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                    {totalDefects < originalTotal 
+                      ? `Showing ${defects.length} of ${totalDefects} matching defects (${originalTotal} total)` 
+                      : `Browse ${totalDefects} defects and select one for AI analysis`}
+                  </p>
+                </div>
+                {selectedDefect && (
+                  <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                    Selected: {selectedDefect.jiraKey || selectedDefect.title.substring(0, 20) + '...'}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="max-h-[600px] overflow-y-auto">
               {loading ? (
                 <div className="text-center py-8">
                   <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
@@ -616,44 +689,60 @@ export default function DefectSearchPage() {
                         setSelectedDefect(defect)
                         setAiAnalysis(null) // Clear any previous analysis when selecting a new defect
                       }}
-                      className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                        selectedDefect?.id === defect.id ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500' : ''
+                      className={`p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:shadow-md ${
+                        selectedDefect?.id === defect.id 
+                          ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 shadow-md' 
+                          : 'hover:border-l-4 hover:border-blue-200 dark:hover:border-blue-700'
                       }`}
                     >
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-medium text-gray-900 dark:text-white text-sm">
-                          {defect.jiraKey && (
-                            <span className="text-blue-600 dark:text-blue-400 mr-2">
-                              {defect.jiraKey}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            {defect.jiraKey && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                                {defect.jiraKey}
+                              </span>
+                            )}
+                            {defect.severity && (
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(defect.severity)}`}>
+                                {defect.severity}
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="font-semibold text-gray-900 dark:text-white text-base mb-2 line-clamp-1">
+                            {defect.title}
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-2 leading-relaxed">
+                            {defect.description}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                          {defect.component && (
+                            <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                              <Component className="h-3 w-3" />
+                              {defect.component}
                             </span>
                           )}
-                          {defect.title}
-                        </h3>
-                        {defect.severity && (
-                          <span className={`text-xs px-2 py-1 rounded-full border ${getSeverityColor(defect.severity)}`}>
-                            {defect.severity}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 line-clamp-2">
-                        {defect.description}
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                        {defect.component && (
                           <span className="flex items-center gap-1">
-                            <Component className="h-3 w-3" />
-                            {defect.component}
+                            <Calendar className="h-3 w-3" />
+                            {new Date(defect.createdAt).toLocaleDateString()}
                           </span>
-                        )}
+                          {defect.assignee && (
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {defect.assignee}
+                            </span>
+                          )}
+                        </div>
+                        
                         {defect.status && (
-                          <span className={`px-2 py-1 rounded-full ${getStatusColor(defect.status)}`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(defect.status)}`}>
                             {defect.status}
                           </span>
                         )}
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(defect.createdAt).toLocaleDateString()}
-                        </span>
                       </div>
                     </div>
                   ))}
@@ -667,49 +756,93 @@ export default function DefectSearchPage() {
             </div>
           </div>
 
-          {/* AI Analysis Panel */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          {/* AI Analysis Panel - Takes up 1/3 of the width on large screens */}
+          <div className="xl:col-span-1 bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-                AI Root Cause Analysis
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                Intelligent analysis using user stories and documentation
-              </p>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/50 dark:to-blue-900/50 rounded-lg">
+                  <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    AI Root Cause Analysis
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Powered by Claude 4 + RAG
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="p-6">
+            <div className="p-6 max-h-[600px] overflow-y-auto">
               {!selectedDefect ? (
-                <div className="text-center py-8">
-                  <Brain className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-500">Select a defect to start AI analysis</p>
+                <div className="text-center py-12">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-32 h-32 bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 rounded-full"></div>
+                    </div>
+                    <div className="relative">
+                      <Brain className="h-16 w-16 mx-auto mb-4 text-purple-600 dark:text-purple-400" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Ready for AI Analysis</h3>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm mx-auto">
+                    Select a defect from the list to start intelligent root cause analysis using Claude 4 and RAG technology
+                  </p>
+                  <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-400">
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      User Stories
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      Documentation
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Brain className="h-3 w-3" />
+                      AI Insights
+                    </span>
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {/* Selected Defect Info */}
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                    <h3 className="font-medium text-gray-900 dark:text-white mb-2">
-                      {selectedDefect.jiraKey && (
-                        <span className="text-blue-600 dark:text-blue-400 mr-2">
-                          {selectedDefect.jiraKey}
-                        </span>
-                      )}
-                      {selectedDefect.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                      {selectedDefect.description}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                      {selectedDefect.severity && (
-                        <span className={`px-2 py-1 rounded-full border ${getSeverityColor(selectedDefect.severity)}`}>
-                          {selectedDefect.severity}
-                        </span>
-                      )}
-                      {selectedDefect.component && (
-                        <span className="flex items-center gap-1">
-                          <Component className="h-3 w-3" />
-                          {selectedDefect.component}
-                        </span>
-                      )}
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                        <Bug className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          {selectedDefect.jiraKey && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                              {selectedDefect.jiraKey}
+                            </span>
+                          )}
+                          {selectedDefect.severity && (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(selectedDefect.severity)}`}>
+                              {selectedDefect.severity}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm leading-snug">
+                          {selectedDefect.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-3 leading-relaxed">
+                          {selectedDefect.description}
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                          {selectedDefect.component && (
+                            <span className="flex items-center gap-1">
+                              <Component className="h-3 w-3" />
+                              {selectedDefect.component}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(selectedDefect.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -717,17 +850,17 @@ export default function DefectSearchPage() {
                   <button
                     onClick={() => analyzeDefectWithAI(selectedDefect)}
                     disabled={analysisLoading}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
                   >
                     {analysisLoading ? (
                       <>
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                        Analyzing with AI...
+                        <RefreshCw className="h-5 w-5 animate-spin" />
+                        <span className="font-medium">Analyzing with Claude 4...</span>
                       </>
                     ) : (
                       <>
-                        <Brain className="h-4 w-4" />
-                        Analyze Root Cause with AI
+                        <Brain className="h-5 w-5" />
+                        <span className="font-medium">Analyze Root Cause with AI</span>
                       </>
                     )}
                   </button>
