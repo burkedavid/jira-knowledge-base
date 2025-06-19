@@ -783,12 +783,12 @@ export default function DefectSearchPage() {
             <div className="p-6 max-h-[600px] overflow-y-auto">
               {!selectedDefect ? (
                 <div className="text-center py-12">
-                  <div className="relative">
+                  <div className="relative mb-6">
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-32 h-32 bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 rounded-full"></div>
+                      <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 rounded-full"></div>
                     </div>
                     <div className="relative">
-                      <Search className="h-16 w-16 mx-auto mb-4 text-purple-600 dark:text-purple-400" />
+                      <Search className="h-12 w-12 mx-auto text-purple-600 dark:text-purple-400" />
                     </div>
                   </div>
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Ready for AI Analysis</h3>
