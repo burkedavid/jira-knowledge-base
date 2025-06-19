@@ -26,9 +26,12 @@ interface JiraImportRequest {
   batchSettings: {
     batchSize: number
     delayBetweenBatches: number
+    customJQL?: JQLMapping[]
+    generateEmbeddings?: boolean
   }
   customJQL?: JQLMapping[]
   generateEmbeddings?: boolean
+  forceRegenerateAll?: boolean
 }
 
 export async function POST(request: NextRequest) {
@@ -299,8 +302,8 @@ async function processJiraImport(jobId: string, config: JiraImportRequest) {
             const content = `${story.title}\n\n${story.description}\n\nAcceptance Criteria: ${story.acceptanceCriteria || 'Not provided'}\n\nComponent: ${story.component || 'Not specified'}\n\nPriority: ${story.priority || 'Not set'}`
             // During import, be more aggressive about generating embeddings
             // Force regeneration if explicitly requested via checkbox
-            const shouldForceRegenerate = config.generateEmbeddings === true
-            const result = await embedContent(content, story.id, 'user_story', '1.0', shouldForceRegenerate, true)
+            const shouldForceRegenerate = config.generateEmbeddings === true && config.forceRegenerateAll === true;
+            const result = await embedContent(content, story.id, 'user_story', '1.0', story.createdAt, shouldForceRegenerate, true)
             if (result.action === 'created' || result.action === 'updated') {
               embeddingsGenerated++
               console.log(`✅ Generated embedding for user story ${story.id} (${result.action}: ${result.reason})`)
@@ -354,8 +357,8 @@ async function processJiraImport(jobId: string, config: JiraImportRequest) {
             const content = `${defect.title}\n\n${defect.description}\n\nSteps to Reproduce: ${defect.stepsToReproduce || 'Not provided'}\n\nRoot Cause: ${defect.rootCause || 'Not identified'}\n\nComponent: ${defect.component || 'Not specified'}\n\nSeverity: ${defect.severity || 'Not set'}`
             // During import, be more aggressive about generating embeddings
             // Force regeneration if explicitly requested via checkbox
-            const shouldForceRegenerate = config.generateEmbeddings === true
-            const result = await embedContent(content, defect.id, 'defect', '1.0', shouldForceRegenerate, true)
+            const shouldForceRegenerate = config.generateEmbeddings === true && config.forceRegenerateAll === true;
+            const result = await embedContent(content, defect.id, 'defect', '1.0', defect.createdAt, shouldForceRegenerate, true)
             if (result.action === 'created' || result.action === 'updated') {
               embeddingsGenerated++
               console.log(`✅ Generated embedding for defect ${defect.id} (${result.action}: ${result.reason})`)

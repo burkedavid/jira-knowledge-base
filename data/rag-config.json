@@ -1,21 +1,21 @@
 {
   "searchTypes": {
-    "defects": true,
-    "userStories": true,
-    "testCases": false,
-    "documents": true
+    "defect": true,
+    "user_story": true,
+    "test_case": false,
+    "document": true
   },
   "maxResults": {
-    "defects": 3,
-    "userStories": 3,
-    "testCases": 0,
-    "documents": 3
+    "defect": 5,
+    "user_story": 5,
+    "test_case": 5,
+    "document": 5
   },
   "similarityThresholds": {
-    "defects": 0.8,
-    "userStories": 0.75,
-    "testCases": 0.8,
-    "documents": 0.85
+    "defect": 0.4,
+    "user_story": 0.4,
+    "test_case": 0.4,
+    "document": 0.4
   },
   "contentLimits": {
     "maxItemLength": 200,
@@ -23,7 +23,7 @@
     "enableSmartTruncation": true
   },
   "relevanceFiltering": {
-    "enabled": true,
+    "enabled": false,
     "minKeywordMatches": 1,
     "minStoryKeywordMatches": 2,
     "keywordBoostTerms": [

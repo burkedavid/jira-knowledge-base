@@ -274,7 +274,7 @@ npx prisma generate
 # Deploy database schema
 npx prisma migrate deploy
 
-# Seed with demo accounts (optional)
+# Seed with demo accounts (required for initial login)
 npm run auth:setup
 ```
 

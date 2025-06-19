@@ -167,6 +167,7 @@ model Embedding {
   sourceId   String
   sourceType String
   version    String   @default("1.0")
+  documentDate DateTime?
   createdAt  DateTime @default(now())
 
   @@index([sourceType, sourceId])

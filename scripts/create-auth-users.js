@@ -5,55 +5,59 @@ const prisma = new PrismaClient()
 
 async function createAuthUsers() {
   try {
-    console.log('Creating authentication users...')
+    console.log('Creating/updating demo authentication users...')
 
-    // Hash passwords
-    const adminPassword = await bcrypt.hash('admin123', 12)
-    const userPassword = await bcrypt.hash('user123', 12)
+    // Password for demo accounts
+    const demoPassword = 'DemoRAG2025!'
 
-    // Create admin user
+    // Hash password
+    const hashedPassword = await bcrypt.hash(demoPassword, 12)
+
+    // Create/Update admin user
     const admin = await prisma.user.upsert({
-      where: { email: 'admin@example.com' },
+      where: { email: 'demo.admin@ragplatform.ai' },
       update: {
-        password: adminPassword,
-        role: 'admin'
+        name: 'Demo Admin Platform',
+        password: hashedPassword,
+        role: 'admin' // Use lowercase 'admin' as per schema convention
       },
       create: {
-        email: 'admin@example.com',
-        name: 'Demo Admin',
-        password: adminPassword,
-        role: 'admin',
+        email: 'demo.admin@ragplatform.ai',
+        name: 'Demo Admin Platform',
+        password: hashedPassword,
+        role: 'admin', // Use lowercase 'admin' as per schema convention
         emailVerified: new Date()
       }
     })
 
-    console.log('✅ Admin user created:', admin.email)
+    console.log('✅ Admin user created/updated:', admin.email)
 
-    // Create regular user
+    // Create/Update regular user
     const user = await prisma.user.upsert({
-      where: { email: 'user@example.com' },
+      where: { email: 'demo.user@ragplatform.ai' },
       update: {
-        password: userPassword,
-        role: 'user'
+        name: 'Demo User Platform',
+        password: hashedPassword,
+        role: 'user' // Use lowercase 'user' as per schema convention
       },
       create: {
-        email: 'user@example.com',
-        name: 'Demo User',
-        password: userPassword,
-        role: 'user',
+        email: 'demo.user@ragplatform.ai',
+        name: 'Demo User Platform',
+        password: hashedPassword,
+        role: 'user', // Use lowercase 'user' as per schema convention
         emailVerified: new Date()
       }
     })
 
-    console.log('✅ Regular user created:', user.email)
+    console.log('✅ Regular user created/updated:', user.email)
 
-    console.log('\n🎉 Authentication users created successfully!')
+    console.log('\n🎉 Demo authentication users created/updated successfully!')
     console.log('\nYou can now log in with:')
-    console.log('Admin: admin@example.com / admin123')
-    console.log('User:  user@example.com / user123')
+    console.log(`Admin: demo.admin@ragplatform.ai / ${demoPassword}`)
+    console.log(`User:  demo.user@ragplatform.ai / ${demoPassword}`)
 
   } catch (error) {
-    console.error('❌ Error creating auth users:', error)
+    console.error('❌ Error creating/updating auth users:', error)
     throw error
   } finally {
     await prisma.$disconnect()
@@ -64,4 +68,4 @@ createAuthUsers()
   .catch((error) => {
     console.error(error)
     process.exit(1)
-  }) 
+  })

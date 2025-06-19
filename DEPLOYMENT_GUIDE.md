@@ -27,6 +27,18 @@ This guide covers the complete deployment of the Knowledge Base v2 application o
 - **Reverse Proxy:** Nginx or Apache for SSL termination
 
 ### File Storage Requirements
+
+## 🚀 Deployment Steps
+
+### **Step 1: Database Setup**
+Initialize and seed your database:
+```bash
+# Deploy the database schema
+npx prisma migrate deploy
+
+# Seed with demo accounts (required for initial login)
+npm run auth:setup
+```
 - **Document Storage:** 500GB+ depending on document volume
 - **Vector Embeddings:** Fast SSD storage for optimal performance
 - **Backup Storage:** Separate location with 2x capacity of primary storage

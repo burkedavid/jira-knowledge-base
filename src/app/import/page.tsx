@@ -59,6 +59,7 @@ export default function ImportPage() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [generateEmbeddings, setGenerateEmbeddings] = useState(true)
+  const [forceRegenerateAll, setForceRegenerateAll] = useState(false)
 
   // Save configuration to localStorage
   const saveConfiguration = async () => {
@@ -289,7 +290,8 @@ export default function ImportPage() {
           },
           importOptions,
           customJQL: jqlMappings, // Pass custom JQL mappings
-          generateEmbeddings // Add embeddings generation flag
+          generateEmbeddings,
+          forceRegenerateAll: generateEmbeddings ? forceRegenerateAll : false // Pass new flag
         })
       })
 
@@ -652,12 +654,17 @@ export default function ImportPage() {
                 </div>
 
                 {/* Generate Embeddings Option */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600 space-y-3">
                   <label className="flex items-center">
                     <input
                       type="checkbox"
                       checked={generateEmbeddings}
-                      onChange={(e) => setGenerateEmbeddings(e.target.checked)}
+                      onChange={(e) => {
+                        setGenerateEmbeddings(e.target.checked);
+                        if (!e.target.checked) {
+                          setForceRegenerateAll(false); // Also disable force if main toggle is off
+                        }
+                      }}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
                     />
                     <div>
@@ -665,10 +672,29 @@ export default function ImportPage() {
                         Generate Embeddings
                       </span>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Enable RAG search capabilities for imported user stories and defects
+                        Enable RAG search capabilities for imported user stories and defects.
                       </p>
                     </div>
                   </label>
+                  {generateEmbeddings && (
+                    <label className="flex items-center pl-6"> {/* Indent slightly */}
+                      <input
+                        type="checkbox"
+                        checked={forceRegenerateAll}
+                        onChange={(e) => setForceRegenerateAll(e.target.checked)}
+                        disabled={!generateEmbeddings} // Technically redundant due to conditional rendering, but good practice
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Force re-generation for all items in scope
+                        </span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          If checked, re-creates embeddings even if content appears unchanged.
+                        </p>
+                      </div>
+                    </label>
+                  )}
                 </div>
 
                 {/* Start Import Button */}

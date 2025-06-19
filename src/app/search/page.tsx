@@ -27,6 +27,7 @@ interface RAGResponse {
   query?: string
   totalSources?: number
   searchDetails?: any
+  followUpQuestions?: string[]
 }
 
 interface SearchHistoryItem {
@@ -40,8 +41,6 @@ interface SearchHistoryItem {
   totalSources?: number
 }
 
-
-
 export default function SearchPage() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
@@ -50,6 +49,8 @@ export default function SearchPage() {
   const [searchMode, setSearchMode] = useState<'semantic' | 'rag'>('rag')
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
   // Load search history from localStorage on component mount
   useEffect(() => {
@@ -110,8 +111,9 @@ export default function SearchPage() {
     setShowHistory(false)
   }
 
-  const handleSearch = async () => {
-    if (!query.trim()) return
+  const handleSearch = async (searchQuery?: string) => {
+    const finalQuery = searchQuery || query;
+    if (!finalQuery.trim()) return
     
     setIsSearching(true)
     setResults([])
@@ -120,15 +122,19 @@ export default function SearchPage() {
     try {
       if (searchMode === 'rag') {
         // RAG-powered search with intelligent response
+        const finalQuery = searchQuery || query;
+
         const response = await fetch('/api/search/rag', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            query: query.trim(),
+            query: finalQuery.trim(),
             maxResults: 10,
-            includeTypes: ['user_story', 'defect', 'document', 'test_case']
+            includeTypes: ['user_story', 'defect', 'document', 'test_case'],
+            ...(startDate && { startDate }),
+            ...(endDate && { endDate }),
           })
         })
 
@@ -137,7 +143,7 @@ export default function SearchPage() {
           setRagResponse(data)
           setResults(data.sources || [])
           // Add to history
-          addToHistory(query.trim(), searchMode, data)
+          addToHistory(finalQuery.trim(), searchMode, data)
         } else {
           throw new Error('RAG search failed')
         }
@@ -149,7 +155,7 @@ export default function SearchPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            query: query.trim(),
+            query: finalQuery.trim(),
             limit: 10,
             threshold: 0.7
           })
@@ -159,7 +165,7 @@ export default function SearchPage() {
           const data = await response.json()
           setResults(data.results || [])
           // Add to history
-          addToHistory(query.trim(), searchMode, undefined, data.results || [])
+          addToHistory(finalQuery.trim(), searchMode, undefined, data.results || [])
         } else {
           throw new Error('Semantic search failed')
         }
@@ -207,6 +213,11 @@ export default function SearchPage() {
     
     return `${prefix}-${shortId}`
   }
+
+  const handleFollowUpClick = (question: string) => {
+    setQuery(question);
+    handleSearch(question);
+  };
 
   const downloadResponse = (ragResponse: RAGResponse) => {
     const content = `Knowledge Search Results
@@ -336,7 +347,7 @@ ${ragResponse.sources?.map((source, index) =>
               />
             </div>
             <button
-              onClick={handleSearch}
+              onClick={() => handleSearch()}
               disabled={isSearching || !query.trim()}
               className="px-6 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -347,6 +358,38 @@ ${ragResponse.sources?.map((source, index) =>
               )}
             </button>
           </div>
+
+          {/* Date Range Filter */}
+          {searchMode === 'rag' && (
+            <div className="flex items-center space-x-4 mt-4">
+              <div className="flex-1">
+                <label htmlFor="startDate" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  id="startDate"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Filter results created on or after this date.</p>
+              </div>
+              <div className="flex-1">
+                <label htmlFor="endDate" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  id="endDate"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Filter results created on or before this date.</p>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -453,7 +496,7 @@ ${ragResponse.sources?.map((source, index) =>
                   </span>
                   <div className="ml-2 w-12 bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
                     <div 
-                      className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" 
+                      className="bg-indigo-600 h-1.5 rounded-full" 
                       style={{ width: `${ragResponse.confidence * 100}%` }}
                     ></div>
                   </div>
@@ -551,6 +594,27 @@ ${ragResponse.sources?.map((source, index) =>
                 {ragResponse.answer}
               </ReactMarkdown>
             </div>
+
+            {/* Follow-up Questions */}
+            {ragResponse.followUpQuestions && ragResponse.followUpQuestions.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <h4 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
+                  <Sparkles className="h-5 w-5 text-indigo-500 mr-2" />
+                  Suggested Follow-ups
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {ragResponse.followUpQuestions.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleFollowUpClick(q)}
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700/80 text-sm text-gray-900 dark:text-gray-100 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800 transition-all duration-200 ease-in-out transform hover:scale-105"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Sources Summary */}
             {ragResponse.sources && ragResponse.sources.length > 0 && (
@@ -651,110 +715,95 @@ ${ragResponse.sources?.map((source, index) =>
             
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6 max-w-4xl mx-auto">
               <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-4">
-                {searchMode === 'rag' ? 'Try these questions:' : 'Try these searches:'}
+                {searchMode === 'rag' ? 'Ask a question or try one of these suggestions:' : 'Enter a query or try one of these examples:'}
               </h4>
               
               {searchMode === 'rag' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Authentication & Security */}
+                  {/* Defect Analysis */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🔐 Authentication & Security</h5>
+                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🐞 Defect Analysis</h5>
                     <button
-                      onClick={() => { setQuery('What are the main authentication issues and failures we\'ve encountered?'); handleSearch(); }}
+                      onClick={() => { setQuery('Analyze the root causes of high-priority defects in the last quarter.'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      What are the main authentication issues and failures we've encountered?
+                      Analyze the root causes of high-priority defects in the last quarter.
                     </button>
                     <button
-                      onClick={() => { setQuery('How do login and user authentication systems work in our platform?'); handleSearch(); }}
+                      onClick={() => { setQuery('What are the recurring defect patterns in the checkout module, and what is the user impact?'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      How do login and user authentication systems work in our platform?
+                      What are the recurring defect patterns in the checkout module, and what is the user impact?
                     </button>
                   </div>
 
-                  {/* Mobile & UI Issues */}
+                  {/* System Architecture */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">📱 Mobile & UI</h5>
+                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🏛️ System Architecture</h5>
                     <button
-                      onClick={() => { setQuery('What mobile UI responsiveness and touch interface issues have we seen?'); handleSearch(); }}
+                      onClick={() => { setQuery('Provide a technical overview of the authentication and authorization flow, including key components.'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      What mobile UI responsiveness and touch interface issues have we seen?
+                      Provide a technical overview of the authentication and authorization flow, including key components.
                     </button>
                     <button
-                      onClick={() => { setQuery('Tell me about mobile app features and their test coverage'); handleSearch(); }}
+                      onClick={() => { setQuery('Explain the data synchronization process between the mobile app and the backend.'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      Tell me about mobile app features and their test coverage
+                      Explain the data synchronization process between the mobile app and the backend.
                     </button>
                   </div>
 
-                  {/* Component Analysis */}
+                  {/* User Feedback & Requirements */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🏗️ Component Analysis</h5>
+                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">💬 User Feedback & Requirements</h5>
                     <button
-                      onClick={() => { setQuery('Which components have the highest defect rates and what are the patterns?'); handleSearch(); }}
+                      onClick={() => { setQuery('Summarize user feedback related to performance issues on the dashboard.'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      Which components have the highest defect rates and what are the patterns?
+                      Summarize user feedback related to performance issues on the dashboard.
                     </button>
                     <button
-                      onClick={() => { setQuery('What are the common root causes across different system components?'); handleSearch(); }}
+                      onClick={() => { setQuery('How do our current user stories for the reporting feature align with the original business requirements?'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      What are the common root causes across different system components?
+                      How do our current user stories for the reporting feature align with the original business requirements?
                     </button>
                   </div>
 
-                  {/* Quality & Testing */}
+                  {/* Test Coverage & Strategy */}
                   <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🧪 Quality & Testing</h5>
+                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🔬 Test Coverage & Strategy</h5>
                     <button
-                      onClick={() => { setQuery('What test cases and testing strategies exist for critical user journeys?'); handleSearch(); }}
+                      onClick={() => { setQuery('Identify gaps in our API test coverage based on recent critical defects.'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      What test cases and testing strategies exist for critical user journeys?
+                      Identify gaps in our API test coverage based on recent critical defects.
                     </button>
                     <button
-                      onClick={() => { setQuery('How can we improve our requirement quality and reduce defect patterns?'); handleSearch(); }}
+                      onClick={() => { setQuery('What is our regression testing strategy for the payment processing module?'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      How can we improve our requirement quality and reduce defect patterns?
+                      What is our regression testing strategy for the payment processing module?
                     </button>
                   </div>
 
-                  {/* Field Usage & Real-World */}
-                  <div className="space-y-2">
-                    <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">🌍 Field Usage</h5>
-                    <button
-                      onClick={() => { setQuery('What field usage scenarios and real-world conditions should we test for?'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
-                    >
-                      What field usage scenarios and real-world conditions should we test for?
-                    </button>
-                    <button
-                      onClick={() => { setQuery('Tell me about offline functionality and sync issues in field environments'); handleSearch(); }}
-                      className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
-                    >
-                      Tell me about offline functionality and sync issues in field environments
-                    </button>
-                  </div>
+                  
 
                   {/* Business Impact */}
                   <div className="space-y-2">
                     <h5 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">💼 Business Impact</h5>
                     <button
-                      onClick={() => { setQuery('What are the highest priority defects affecting user experience and business operations?'); handleSearch(); }}
+                      onClick={() => { setQuery('What are the key business metrics that our product impacts, and how can we measure success?'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      What are the highest priority defects affecting user experience and business operations?
+                      What are the key business metrics that our product impacts, and how can we measure success?
                     </button>
                     <button
-                      onClick={() => { setQuery('How do our user stories align with actual field requirements and usage patterns?'); handleSearch(); }}
+                      onClick={() => { setQuery('How can we prioritize features and development based on business value and customer needs?'); handleSearch(); }}
                       className="w-full text-left p-3 bg-white dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300"
                     >
-                      How do our user stories align with actual field requirements and usage patterns?
+                      How can we prioritize features and development based on business value and customer needs?
                     </button>
                   </div>
                 </div>

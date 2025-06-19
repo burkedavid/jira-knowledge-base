@@ -1,5 +1,6 @@
-import { prisma } from './prisma'
-import { generateEmbedding, cosineSimilarity } from './embeddings'
+import { prisma } from './prisma';
+import type { Prisma } from '@prisma/client';
+import { generateEmbedding, cosineSimilarity } from './embeddings';
 
 export type SourceType = 'user_story' | 'defect' | 'document' | 'document_section' | 'test_case'
 
@@ -22,6 +23,7 @@ export async function embedContent(
   sourceId: string,
   sourceType: SourceType,
   version: string = '1.0',
+  documentDate?: Date,
   forceRegenerate: boolean = false,
   isImportContext: boolean = false
 ): Promise<{ action: 'created' | 'updated' | 'skipped', reason?: string }> {
@@ -72,6 +74,7 @@ export async function embedContent(
           content,
           vector: JSON.stringify(vector),
           version,
+          documentDate,
           createdAt: new Date(), // Update timestamp to reflect regeneration
         },
       })
@@ -88,6 +91,7 @@ export async function embedContent(
           sourceId,
           sourceType,
           version,
+          documentDate,
         },
       })
       return { 
@@ -109,97 +113,59 @@ export async function vectorSearch(
   dateFilter?: DateFilter
 ): Promise<EmbeddingResult[]> {
   try {
-    const queryVector = await generateEmbedding(query)
-    
-    // Get all embeddings (filtered by source type if specified)
-    const embeddings = await prisma.embedding.findMany({
-      where: sourceTypes ? {
-        sourceType: {
-          in: sourceTypes,
-        },
-      } : undefined,
-    })
+    const queryVector = await generateEmbedding(query);
 
-    // Calculate similarities and apply date filtering
-    const results: EmbeddingResult[] = []
-    
-    for (const embedding of embeddings) {
-      try {
-        const vector = JSON.parse(embedding.vector) as number[]
-        const similarity = cosineSimilarity(queryVector, vector)
-        
-        if (similarity >= threshold) {
-          // Apply date filtering by checking the source entity's creation date
-          let includeResult = true
-          let sourceCreatedAt: Date | null = null
-
-          if (dateFilter && (dateFilter.fromDate || dateFilter.toDate)) {
-            try {
-              switch (embedding.sourceType) {
-                case 'user_story':
-                  const userStory = await prisma.userStory.findUnique({
-                    where: { id: embedding.sourceId },
-                    select: { createdAt: true }
-                  })
-                  sourceCreatedAt = userStory?.createdAt || null
-                  break
-                case 'defect':
-                  const defect = await prisma.defect.findUnique({
-                    where: { id: embedding.sourceId },
-                    select: { createdAt: true }
-                  })
-                  sourceCreatedAt = defect?.createdAt || null
-                  break
-                case 'test_case':
-                  const testCase = await prisma.testCase.findUnique({
-                    where: { id: embedding.sourceId },
-                    select: { createdAt: true }
-                  })
-                  sourceCreatedAt = testCase?.createdAt || null
-                  break
-                case 'document':
-                  const document = await prisma.document.findUnique({
-                    where: { id: embedding.sourceId },
-                    select: { createdAt: true }
-                  })
-                  sourceCreatedAt = document?.createdAt || null
-                  break
-              }
-
-              if (sourceCreatedAt) {
-                if (dateFilter.fromDate && sourceCreatedAt < dateFilter.fromDate) {
-                  includeResult = false
-                }
-                if (dateFilter.toDate && sourceCreatedAt > dateFilter.toDate) {
-                  includeResult = false
-                }
-              }
-            } catch (dateError) {
-              console.error('Error checking date filter for embedding:', embedding.id, dateError)
-              // Include result if date check fails to avoid losing data
-            }
-          }
-
-          if (includeResult) {
-            results.push({
-              id: embedding.id,
-              content: embedding.content,
-              sourceId: embedding.sourceId,
-              sourceType: embedding.sourceType as SourceType,
-              similarity,
-              createdAt: sourceCreatedAt || undefined,
-            })
-          }
-        }
-      } catch (error) {
-        console.error('Error parsing vector for embedding:', embedding.id, error)
+    const where: Prisma.EmbeddingWhereInput = {};
+    if (sourceTypes && sourceTypes.length > 0) {
+      where.sourceType = { in: sourceTypes };
+    }
+    if (dateFilter) {
+      where.documentDate = {};
+      if (dateFilter.fromDate) {
+        where.documentDate.gte = dateFilter.fromDate;
+      }
+      if (dateFilter.toDate) {
+        where.documentDate.lte = dateFilter.toDate;
       }
     }
 
-    // Sort by similarity and limit results
-    return results
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, limit)
+    const embeddings = await prisma.embedding.findMany({ where });
+
+    // 1. Calculate similarity for all embeddings
+    const allResults = embeddings
+      .map(embedding => {
+        try {
+          const vector = JSON.parse(embedding.vector) as number[]
+          const similarity = cosineSimilarity(queryVector, vector)
+          return {
+            id: embedding.id,
+            content: embedding.content,
+            sourceId: embedding.sourceId,
+            sourceType: embedding.sourceType as SourceType,
+            similarity,
+          }
+        } catch (error) {
+          console.error('Error parsing vector for embedding:', embedding.id, error)
+          return null
+        }
+      })
+      .filter((r): r is EmbeddingResult => r !== null)
+
+    // 2. Sort all results by similarity
+    allResults.sort((a, b) => b.similarity - a.similarity)
+
+    // 3. Filter by threshold
+    const thresholdResults = allResults.filter(r => r.similarity >= threshold)
+
+    // 4. If threshold results are found, return them (up to the limit)
+    if (thresholdResults.length > 0) {
+      return thresholdResults.slice(0, limit)
+    }
+
+    // 5. Otherwise, return the top N overall results as a fallback
+    console.log(`[vectorSearch] No results met threshold ${threshold}. Returning top ${limit} results as fallback.`)
+    return allResults.slice(0, limit)
+
   } catch (error) {
     console.error('Error performing vector search:', error)
     throw new Error('Failed to perform vector search')

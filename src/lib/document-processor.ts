@@ -68,7 +68,7 @@ export class DocumentProcessor {
     }
   }
 
-  private getFileType(fileName: string): 'pdf' | 'docx' | 'txt' {
+  private getFileType(fileName: string): 'pdf' | 'docx' | 'txt' | 'md' | 'mdx' {
     const extension = fileName.toLowerCase().split('.').pop()
     switch (extension) {
       case 'pdf':
@@ -77,6 +77,10 @@ export class DocumentProcessor {
         return 'docx'
       case 'txt':
         return 'txt'
+      case 'md':
+        return 'md'
+      case 'mdx':
+        return 'mdx'
       default:
         throw new Error(`Unsupported file type: ${extension}`)
     }
@@ -91,6 +95,8 @@ export class DocumentProcessor {
         const docxData = await mammoth.extractRawText({ buffer: file })
         return docxData.value
       case 'txt':
+      case 'md':
+      case 'mdx':
         return file.toString('utf-8')
       default:
         throw new Error(`Unsupported file type: ${fileType}`)
@@ -210,11 +216,11 @@ export class DocumentProcessor {
       })
 
       // Generate embeddings for each section
-      await embedContent(section.content, dbSection.id, 'document_section')
+      await embedContent(section.content, dbSection.id, 'document_section', '1.0', new Date())
     }
 
     // Generate embeddings for the full document
-    await embedContent(content, document.id, 'document')
+    await embedContent(content, document.id, 'document', '1.0', new Date())
 
     return document.id
   }
@@ -328,7 +334,7 @@ export class DocumentProcessor {
 
     // Re-generate embeddings for the full document
     await deleteEmbeddings(existingDoc.id, 'document')
-    await embedContent(newContent, existingDoc.id, 'document')
+    await embedContent(newContent, existingDoc.id, 'document', '1.0', new Date())
 
     return {
       documentId: existingDoc.id,

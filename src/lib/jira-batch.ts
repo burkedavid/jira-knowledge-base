@@ -287,7 +287,8 @@ export class JiraBatchProcessor {
     })
 
     // Generate embeddings
-    await embedContent(content, userStory.id, 'user_story')
+    const createdDate = created && !isNaN(new Date(created).getTime()) ? new Date(created) : undefined;
+    await embedContent(content, userStory.id, 'user_story', '1.0', createdDate)
   }
 
   private async processDefect(issue: JiraIssue): Promise<void> {
@@ -328,7 +329,8 @@ export class JiraBatchProcessor {
     })
 
     // Generate embeddings
-    await embedContent(content, defect.id, 'defect')
+    const createdDate = issue.fields.created && !isNaN(new Date(issue.fields.created).getTime()) ? new Date(issue.fields.created) : undefined;
+    await embedContent(content, defect.id, 'defect', '1.0', createdDate)
   }
 
   async syncUpdatedIssues(projectKey: string, since: Date): Promise<BatchImportResult> {
