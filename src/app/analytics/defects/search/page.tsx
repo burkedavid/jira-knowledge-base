@@ -68,7 +68,6 @@ interface AnalysisHistoryItem {
 
 export default function DefectSearchPage() {
   const [defects, setDefects] = useState<Defect[]>([])
-  const [filteredDefects, setFilteredDefects] = useState<Defect[]>([])
   const [loading, setLoading] = useState(true)
   const [analysisLoading, setAnalysisLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -77,6 +76,8 @@ export default function DefectSearchPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryItem[]>([])
+  const [totalDefects, setTotalDefects] = useState(0)
+  const [originalTotal, setOriginalTotal] = useState(0)
   
   const [filters, setFilters] = useState<DefectFilters>({
     search: '',
@@ -101,11 +102,17 @@ export default function DefectSearchPage() {
   useEffect(() => {
     fetchDefects()
     loadAnalysisHistory()
+    fetchFilterOptions()
   }, [])
 
+  // Debounced search - refetch when filters change
   useEffect(() => {
-    applyFilters()
-  }, [defects, filters])
+    const debounceTimer = setTimeout(() => {
+      fetchDefects()
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(debounceTimer)
+  }, [filters])
 
   const loadAnalysisHistory = () => {
     try {
@@ -187,7 +194,19 @@ export default function DefectSearchPage() {
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/defects')
+      // Build query parameters for server-side filtering
+      const params = new URLSearchParams()
+      if (filters.search) params.append('search', filters.search)
+      if (filters.severity) params.append('severity', filters.severity)
+      if (filters.priority) params.append('priority', filters.priority)
+      if (filters.component) params.append('component', filters.component)
+      if (filters.status) params.append('status', filters.status)
+      if (filters.assignee) params.append('assignee', filters.assignee)
+      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom)
+      if (filters.dateTo) params.append('dateTo', filters.dateTo)
+      params.append('limit', '100') // Show 100 results at a time
+      
+      const response = await fetch(`/api/defects?${params}`)
       if (!response.ok) {
         throw new Error('Failed to fetch defects')
       }
@@ -195,13 +214,33 @@ export default function DefectSearchPage() {
       const data = await response.json()
       const defectsArray = data.defects || []
       setDefects(defectsArray)
+      setTotalDefects(data.total || 0)
+      setOriginalTotal(data.originalTotal || 0)
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchFilterOptions = async () => {
+    try {
+      // Fetch all unique values for filter dropdowns without any filters
+      const response = await fetch('/api/defects?limit=10000') // Get all for filter options
+      if (!response.ok) {
+        throw new Error('Failed to fetch filter options')
+      }
+      
+      const data = await response.json()
+      const allDefects = data.defects || []
       
       // Extract unique values for filters with proper typing
-      const severities = Array.from(new Set(defectsArray.map((d: Defect) => d.severity).filter(Boolean))) as string[]
-      const priorities = Array.from(new Set(defectsArray.map((d: Defect) => d.priority).filter(Boolean))) as string[]
-      const components = Array.from(new Set(defectsArray.map((d: Defect) => d.component).filter(Boolean))) as string[]
-      const statuses = Array.from(new Set(defectsArray.map((d: Defect) => d.status).filter(Boolean))) as string[]
-      const assignees = Array.from(new Set(defectsArray.map((d: Defect) => d.assignee).filter(Boolean))) as string[]
+      const severities = Array.from(new Set(allDefects.map((d: Defect) => d.severity).filter(Boolean))) as string[]
+      const priorities = Array.from(new Set(allDefects.map((d: Defect) => d.priority).filter(Boolean))) as string[]
+      const components = Array.from(new Set(allDefects.map((d: Defect) => d.component).filter(Boolean))) as string[]
+      const statuses = Array.from(new Set(allDefects.map((d: Defect) => d.status).filter(Boolean))) as string[]
+      const assignees = Array.from(new Set(allDefects.map((d: Defect) => d.assignee).filter(Boolean))) as string[]
       
       setFilterOptions({
         severities,
@@ -211,53 +250,11 @@ export default function DefectSearchPage() {
         assignees
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setLoading(false)
+      console.error('Error fetching filter options:', err)
     }
   }
 
-  const applyFilters = () => {
-    let filtered = defects
 
-    // Text search
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      filtered = filtered.filter(defect =>
-        defect.title.toLowerCase().includes(searchLower) ||
-        defect.description.toLowerCase().includes(searchLower) ||
-        defect.jiraKey?.toLowerCase().includes(searchLower) ||
-        defect.component?.toLowerCase().includes(searchLower)
-      )
-    }
-
-    // Dropdown filters
-    if (filters.severity) {
-      filtered = filtered.filter(defect => defect.severity === filters.severity)
-    }
-    if (filters.priority) {
-      filtered = filtered.filter(defect => defect.priority === filters.priority)
-    }
-    if (filters.component) {
-      filtered = filtered.filter(defect => defect.component === filters.component)
-    }
-    if (filters.status) {
-      filtered = filtered.filter(defect => defect.status === filters.status)
-    }
-    if (filters.assignee) {
-      filtered = filtered.filter(defect => defect.assignee === filters.assignee)
-    }
-
-    // Date filters
-    if (filters.dateFrom) {
-      filtered = filtered.filter(defect => new Date(defect.createdAt) >= new Date(filters.dateFrom))
-    }
-    if (filters.dateTo) {
-      filtered = filtered.filter(defect => new Date(defect.createdAt) <= new Date(filters.dateTo))
-    }
-
-    setFilteredDefects(filtered)
-  }
 
   const analyzeDefectWithAI = async (defect: Defect) => {
     try {
@@ -598,10 +595,10 @@ export default function DefectSearchPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-                Defects ({filteredDefects.length})
+                Defects ({totalDefects})
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                Select a defect to analyze with AI
+                {totalDefects < originalTotal ? `Showing ${defects.length} of ${totalDefects} matching defects (${originalTotal} total)` : 'Select a defect to analyze with AI'}
               </p>
             </div>
             <div className="max-h-96 overflow-y-auto">
@@ -610,9 +607,9 @@ export default function DefectSearchPage() {
                   <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
                   <p className="text-gray-500">Loading defects...</p>
                 </div>
-              ) : filteredDefects.length > 0 ? (
+              ) : defects.length > 0 ? (
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredDefects.map((defect) => (
+                  {defects.map((defect: Defect) => (
                     <div
                       key={defect.id}
                       onClick={() => {

@@ -4,13 +4,56 @@ import { prisma } from '@/lib/prisma'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '500')
+    const limit = parseInt(searchParams.get('limit') || '100')
     const offset = parseInt(searchParams.get('offset') || '0')
+    
+    // Search and filter parameters
+    const search = searchParams.get('search') || ''
+    const severity = searchParams.get('severity') || ''
+    const priority = searchParams.get('priority') || ''
+    const component = searchParams.get('component') || ''
+    const status = searchParams.get('status') || ''
+    const assignee = searchParams.get('assignee') || ''
+    const dateFrom = searchParams.get('dateFrom') || ''
+    const dateTo = searchParams.get('dateTo') || ''
 
-    // Get total count first
-    const total = await prisma.defect.count()
+    // Build where clause for filtering
+    const where: any = {}
+
+    // Text search across multiple fields
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { jiraKey: { contains: search, mode: 'insensitive' } },
+        { component: { contains: search, mode: 'insensitive' } },
+        { stepsToReproduce: { contains: search, mode: 'insensitive' } },
+        { rootCause: { contains: search, mode: 'insensitive' } }
+      ]
+    }
+
+    // Dropdown filters
+    if (severity) where.severity = severity
+    if (priority) where.priority = priority
+    if (component) where.component = component
+    if (status) where.status = status
+    if (assignee) where.assignee = assignee
+
+    // Date filters
+    if (dateFrom || dateTo) {
+      where.createdAt = {}
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom)
+      if (dateTo) where.createdAt.lte = new Date(dateTo)
+    }
+
+    // Get total count with filters applied
+    const total = await prisma.defect.count({ where })
+
+    // Get original total (without filters) for context
+    const originalTotal = await prisma.defect.count()
 
     const defects = await prisma.defect.findMany({
+      where,
       select: {
         id: true,
         title: true,
@@ -40,7 +83,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       defects,
       total,
-      originalTotal: total,
+      originalTotal,
       limit,
       offset,
       hasMore: offset + limit < total
