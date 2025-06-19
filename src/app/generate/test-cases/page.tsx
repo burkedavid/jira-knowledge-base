@@ -102,7 +102,7 @@ export default function GenerateTestCasesPage() {
   const fetchUserStories = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/user-stories?limit=100')
+      const response = await fetch('/api/user-stories?limit=500')
       const data = await response.json()
       
       if (response.ok) {

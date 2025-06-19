@@ -113,7 +113,7 @@ const SharedStorySelector: React.FC<SharedStorySelectorProps> = ({
   const loadRecentStories = async () => {
     setIsLoadingRecent(true)
     try {
-      const response = await fetch('/api/user-stories?limit=100&orderBy=updatedAt&order=desc')
+      const response = await fetch('/api/user-stories?limit=500&orderBy=updatedAt&order=desc')
       if (response.ok) {
         const data = await response.json()
         const stories = data.userStories || []
