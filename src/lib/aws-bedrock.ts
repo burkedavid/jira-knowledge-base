@@ -274,7 +274,8 @@ export class BedrockClient {
     acceptanceCriteria: string,
     defectPatterns: string[] = [],
     testTypes: string[] = ['positive', 'negative', 'edge'],
-    modelId?: string
+    modelId?: string,
+    testTypeCounts?: { [key: string]: number }
   ): Promise<string> {
     const defectContext = defectPatterns.length > 0 
       ? `\n\n=== HISTORICAL DEFECT PATTERNS & RAG CONTEXT ===\n${defectPatterns.join('\n')}`
@@ -321,7 +322,7 @@ For each test case, use this format:
 - [Result 1]
 ---
 
-Generate 3-4 focused test cases. Be concise but thorough.` :
+Generate ${testTypeCounts && testTypes.length === 1 ? testTypeCounts[testTypes[0]] || 2 : '3-4'} focused test cases. Be concise but thorough.` :
           // FULL PROMPT for comprehensive generation
           `Generate comprehensive test cases for the following user story using the EXACT format specified below:
 
@@ -365,7 +366,7 @@ For EACH test case, use this EXACT format:
 ---
 
 REQUIREMENTS:
-1. Generate 3-5 test cases per test type section
+1. Generate ${testTypeCounts ? Object.entries(testTypeCounts).map(([type, count]) => testTypes.includes(type) ? `${count} test cases for ${type}` : '').filter(Boolean).join(', ') || '3-5 test cases per test type section' : '3-5 test cases per test type section'}
 2. Use sequential TC numbers (TC-001, TC-002, etc.)
 3. Include realistic test steps based on the user story
 4. Consider field usage scenarios and real-world conditions

@@ -398,6 +398,7 @@ export async function POST(request: NextRequest) {
       userStoryId, 
       userStory: directUserStory, 
       testTypes = ['positive', 'negative', 'edge'],
+      testTypeCounts = { positive: 2, negative: 2, edge: 2 },
       industryContext = 'comprehensive',
       industryContexts = [industryContext],
       modelId,
@@ -408,6 +409,7 @@ export async function POST(request: NextRequest) {
     console.log('  - userStoryId:', userStoryId)
     console.log('  - directUserStory:', directUserStory)
     console.log('  - testTypes:', testTypes)
+    console.log('  - testTypeCounts:', testTypeCounts)
     console.log('  - industryContext:', industryContext)
     console.log('  - industryContexts:', industryContexts)
     console.log('  - modelId:', modelId)
@@ -710,7 +712,8 @@ export async function POST(request: NextRequest) {
             acceptanceCriteria,
                           smartContext, // Use smart RAG context for relevance + speed
             [firstTestType], // Single test type for first chunk
-            modelId
+            modelId,
+            testTypeCounts
           )
           
           const firstChunkResult = await Promise.race([firstChunkPromise, firstChunkTimeout]) as string
@@ -771,7 +774,8 @@ export async function POST(request: NextRequest) {
             acceptanceCriteria,
             fullContext, // Pass enhanced context with industry + RAG
             testTypes,
-            modelId
+            modelId,
+            testTypeCounts
           )
 
           const aiTimeout = new Promise((_, reject) => {

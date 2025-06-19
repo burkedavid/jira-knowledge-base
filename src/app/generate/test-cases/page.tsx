@@ -34,6 +34,11 @@ export default function GenerateTestCasesPage() {
     negative: true,
     edge: true
   })
+  const [testTypeCounts, setTestTypeCounts] = useState({
+    positive: 1,
+    negative: 1,
+    edge: 1
+  })
   const [industryContexts, setIndustryContexts] = useState<string[]>(['field-usage'])
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -124,6 +129,13 @@ export default function GenerateTestCasesPage() {
     }))
   }
 
+  const handleTestTypeCountChange = (type: keyof typeof testTypeCounts, count: number) => {
+    setTestTypeCounts(prev => ({
+      ...prev,
+      [type]: Math.max(1, Math.min(10, count)) // Limit between 1 and 10
+    }))
+  }
+
   const handleIndustryContextChange = (context: string) => {
     setIndustryContexts(prev => {
       if (context === 'comprehensive') {
@@ -206,6 +218,7 @@ export default function GenerateTestCasesPage() {
             body: JSON.stringify({
               userStoryId: userStoryId,
               testTypes: [testType], // Process one at a time for better progress
+              testTypeCounts: { [testType]: testTypeCounts[testType as keyof typeof testTypeCounts] || 2 },
               industryContext: industryContexts.length === 1 ? industryContexts[0] : 'comprehensive',
               industryContexts: industryContexts,
               modelId: 'us.anthropic.claude-sonnet-4-20250514-v1:0'
@@ -382,6 +395,7 @@ export default function GenerateTestCasesPage() {
         body: JSON.stringify({
           userStoryId: selectedStoryId,
           testTypes: selectedTestTypes,
+          testTypeCounts: testTypeCounts,
           industryContext: industryContexts.length === 1 ? industryContexts[0] : 'comprehensive',
           industryContexts: industryContexts,
           modelId: 'us.anthropic.claude-sonnet-4-20250514-v1:0'
@@ -919,46 +933,120 @@ ${tc.testData.length > 0 ? `      // Test Data: ${tc.testData.join(', ')}` : ''}
                 />
               )}
 
-              {/* Test Types */}
+              {/* Test Types with Count Controls */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Test Types
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Test Types & Quantities 
                 </label>
-                <div className="space-y-2">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={testTypes.positive}
-                      onChange={() => handleTestTypeChange('positive')}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Positive Test Cases</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={testTypes.negative}
-                      onChange={() => handleTestTypeChange('negative')}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Negative Test Cases</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={testTypes.edge}
-                      onChange={() => handleTestTypeChange('edge')}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Edge Cases</span>
-                  </label>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+                    <label className="flex items-center flex-1">
+                      <input
+                        type="checkbox"
+                        checked={testTypes.positive}
+                        onChange={() => handleTestTypeChange('positive')}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-medium">Positive Test Cases</span>
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => handleTestTypeCountChange('positive', testTypeCounts.positive - 1)}
+                        disabled={!testTypes.positive || testTypeCounts.positive <= 1}
+                        className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {testTypeCounts.positive}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleTestTypeCountChange('positive', testTypeCounts.positive + 1)}
+                        disabled={!testTypes.positive || testTypeCounts.positive >= 10}
+                        className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+                    <label className="flex items-center flex-1">
+                      <input
+                        type="checkbox"
+                        checked={testTypes.negative}
+                        onChange={() => handleTestTypeChange('negative')}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-medium">Negative Test Cases</span>
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => handleTestTypeCountChange('negative', testTypeCounts.negative - 1)}
+                        disabled={!testTypes.negative || testTypeCounts.negative <= 1}
+                        className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {testTypeCounts.negative}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleTestTypeCountChange('negative', testTypeCounts.negative + 1)}
+                        disabled={!testTypes.negative || testTypeCounts.negative >= 10}
+                        className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+                    <label className="flex items-center flex-1">
+                      <input
+                        type="checkbox"
+                        checked={testTypes.edge}
+                        onChange={() => handleTestTypeChange('edge')}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-medium">Edge Cases</span>
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => handleTestTypeCountChange('edge', testTypeCounts.edge - 1)}
+                        disabled={!testTypes.edge || testTypeCounts.edge <= 1}
+                        className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {testTypeCounts.edge}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleTestTypeCountChange('edge', testTypeCounts.edge + 1)}
+                        disabled={!testTypes.edge || testTypeCounts.edge >= 10}
+                        className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                 </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Select test types and specify how many test cases to generate for each type (1-10). Default is 2 for faster demos.
+                </p>
               </div>
 
               {/* Industry Context - Multi-select */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Industry Context & Real-World Usage
+                  Industry Context & Real-World Usage 
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-4 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
                   {industryContextOptions.map((option) => (

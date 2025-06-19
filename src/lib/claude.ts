@@ -6,11 +6,12 @@ export async function generateTestCases(
   acceptanceCriteria: string,
   defectPatterns: string[] = [],
   testTypes: string[] = ['positive', 'negative', 'edge'],
-  modelId?: string
+  modelId?: string,
+  testTypeCounts?: { [key: string]: number }
 ): Promise<string> {
   try {
     const bedrockClient = getBedrockClient()
-    return await bedrockClient.generateTestCases(userStory, acceptanceCriteria, defectPatterns, testTypes, modelId)
+    return await bedrockClient.generateTestCases(userStory, acceptanceCriteria, defectPatterns, testTypes, modelId, testTypeCounts)
   } catch (error) {
     console.error('Error generating test cases:', error)
     throw new Error('Failed to generate test cases')
