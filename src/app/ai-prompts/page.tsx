@@ -96,61 +96,144 @@ Focus on practical, executable test cases that cover all acceptance criteria and
   {
     id: 'requirements-analysis',
     category: 'Quality Analysis',
-    name: 'Requirements Analysis',
-    description: 'Analyzes user story quality against INVEST criteria with RAG-based insights',
+    name: 'Enhanced Requirements Analysis with INVEST Framework',
+    description: 'Comprehensive user story quality analysis using professional frameworks with weighted INVEST criteria and RAG-enhanced insights',
     endpoint: '/api/analyze/requirements',
     model: 'Claude Sonnet 4',
     parameters: {
-      maxTokens: 3000,
-      temperature: 0.4
+      maxTokens: 4000,
+      temperature: 0.3
     },
-    usage: 'Used to analyze user story quality and provide improvement suggestions',
-    prompt: `Analyze the quality of this user story and provide improvement suggestions with RAG-based insights:
+    usage: 'Used to analyze user story quality with detailed scoring framework and improvement recommendations',
+    prompt: `You are an expert Business Analyst and Requirements Engineer. Analyze this user story using professional quality assessment frameworks and provide a comprehensive quality score with detailed improvement recommendations.
 
-**User Story:**
+**USER STORY TO ANALYZE:**
 {userStory}
 
-**Acceptance Criteria:**
+**ACCEPTANCE CRITERIA:**
 {acceptanceCriteria}
 
 {ragContext}
 
-Please provide a comprehensive analysis with the following sections:
+**ANALYSIS FRAMEWORK:**
+Use the INVEST criteria as your primary evaluation framework:
+- **I**ndependent: Can be developed independently (25% weight)
+- **N**egotiable: Flexible, allows for discussion (10% weight)  
+- **V**aluable: Delivers clear business value (20% weight)
+- **E**stimable: Can be estimated for effort (15% weight)
+- **S**mall: Right-sized for a sprint (10% weight)
+- **T**estable: Has clear acceptance criteria (20% weight)
 
-## 1. Quality Score (1-10) with justification
+**SCORING GUIDELINES:**
+- **8-10 points**: Excellent - High-quality, ready for development
+- **6-7.9 points**: Good - Minor improvements needed
+- **4-5.9 points**: Needs Work - Significant issues, requires rework
+- **1-3.9 points**: Poor - Major quality issues, complete rewrite needed
+- **0 points**: Critical - Unusable, missing essential elements
 
-## 2. Strengths of the current user story
+## REQUIRED ANALYSIS SECTIONS:
 
-## 3. Areas for Improvement with specific suggestions
+### 1. **Score: X/10** (Must be clearly stated as "Score: X/10")
 
-## 4. Missing Elements that should be added
+Provide your overall quality assessment with detailed justification covering:
+- **Clarity Assessment** (25%): How well-written and understandable is the story?
+- **Completeness Analysis** (25%): Are all necessary elements present?
+- **Testability Evaluation** (20%): Are acceptance criteria clear and measurable?
+- **Business Value Assessment** (15%): Is the benefit to users/business clear?
+- **Feasibility Review** (10%): Is the story realistic and achievable?
+- **Independence Check** (5%): Can this be developed without dependencies?
 
-## 5. Risk Assessment based on clarity and completeness
+### 2. **Strengths** 
+Identify what's working well in this user story:
+- Well-defined elements that meet INVEST criteria
+- Clear business value propositions
+- Specific and measurable acceptance criteria
+- Appropriate scope and sizing
 
-## 6. RAG-Based Insights (ONLY if knowledge base context is available)
-{ragContextAvailable ? 'Based on the knowledge base context provided above, identify:' : 'No knowledge base context available for this analysis.'}
+### 3. **Areas for Improvement**
+Provide specific, actionable recommendations:
+- Missing INVEST criteria elements
+- Vague or ambiguous language that needs clarification
+- Acceptance criteria that are too broad or unmeasurable
+- Missing stakeholder perspectives or edge cases
+- Scope issues (too large/small for a sprint)
 
-### Related Dependencies
-- Existing functionality that connects to this requirement (from user stories, guides)
-- Integration points that need consideration
-- Shared components or services
+### 4. **Missing Elements**
+Identify critical components that should be added:
+- Essential acceptance criteria
+- Non-functional requirements (performance, security, accessibility)
+- Error handling and edge case scenarios
+- Integration requirements with existing systems
+- User experience considerations
 
-### Potential Risks  
-- Historical defects that could indicate similar risks
-- Known issues from past implementations
-- Component-specific vulnerabilities
+### 5. **Risk Assessment**
+Evaluate potential risks based on story quality:
+- **High Risk**: Unclear requirements leading to rework
+- **Medium Risk**: Missing edge cases causing defects
+- **Low Risk**: Minor clarifications needed
+- **Technical Risks**: Integration complexities or dependencies
+- **Business Risks**: Misaligned expectations or value delivery
 
-### Testing Considerations
-- Additional testing needed based on past experiences
+### 6. **RAG-Based Insights** {ragContext ? '(Enhanced with Knowledge Base Context)' : '(No Knowledge Base Context Available)'}
+
+{ragContext ? 'Based on the knowledge base context provided above, provide specific insights:
+
+#### **Related Dependencies & Integration Points**
+- Existing functionality that connects to this requirement
+- Shared components or services that need consideration
+- API endpoints or data flows that will be affected
+
+#### **Historical Risk Patterns**
+- Similar defects from past implementations in this component
+- Known issues that have occurred in related functionality
+- Component-specific vulnerabilities or failure patterns
+
+#### **Testing & Quality Considerations**
+- Additional testing scenarios based on past experiences
 - Edge cases discovered in similar features
-- Integration testing requirements
+- Integration testing requirements with existing systems
+- Performance or security considerations from documentation
 
-**IMPORTANT:** Only include RAG-Based Insights if actual knowledge base context is provided. Base all suggestions strictly on the context found in the knowledge base - never invent or assume information not present in the context. Always cite the source (e.g., "Based on Defect ID: xyz" or "According to User Story ID: abc").
+#### **Implementation Guidance**
+- Best practices from existing user stories
+- Technical patterns or approaches that have worked well
+- Compliance or regulatory requirements from documentation
 
-## 7. Recommended Actions for the business analyst
+**CRITICAL**: Base all insights strictly on the provided knowledge base context. Always cite specific sources (e.g., "Based on Defect FL-12345" or "According to User Story FL-67890"). Never invent information not present in the context.' : 'No knowledge base context is available for this analysis. The assessment is based solely on the user story content and general best practices.'}
 
-Focus on INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable) and industry best practices.`,
-    example: 'Analyzes user stories for clarity, completeness, and testability with historical context'
+### 7. **Recommended Actions**
+Provide a prioritized action plan for the business analyst:
+
+#### **Immediate Actions (Critical - Do First)**
+- Most important clarifications needed
+- Essential missing elements to add
+- Critical acceptance criteria to refine
+
+#### **Short-term Improvements (Important - Do Next)**
+- Additional stakeholder input needed
+- Non-functional requirements to define
+- Edge cases to consider
+
+#### **Long-term Enhancements (Nice to Have)**
+- Future considerations for story evolution
+- Additional validation or testing approaches
+- Documentation or training needs
+
+### 8. **Quality Improvement Checklist**
+Provide a specific checklist for improving this story:
+- [ ] Specific action item 1
+- [ ] Specific action item 2
+- [ ] Specific action item 3
+- [ ] etc.
+
+**FORMATTING REQUIREMENTS:**
+- Use clear section headers with ## markdown
+- Include bullet points for easy scanning
+- Provide specific, actionable recommendations
+- Always include the score in the exact format "Score: X/10"
+- Cite knowledge base sources when available
+- Focus on practical, implementable improvements`,
+    example: 'Analyzes user stories using INVEST framework with weighted scoring: Clarity (25%), Completeness (25%), Testability (20%), Business Value (15%), Feasibility (10%), Independence (5%)'
   },
   {
     id: 'defect-pattern-analysis',
