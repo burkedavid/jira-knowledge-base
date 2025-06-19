@@ -144,6 +144,14 @@ export default function DefectSearchPage() {
       const updatedHistory = [historyItem, ...analysisHistory].slice(0, 50) // Keep last 50 analyses
       setAnalysisHistory(updatedHistory)
       localStorage.setItem('defect-analysis-history', JSON.stringify(updatedHistory))
+      
+      // Debug logging for AI analysis count verification
+      console.log('🧠 AI Analysis History Updated:', {
+        newAnalysisId: historyItem.id,
+        totalAnalyses: updatedHistory.length,
+        defectTitle: defect.title,
+        jiraKey: defect.jiraKey
+      })
     } catch (error) {
       console.error('Error saving analysis to history:', error)
     }
@@ -216,6 +224,14 @@ export default function DefectSearchPage() {
       setDefects(defectsArray)
       setTotalDefects(data.total || 0)
       setOriginalTotal(data.originalTotal || 0)
+      
+      // Debug logging for statistics verification
+      console.log('📊 Defects Statistics Updated:', {
+        totalDefects: data.total || 0,
+        originalTotal: data.originalTotal || 0,
+        filterMatchRate: data.originalTotal > 0 ? Math.round(((data.total || 0) / data.originalTotal) * 100) : 0,
+        displayedDefects: defectsArray.length
+      })
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -627,7 +643,7 @@ export default function DefectSearchPage() {
             </div>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Number of AI root cause analyses you've performed">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Number of AI root cause analyses you've performed in this session. Data is stored in browser localStorage and persists between visits.">
             <div className="flex items-center">
               <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
                 <Brain className="h-6 w-6 text-purple-600 dark:text-purple-400" />
@@ -635,12 +651,12 @@ export default function DefectSearchPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">AI Analyses</p>
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">{analysisHistory.length}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Completed analyses</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Completed analyses (max 50)</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Percentage of defects that match your current search criteria">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Percentage of defects that match your current search and filter criteria. Formula: (matching defects / total defects) × 100. Updates in real-time as you search.">
             <div className="flex items-center">
               <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
                 <AlertTriangle className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -650,7 +666,9 @@ export default function DefectSearchPage() {
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">
                   {originalTotal > 0 ? Math.round((totalDefects / originalTotal) * 100) : 0}%
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Search effectiveness</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {totalDefects}/{originalTotal} defects match
+                </p>
               </div>
             </div>
           </div>
