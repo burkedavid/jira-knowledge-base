@@ -226,10 +226,12 @@ export default function DefectSearchPage() {
       setOriginalTotal(data.originalTotal || 0)
       
       // Debug logging for statistics verification
+      const percentage = data.originalTotal > 0 ? ((data.total || 0) / data.originalTotal) * 100 : 0;
       console.log('📊 Defects Statistics Updated:', {
         totalDefects: data.total || 0,
         originalTotal: data.originalTotal || 0,
-        filterMatchRate: data.originalTotal > 0 ? Math.round(((data.total || 0) / data.originalTotal) * 100) : 0,
+        exactPercentage: percentage,
+        displayedPercentage: percentage < 1 && percentage > 0 ? percentage.toFixed(2) + '%' : Math.round(percentage) + '%',
         displayedDefects: defectsArray.length
       })
       
@@ -656,7 +658,7 @@ export default function DefectSearchPage() {
             </div>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Percentage of defects that match your current search and filter criteria. Formula: (matching defects / total defects) × 100. Updates in real-time as you search.">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6" title="Shows how specific your current search is. Higher percentage = broader search finding more defects. Lower percentage = more specific search with fewer matches. Formula: (matching defects / total defects) × 100.">
             <div className="flex items-center">
               <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
                 <AlertTriangle className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -664,7 +666,14 @@ export default function DefectSearchPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Filter Match Rate</p>
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  {originalTotal > 0 ? Math.round((totalDefects / originalTotal) * 100) : 0}%
+                  {originalTotal > 0 ? 
+                    (() => {
+                      const percentage = (totalDefects / originalTotal) * 100;
+                      return percentage < 1 && percentage > 0 ? 
+                        percentage.toFixed(2) + '%' : 
+                        Math.round(percentage) + '%';
+                    })() 
+                    : '0%'}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {totalDefects}/{originalTotal} defects match
