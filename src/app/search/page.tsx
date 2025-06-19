@@ -51,6 +51,9 @@ export default function SearchPage() {
   const [showHistory, setShowHistory] = useState(false)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [includeTypes, setIncludeTypes] = useState<string[]>(['user_story', 'defect', 'document', 'test_case'])
+  const [limit, setLimit] = useState(10)
+  const [threshold, setThreshold] = useState(0.4)
 
   // Load search history from localStorage on component mount
   useEffect(() => {
@@ -97,7 +100,7 @@ export default function SearchPage() {
     saveSearchHistory([])
   }
 
-  // Load search from history
+    // Load search from history
   const loadFromHistory = (historyItem: SearchHistoryItem) => {
     setQuery(historyItem.query)
     setSearchMode(historyItem.mode)
@@ -110,6 +113,23 @@ export default function SearchPage() {
     }
     setShowHistory(false)
   }
+
+  // Toggle source type inclusion
+  const toggleSourceType = (type: string) => {
+    setIncludeTypes(prev => {
+      if (prev.includes(type)) {
+        // Don't allow removing all types
+        if (prev.length > 1) {
+          return prev.filter(t => t !== type)
+        }
+        return prev
+      } else {
+        return [...prev, type]
+      }
+    })
+  }
+
+ 
 
   const handleSearch = async (searchQuery?: string) => {
     const finalQuery = searchQuery || query;
@@ -131,8 +151,8 @@ export default function SearchPage() {
           },
           body: JSON.stringify({
             query: finalQuery.trim(),
-            maxResults: 10,
-            includeTypes: ['user_story', 'defect', 'document', 'test_case'],
+            maxResults: limit,
+            includeTypes: includeTypes,
             ...(startDate && { startDate }),
             ...(endDate && { endDate }),
           })
@@ -156,8 +176,9 @@ export default function SearchPage() {
           },
           body: JSON.stringify({
             query: finalQuery.trim(),
-            limit: 10,
-            threshold: 0.7
+            sourceTypes: includeTypes,
+            limit: limit,
+            threshold: threshold
           })
         })
 
@@ -435,10 +456,10 @@ ${ragResponse.sources?.map((source, index) =>
                 </div>
               </div>
 
-              {/* Manual Date Inputs */}
-              <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                  <label htmlFor="startDate" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+              {/* Advanced Filters */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label htmlFor="startDate" className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
                     Start Date
                   </label>
                   <input
@@ -446,12 +467,11 @@ ${ragResponse.sources?.map((source, index) =>
                     id="startDate"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                   />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Filter results created on or after this date.</p>
                 </div>
-                <div className="flex-1">
-                  <label htmlFor="endDate" className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                <div>
+                  <label htmlFor="endDate" className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
                     End Date
                   </label>
                   <input
@@ -459,13 +479,128 @@ ${ragResponse.sources?.map((source, index) =>
                     id="endDate"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                   />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Filter results created on or before this date.</p>
+                </div>
+                <div>
+                  <label htmlFor="limit" className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                    Results Limit
+                  </label>
+                  <select
+                    id="limit"
+                    value={limit}
+                    onChange={(e) => setLimit(parseInt(e.target.value))}
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value={5}>5 results</option>
+                    <option value={10}>10 results</option>
+                    <option value={15}>15 results</option>
+                    <option value={20}>20 results</option>
+                    <option value={30}>30 results</option>
+                    <option value={50}>50 results</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="threshold" className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                    Similarity Threshold
+                  </label>
+                  <select
+                    id="threshold"
+                    value={threshold}
+                    onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                    className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value={0.1}>0.1 - Extremely loose</option>
+                    <option value={0.2}>0.2 - Very loose</option>
+                    <option value={0.3}>0.3 - Loose</option>
+                    <option value={0.4}>0.4 - Moderate</option>
+                    <option value={0.5}>0.5 - Balanced</option>
+                    <option value={0.6}>0.6 - Focused</option>
+                    <option value={0.7}>0.7 - Strict</option>
+                    <option value={0.8}>0.8 - Very strict</option>
+                    <option value={0.9}>0.9 - Extremely strict</option>
+                  </select>
                 </div>
               </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Advanced filters: Date range, result count, and similarity matching strictness
+              </p>
             </div>
           )}
+
+                    {/* Source Type Filters */}
+          <div className="mt-4">
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                🔍 Source Types to Include:
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setIncludeTypes(['user_story', 'defect', 'document', 'test_case'])}
+                  className={`px-3 py-2 text-sm rounded-md font-medium transition-colors flex items-center space-x-2 ${
+                    includeTypes.length === 4
+                      ? 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200 border-2 border-gray-400 dark:border-gray-500'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  <span>All Types</span>
+                  {includeTypes.length === 4 && <span className="ml-1 text-xs">✓</span>}
+                </button>
+                <button
+                  onClick={() => toggleSourceType('user_story')}
+                  className={`px-3 py-2 text-sm rounded-md font-medium transition-colors flex items-center space-x-2 ${
+                    includeTypes.includes('user_story')
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-2 border-blue-300 dark:border-blue-600'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border-2 border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                  }`}
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>User Stories</span>
+                  {includeTypes.includes('user_story') && <span className="ml-1 text-xs">✓</span>}
+                </button>
+                <button
+                  onClick={() => toggleSourceType('defect')}
+                  className={`px-3 py-2 text-sm rounded-md font-medium transition-colors flex items-center space-x-2 ${
+                    includeTypes.includes('defect')
+                      ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-2 border-red-300 dark:border-red-600'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border-2 border-gray-300 dark:border-gray-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+                  }`}
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Defects</span>
+                  {includeTypes.includes('defect') && <span className="ml-1 text-xs">✓</span>}
+                </button>
+                <button
+                  onClick={() => toggleSourceType('document')}
+                  className={`px-3 py-2 text-sm rounded-md font-medium transition-colors flex items-center space-x-2 ${
+                    includeTypes.includes('document')
+                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-2 border-purple-300 dark:border-purple-600'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border-2 border-gray-300 dark:border-gray-600 hover:bg-purple-50 dark:hover:bg-purple-900/20'
+                  }`}
+                >
+                  <Brain className="h-4 w-4" />
+                  <span>Documents</span>
+                  {includeTypes.includes('document') && <span className="ml-1 text-xs">✓</span>}
+                </button>
+                <button
+                  onClick={() => toggleSourceType('test_case')}
+                  className={`px-3 py-2 text-sm rounded-md font-medium transition-colors flex items-center space-x-2 ${
+                    includeTypes.includes('test_case')
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-2 border-green-300 dark:border-green-600'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border-2 border-gray-300 dark:border-gray-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+                  }`}
+                >
+                  <TestTube className="h-4 w-4" />
+                  <span>Test Cases</span>
+                  {includeTypes.includes('test_case') && <span className="ml-1 text-xs">✓</span>}
+                </button>
+              </div>
+              
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Selected: {includeTypes.length} of 4 source types • Click individual buttons to toggle, or use "All Types" to select all
+              </p>
+            </div>
+          </div>
 
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600 dark:text-gray-300">

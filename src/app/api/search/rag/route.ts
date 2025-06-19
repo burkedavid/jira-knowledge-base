@@ -31,7 +31,7 @@ interface RAGConfig {
 interface RAGSearchRequest {
   query: string
   maxResults?: number // This will be overridden by config
-  includeTypes?: string[] // This will be overridden by config
+  includeTypes?: string[] // User-selected source types to include
   threshold?: number // This can be an override
   startDate?: string
   endDate?: string
@@ -115,10 +115,31 @@ export async function POST(request: NextRequest) {
     const config = await getRagConfig();
     console.log('🧠 Loaded RAG Config:', config.searchTypes);
 
-    // Step 2: Perform parallel vector searches based on config
-    const enabledSearchTypes = Object.keys(config.searchTypes).filter(
-      type => config.searchTypes[type]
-    );
+    // Step 2: Determine which types to search based on user selection (includeTypes)
+    // If includeTypes is provided, use that; otherwise fall back to config
+    let enabledSearchTypes: string[];
+    
+    if (body.includeTypes && body.includeTypes.length > 0) {
+      // Map frontend includeTypes to config type names
+      const typeMapping: { [key: string]: string } = {
+        'user_story': 'userStories',
+        'defect': 'defects', 
+        'document': 'documents',
+        'test_case': 'testCases'
+      };
+      
+      enabledSearchTypes = body.includeTypes
+        .map(type => typeMapping[type])
+        .filter(type => type !== undefined);
+      
+      console.log('🎯 Using user-selected types:', body.includeTypes, '→', enabledSearchTypes);
+    } else {
+      // Fall back to config if no user selection
+      enabledSearchTypes = Object.keys(config.searchTypes).filter(
+        type => config.searchTypes[type]
+      );
+      console.log('📋 Using config types:', enabledSearchTypes);
+    }
 
     const dateFilter: DateFilter | undefined =
       startDate || endDate
@@ -184,40 +205,41 @@ export async function POST(request: NextRequest) {
     }
     const contextString = contextSections.join('\n\n');
 
-    // Step 4: Create a more robust prompt
-    const prompt = `You are an expert AI assistant for a software development team. Your task is to answer questions based on a curated knowledge base and suggest relevant next steps.
-      
+    // Step 4: Create a comprehensive, improved prompt
+    const prompt = `You are an AI assistant helping users understand their comprehensive knowledge base. You have access to information from multiple sources including user stories, defects, documents, and test cases.
+
 User Question: "${query}"
 
-Synthesize an answer from the following context. The context is composed of various sources like user stories, defects, and documents.
-
-<context>
+Context from Knowledge Base (${contextSections.length} sources found):
 ${contextString}
-</context>
 
 Instructions:
-1.  **Synthesize, Don't Just List:** Create a cohesive, well-written answer. Do not simply list the sources.
-2.  **Be Direct:** Start with a direct answer to the user's question.
-3.  **Cite Sources:** When you use information, refer to the source title (e.g., "According to user story 'PROJ-123'..." or "As mentioned in the document 'API Guide'...").
-4.  **Acknowledge Limits:** If the context does not fully answer the question, state what you *can* answer and identify what information is missing. Do not invent information.
-5.  **Identify Patterns:** If you see connections or contradictions between sources, point them out.
-6.  **Suggest Follow-up Questions:** After your analysis, provide 3-4 relevant follow-up questions that a user might ask next. These questions should explore related topics, dive deeper into mentioned subjects, or clarify ambiguities.
+1. **Provide a comprehensive answer** based on ALL the context provided from different source types
+2. **If the question is about "Activities" or any specific topic**, explain what they are based on the available information
+3. **Draw connections between different types of sources** (user stories, defects, documents) - show how they relate to each other
+4. **Reference specific sources when relevant** (e.g., "According to User Story FL-12345..." or "As mentioned in Defect FL-67890...")
+5. **If the context doesn't fully answer the question**, acknowledge what information IS available and suggest related topics
+6. **Organize your response clearly** with sections if appropriate (e.g., ## Overview, ## Key Features, ## Known Issues, ## Implementation Details)
+7. **Be specific and detailed**, synthesizing information from multiple sources to give a complete picture
+8. **If you see patterns across multiple sources**, highlight them (e.g., "Multiple defects indicate issues with...", "Several user stories focus on...")
+9. **Include practical insights** - what does this mean for users, developers, or the business?
+10. **Provide actionable information** - what can users do with this knowledge?
 
 Your final output **MUST** be a single, valid JSON object with two keys:
-- "answer": A string containing your full, formatted analysis.
-- "followUpQuestions": An array of strings, where each string is a suggested follow-up question.
+- "answer": A string containing your comprehensive, well-organized analysis with clear sections and detailed synthesis
+- "followUpQuestions": An array of 3-4 specific, actionable follow-up questions that dive deeper into the topic
 
 Example Output Format:
 {
-  "answer": "Based on the context, the password reset process is initiated by clicking the 'Forgot Password' link...",
+  "answer": "## Overview\\n\\nBased on the comprehensive context from your knowledge base...\\n\\n## Key Features\\n\\n...\\n\\n## Known Issues\\n\\n...\\n\\n## Implementation Status\\n\\n...",
   "followUpQuestions": [
-    "What are the specific password requirements?",
-    "Tell me more about the defect 'Password validation error message unclear'.",
-    "Is there a user story for email verification during password reset?"
+    "What are the specific implementation details for the authentication workflow?",
+    "Which defects are currently blocking the user registration feature?",
+    "Are there any test cases covering the edge cases mentioned in the user stories?"
   ]
 }
 
-Provide your expert analysis in the specified JSON format below:`;
+Please provide a comprehensive, helpful response that gives the user a full picture from their knowledge base:`;
 
     // Step 5: Generate the response from Claude
     console.log(`🤖 Sending query to Claude with ${contextSections.length} sources...`);

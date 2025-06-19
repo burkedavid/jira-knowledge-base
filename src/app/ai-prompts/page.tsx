@@ -362,34 +362,50 @@ Focus on:
   {
     id: 'rag-search',
     category: 'Knowledge Search',
-    name: 'RAG-Powered Search',
-    description: 'Provides intelligent answers using semantic search and AI synthesis',
+    name: 'RAG-Powered Comprehensive Search',
+    description: 'Advanced knowledge synthesis with multi-source analysis, structured responses, and actionable insights',
     endpoint: '/api/search/rag',
     model: 'Claude Sonnet 4',
     parameters: {
-      maxTokens: 1500,
-      temperature: 0.2
+      maxTokens: 2048,
+      temperature: 0.1
     },
-    usage: 'Used for intelligent search across the knowledge base',
+    usage: 'Used for comprehensive knowledge base search with detailed synthesis and structured analysis',
     prompt: `You are an AI assistant helping users understand their comprehensive knowledge base. You have access to information from multiple sources including user stories, defects, documents, and test cases.
 
 User Question: "{query}"
 
-Context from Knowledge Base ({sourceCount} sources found):
-{contextSections}
+Context from Knowledge Base ({contextSections.length} sources found):
+{contextString}
 
 Instructions:
-1. Provide a comprehensive answer based on ALL the context provided from different source types
-2. If the question is about "Activities" or any specific topic, explain what they are based on the available information
-3. Draw connections between different types of sources (user stories, defects, documents)
-4. Reference specific sources when relevant (e.g., "According to User Story X..." or "As mentioned in Defect Y...")
-5. If the context doesn't fully answer the question, acknowledge what information IS available and suggest related topics
-6. Organize your response clearly with sections if appropriate
-7. Be specific and detailed, synthesizing information from multiple sources
-8. If you see patterns across multiple sources, highlight them
+1. **Provide a comprehensive answer** based on ALL the context provided from different source types
+2. **If the question is about "Activities" or any specific topic**, explain what they are based on the available information
+3. **Draw connections between different types of sources** (user stories, defects, documents) - show how they relate to each other
+4. **Reference specific sources when relevant** (e.g., "According to User Story FL-12345..." or "As mentioned in Defect FL-67890...")
+5. **If the context doesn't fully answer the question**, acknowledge what information IS available and suggest related topics
+6. **Organize your response clearly** with sections if appropriate (e.g., ## Overview, ## Key Features, ## Known Issues, ## Implementation Details)
+7. **Be specific and detailed**, synthesizing information from multiple sources to give a complete picture
+8. **If you see patterns across multiple sources**, highlight them (e.g., "Multiple defects indicate issues with...", "Several user stories focus on...")
+9. **Include practical insights** - what does this mean for users, developers, or the business?
+10. **Provide actionable information** - what can users do with this knowledge?
+
+Your final output **MUST** be a single, valid JSON object with two keys:
+- "answer": A string containing your comprehensive, well-organized analysis with clear sections and detailed synthesis
+- "followUpQuestions": An array of 3-4 specific, actionable follow-up questions that dive deeper into the topic
+
+Example Output Format:
+{
+  "answer": "## Overview\\n\\nBased on the comprehensive context from your knowledge base...\\n\\n## Key Features\\n\\n...\\n\\n## Known Issues\\n\\n...\\n\\n## Implementation Status\\n\\n...",
+  "followUpQuestions": [
+    "What are the specific implementation details for the authentication workflow?",
+    "Which defects are currently blocking the user registration feature?",
+    "Are there any test cases covering the edge cases mentioned in the user stories?"
+  ]
+}
 
 Please provide a comprehensive, helpful response that gives the user a full picture from their knowledge base:`,
-    example: 'User asks "What are Activities?" → AI synthesizes information from all relevant sources'
+    example: 'User asks "What is PDFTron?" → AI provides structured analysis: Overview, Features, Known Issues, Implementation Status with specific source citations and actionable follow-up questions'
   },
   {
     id: 'story-refinement',
@@ -606,60 +622,100 @@ Remember: This analysis will be reviewed by directors and executives. Focus on b
   {
     id: 'requirements-batch-analysis',
     category: 'Quality Analysis',
-    name: 'Requirements Batch Analysis',
-    description: 'Analyzes multiple user stories in batch with quality scoring and risk assessment',
+    name: 'Requirements Batch Analysis (INVEST Framework)',
+    description: 'Analyzes multiple user stories using comprehensive INVEST criteria with weighted scoring and RAG-enhanced insights',
     endpoint: '/api/analyze/requirements-batch',
     model: 'Claude Sonnet 4',
     parameters: {
-      maxTokens: 3000,
-      temperature: 0.4
+      maxTokens: 4000,
+      temperature: 0.3
     },
-    usage: 'Used for batch analysis of user stories with quality metrics and risk assessment',
-    prompt: `Analyze the quality of this user story and provide improvement suggestions with RAG-based insights:
+    usage: 'Used for enterprise-grade batch analysis of user stories with professional quality assessment frameworks and detailed improvement recommendations',
+    prompt: `You are an expert Business Analyst and Requirements Engineer. Analyze this user story using professional quality assessment frameworks and provide a comprehensive quality score with detailed improvement recommendations.
 
-**User Story:**
+**USER STORY TO ANALYZE:**
 {userStory}
 
-**Acceptance Criteria:**
+**ACCEPTANCE CRITERIA:**
 {acceptanceCriteria}
 
 {ragContext}
 
-Please provide a comprehensive analysis with the following sections:
+**ANALYSIS FRAMEWORK:**
+Use the INVEST criteria as your primary evaluation framework:
+- **I**ndependent: Can be developed independently (25% weight)
+- **N**egotiable: Flexible, allows for discussion (10% weight)  
+- **V**aluable: Delivers clear business value (20% weight)
+- **E**stimable: Can be estimated for effort (15% weight)
+- **S**mall: Right-sized for a sprint (10% weight)
+- **T**estable: Has clear acceptance criteria (20% weight)
 
-## 1. Quality Score (1-10) with justification
+**SCORING GUIDELINES:**
+- **8-10 points**: Excellent - High-quality, ready for development
+- **6-7.9 points**: Good - Minor improvements needed
+- **4-5.9 points**: Needs Work - Significant issues, requires rework
+- **1-3.9 points**: Poor - Major quality issues, complete rewrite needed
+- **0 points**: Critical - Unusable, missing essential elements
 
-## 2. Strengths of the current user story
+## REQUIRED ANALYSIS SECTIONS:
 
-## 3. Areas for Improvement with specific suggestions
+### 1. **Score: X/10** (Must be clearly stated as "Score: X/10")
 
-## 4. Missing Elements that should be added
+Provide your overall quality assessment with detailed justification covering:
+- **Clarity Assessment** (25%): How well-written and understandable is the story?
+- **Completeness Analysis** (25%): Are all necessary elements present?
+- **Testability Evaluation** (20%): Are acceptance criteria clear and measurable?
+- **Business Value Assessment** (15%): Is the benefit to users/business clear?
+- **Feasibility Review** (10%): Is the story realistic and achievable?
+- **Independence Check** (5%): Can this be developed without dependencies?
 
-## 5. Risk Assessment based on clarity and completeness
+### 2. **Strengths** 
+Identify what's working well in this user story:
+- Well-defined elements that meet INVEST criteria
+- Clear business value propositions
+- Specific and measurable acceptance criteria
+- Appropriate scope and sizing
 
-## 6. RAG-Based Insights (ONLY if knowledge base context is available)
+### 3. **Improvements**
+Provide specific, actionable recommendations:
+- Missing INVEST criteria elements
+- Vague or ambiguous language that needs clarification
+- Acceptance criteria that are too broad or unmeasurable
+- Missing stakeholder perspectives or edge cases
+- Scope issues (too large/small for a sprint)
 
-### Related Dependencies
-- Existing functionality that connects to this requirement (from user stories, guides)
-- Integration points that need consideration
-- Shared components or services
+### 4. **Risk Factors**
+Evaluate potential risks based on story quality:
+- **High Risk**: Unclear requirements leading to rework
+- **Medium Risk**: Missing edge cases causing defects
+- **Low Risk**: Minor clarifications needed
+- **Technical Risks**: Integration complexities or dependencies
+- **Business Risks**: Misaligned expectations or value delivery
 
-### Potential Risks  
-- Historical defects that could indicate similar risks
-- Known issues from past implementations
-- Component-specific vulnerabilities
+### 5. **RAG-Based Insights** (Enhanced with Knowledge Base Context)
 
-### Testing Considerations
-- Additional testing needed based on past experiences
-- Edge cases discovered in similar features
-- Integration testing requirements
+Based on the knowledge base context provided above, provide specific insights:
 
-**IMPORTANT:** Only include RAG-Based Insights if actual knowledge base context is provided. Base all suggestions strictly on the context found in the knowledge base - never invent or assume information not present in the context. Always cite the source.
+#### **Historical Risk Patterns**
+- Similar defects from past implementations in this component
+- Known issues that have occurred in related functionality
+- Component-specific vulnerabilities or failure patterns
 
-## 7. Recommended Actions for the business analyst
+#### **Quality Benchmarks**
+- Comparison with similar user stories and their quality levels
+- Best practices from existing requirements
+- Lessons learned from related implementations
 
-Focus on INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable) and industry best practices.`,
-    example: 'Batch analyzes multiple user stories for quality, risk, and provides improvement recommendations'
+**CRITICAL**: Base all insights strictly on the provided knowledge base context. Always cite specific sources when available.
+
+**FORMATTING REQUIREMENTS:**
+- Use clear section headers with ## markdown
+- Include bullet points for easy scanning
+- Provide specific, actionable recommendations
+- Always include the score in the exact format "Score: X/10"
+- Focus on practical, implementable improvements
+- Keep analysis concise for batch processing efficiency`,
+    example: 'Comprehensive batch analysis using INVEST framework: Independent (8.5/10), Valuable (7.2/10), Testable (6.8/10) with specific RAG-enhanced improvement recommendations and risk assessment'
   },
   {
     id: 'test-automation-roi-report',

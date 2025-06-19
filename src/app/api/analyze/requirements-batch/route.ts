@@ -16,25 +16,91 @@ async function analyzeRequirements(
     },
   })
   
-  const prompt = `You are an expert requirements analyst. Analyze this user story for quality, completeness, and potential risks.
+  const prompt = `You are an expert Business Analyst and Requirements Engineer. Analyze this user story using professional quality assessment frameworks and provide a comprehensive quality score with detailed improvement recommendations.
 
-**USER STORY:**
+**USER STORY TO ANALYZE:**
 ${userStoryText}
 
 **ACCEPTANCE CRITERIA:**
 ${acceptanceCriteria}
 
-${ragContext ? `**KNOWLEDGE BASE CONTEXT:**\n${ragContext}\n` : ''}
+${ragContext ? `\n\n${ragContext}` : ''}
 
-Please provide a comprehensive analysis including:
+**ANALYSIS FRAMEWORK:**
+Use the INVEST criteria as your primary evaluation framework:
+- **I**ndependent: Can be developed independently (25% weight)
+- **N**egotiable: Flexible, allows for discussion (10% weight)  
+- **V**aluable: Delivers clear business value (20% weight)
+- **E**stimable: Can be estimated for effort (15% weight)
+- **S**mall: Right-sized for a sprint (10% weight)
+- **T**estable: Has clear acceptance criteria (20% weight)
 
-1. **Quality Score** (1-10): Overall assessment of requirement quality
-2. **Strengths**: What's well-defined about this requirement
-3. **Improvements**: Specific areas that need clarification or enhancement
-4. **Risk Factors**: Potential issues, dependencies, or challenges
-5. **Recommended Actions**: Concrete next steps to improve this requirement
+**SCORING GUIDELINES:**
+- **8-10 points**: Excellent - High-quality, ready for development
+- **6-7.9 points**: Good - Minor improvements needed
+- **4-5.9 points**: Needs Work - Significant issues, requires rework
+- **1-3.9 points**: Poor - Major quality issues, complete rewrite needed
+- **0 points**: Critical - Unusable, missing essential elements
 
-Format your response clearly with sections and bullet points.`
+## REQUIRED ANALYSIS SECTIONS:
+
+### 1. **Score: X/10** (Must be clearly stated as "Score: X/10")
+
+Provide your overall quality assessment with detailed justification covering:
+- **Clarity Assessment** (25%): How well-written and understandable is the story?
+- **Completeness Analysis** (25%): Are all necessary elements present?
+- **Testability Evaluation** (20%): Are acceptance criteria clear and measurable?
+- **Business Value Assessment** (15%): Is the benefit to users/business clear?
+- **Feasibility Review** (10%): Is the story realistic and achievable?
+- **Independence Check** (5%): Can this be developed without dependencies?
+
+### 2. **Strengths** 
+Identify what's working well in this user story:
+- Well-defined elements that meet INVEST criteria
+- Clear business value propositions
+- Specific and measurable acceptance criteria
+- Appropriate scope and sizing
+
+### 3. **Improvements**
+Provide specific, actionable recommendations:
+- Missing INVEST criteria elements
+- Vague or ambiguous language that needs clarification
+- Acceptance criteria that are too broad or unmeasurable
+- Missing stakeholder perspectives or edge cases
+- Scope issues (too large/small for a sprint)
+
+### 4. **Risk Factors**
+Evaluate potential risks based on story quality:
+- **High Risk**: Unclear requirements leading to rework
+- **Medium Risk**: Missing edge cases causing defects
+- **Low Risk**: Minor clarifications needed
+- **Technical Risks**: Integration complexities or dependencies
+- **Business Risks**: Misaligned expectations or value delivery
+
+${ragContext ? `### 5. **RAG-Based Insights** (Enhanced with Knowledge Base Context)
+
+Based on the knowledge base context provided above, provide specific insights:
+
+#### **Historical Risk Patterns**
+- Similar defects from past implementations in this component
+- Known issues that have occurred in related functionality
+- Component-specific vulnerabilities or failure patterns
+
+#### **Quality Benchmarks**
+- Comparison with similar user stories and their quality levels
+- Best practices from existing requirements
+- Lessons learned from related implementations
+
+**CRITICAL**: Base all insights strictly on the provided knowledge base context. Always cite specific sources when available.` : `### 5. **Context Assessment**
+No knowledge base context is available for this analysis. The assessment is based solely on the user story content and general best practices.`}
+
+**FORMATTING REQUIREMENTS:**
+- Use clear section headers with ## markdown
+- Include bullet points for easy scanning
+- Provide specific, actionable recommendations
+- Always include the score in the exact format "Score: X/10"
+- Focus on practical, implementable improvements
+- Keep analysis concise for batch processing efficiency`
 
   try {
     const command = new InvokeModelCommand({
@@ -43,7 +109,7 @@ Format your response clearly with sections and bullet points.`
       accept: 'application/json',
       body: JSON.stringify({
         anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: 2000,
+        max_tokens: 4000,
         temperature: 0.3,
         messages: [
           {
@@ -161,10 +227,16 @@ async function analyzeUserStoryDirectly(story: any) {
     let riskFactors: string[] = []
 
     try {
-      // Extract quality score
-      const scoreMatch = analysis.match(/(?:Quality Score|Score).*?(\d+(?:\.\d+)?)/i)
+      // Extract quality score - consistent with individual analysis
+      const scoreMatch = analysis.match(/\*?\*?Score:\s*(\d+(?:\.\d+)?)(?:\/10)?\*?\*?/i)
       if (scoreMatch) {
         qualityScore = parseFloat(scoreMatch[1])
+      } else {
+        // Fallback to broader pattern
+        const fallbackMatch = analysis.match(/(?:Quality Score|Score).*?(\d+(?:\.\d+)?)/i)
+        if (fallbackMatch) {
+          qualityScore = parseFloat(fallbackMatch[1])
+        }
       }
 
       // Extract strengths
@@ -1048,39 +1120,50 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// Helper function to parse AI analysis response
+// Helper function to parse AI analysis response - enhanced for INVEST framework
 function parseAnalysisResponse(analysis: string) {
-  // Extract quality score (look for patterns like "Score: 7/10" or "Quality Score: **7/10**")
-  const scoreMatch = analysis.match(/(?:Quality\s+)?Score[:\s]*\*?\*?(\d+)(?:\/10)?\*?\*?/i)
-  const score = scoreMatch ? parseInt(scoreMatch[1]) : 5
+  // Extract quality score - consistent with individual analysis parsing
+  const scoreMatch = analysis.match(/\*?\*?Score:\s*(\d+(?:\.\d+)?)(?:\/10)?\*?\*?/i)
+  let score = 5
+  
+  if (scoreMatch) {
+    score = parseFloat(scoreMatch[1])
+  } else {
+    // Fallback to broader pattern
+    const fallbackMatch = analysis.match(/(?:Quality\s+)?Score[:\s]*\*?\*?(\d+(?:\.\d+)?)(?:\/10)?\*?\*?/i)
+    if (fallbackMatch) {
+      score = parseFloat(fallbackMatch[1])
+    }
+  }
 
-  // Extract risk level (look for patterns like "Risk: High" or "Risk Assessment: **MEDIUM**")
-  const riskMatch = analysis.match(/Risk(?:\s+Assessment)?[:\s]*\*?\*?(Critical|High|Medium|Low|CRITICAL|HIGH|MEDIUM|LOW)\*?\*?/i)
-  const riskLevel = riskMatch ? riskMatch[1].charAt(0).toUpperCase() + riskMatch[1].slice(1).toLowerCase() : 'Medium'
+  // Calculate risk level based on enhanced scoring guidelines
+  const riskLevel = score >= 8 ? 'Low' : 
+                   score >= 6 ? 'Medium' : 
+                   score >= 4 ? 'High' : 'Critical'
 
-  // Extract strengths (look for bullet points or numbered lists after "Strengths")
-  const strengthsMatch = analysis.match(/(?:##\s*)?(?:\d+\.\s*)?Strengths[:\s]*\n((?:[-*•]\s*.+\n?)+)/i)
+  // Extract strengths (enhanced pattern matching)
+  const strengthsMatch = analysis.match(/(?:##\s*)?(?:\d+\.\s*)?(?:\*\*)?Strengths?(?:\*\*)?[:\s]*\n((?:[-*•]\s*.+\n?)+)/i)
   const strengths = strengthsMatch 
-    ? strengthsMatch[1].split('\n').filter(s => s.trim()).map(s => s.replace(/^[-*•]\s*/, '').trim())
-    : ['Clear user story structure']
+    ? strengthsMatch[1].split('\n').filter(s => s.trim()).map(s => s.replace(/^[-*•]\s*/, '').trim()).filter(s => s.length > 0)
+    : ['Well-structured user story format', 'Clear business context provided']
 
-  // Extract improvements (look for bullet points or numbered lists after "Improvement" or "Areas for Improvement")
-  const improvementsMatch = analysis.match(/(?:##\s*)?(?:\d+\.\s*)?(?:Areas for )?Improvement[s]?[:\s]*\n((?:[-*•]\s*.+\n?)+)/i)
+  // Extract improvements (enhanced pattern matching)
+  const improvementsMatch = analysis.match(/(?:##\s*)?(?:\d+\.\s*)?(?:\*\*)?(?:Areas for )?Improvement[s]?(?:\*\*)?[:\s]*\n((?:[-*•]\s*.+\n?)+)/i)
   const improvements = improvementsMatch 
-    ? improvementsMatch[1].split('\n').filter(s => s.trim()).map(s => s.replace(/^[-*•]\s*/, '').trim())
-    : ['Add more specific acceptance criteria']
+    ? improvementsMatch[1].split('\n').filter(s => s.trim()).map(s => s.replace(/^[-*•]\s*/, '').trim()).filter(s => s.length > 0)
+    : ['Add more specific acceptance criteria', 'Define measurable success metrics']
 
-  // Extract risk factors (look for bullet points after "Risk" sections)
-  const riskFactorsMatch = analysis.match(/(?:##\s*)?(?:\d+\.\s*)?(?:Risk\s+Factors?|High\s+Risks?)[:\s]*\n((?:[-*•]\s*.+\n?)+)/i)
+  // Extract risk factors (enhanced pattern matching)
+  const riskFactorsMatch = analysis.match(/(?:##\s*)?(?:\d+\.\s*)?(?:\*\*)?(?:Risk\s+Factors?|Risk\s+Assessment)(?:\*\*)?[:\s]*\n((?:[-*•]\s*.+\n?)+)/i)
   const riskFactors = riskFactorsMatch 
-    ? riskFactorsMatch[1].split('\n').filter(s => s.trim()).map(s => s.replace(/^[-*•]\s*/, '').trim())
-    : ['Potential scope ambiguity']
+    ? riskFactorsMatch[1].split('\n').filter(s => s.trim()).map(s => s.replace(/^[-*•]\s*/, '').trim()).filter(s => s.length > 0)
+    : ['Potential scope ambiguity', 'Integration complexity considerations']
 
   return {
-    score: Math.max(1, Math.min(10, score)), // Ensure score is between 1-10
+    score: Math.max(0, Math.min(10, score)), // Ensure score is between 0-10 (enhanced range)
     riskLevel,
-    strengths: strengths.slice(0, 5), // Limit to 5 items
-    improvements: improvements.slice(0, 5), // Limit to 5 items
-    riskFactors: riskFactors.slice(0, 5) // Limit to 5 items
+    strengths: strengths.slice(0, 5), // Limit to 5 items for UI performance
+    improvements: improvements.slice(0, 5), // Limit to 5 items for UI performance
+    riskFactors: riskFactors.slice(0, 5) // Limit to 5 items for UI performance
   }
 } 
