@@ -161,15 +161,37 @@ export async function GET(request: NextRequest) {
 
     // Helper function to get the most recent quality score (same logic as analysis API)
     const getLatestQualityScore = (story: any) => {
+      // CRITICAL FIX: Check both the direct qualityScore field AND the qualityScores relationship
+      // The analysis API saves to both places, so we should check both
+      
+      // First, check if there's a direct quality score on the user story (most recent)
+      if (story.qualityScore !== null && story.qualityScore !== undefined) {
+        console.log('🐛 DEBUG - Using Direct Quality Score:', {
+          storyId: story.id,
+          storyTitle: story.title,
+          directQualityScore: story.qualityScore,
+          hasQualityScoresRelation: story.qualityScores?.length > 0
+        });
+        return story.qualityScore;
+      }
+      
+      // Fallback to the qualityScores relationship if no direct score
       if (!story.qualityScores || story.qualityScores.length === 0) {
+        console.log('🐛 DEBUG - No Quality Score Found:', {
+          storyId: story.id,
+          storyTitle: story.title,
+          directQualityScore: story.qualityScore,
+          qualityScoresCount: story.qualityScores?.length || 0
+        });
         return null;
       }
       
-      // Get the most recent quality score
+      // Get the most recent quality score from the relationship
       const latestScore = story.qualityScores[0]?.score;
-      console.log('🐛 DEBUG - Latest Quality Score:', {
+      console.log('🐛 DEBUG - Using Relationship Quality Score:', {
         storyId: story.id,
         storyTitle: story.title,
+        directQualityScore: story.qualityScore,
         qualityScoresCount: story.qualityScores.length,
         latestScore: latestScore,
         allScores: story.qualityScores.map((qs: any) => ({ score: qs.score, date: qs.generatedAt }))

@@ -56,17 +56,27 @@ if (isVercel) {
   }
   
 } else {
-  console.log('🔄 Configuring for local development (SQLite)...');
+  console.log('🔄 Configuring for local development (PostgreSQL)...');
   
-  // Read and update schema for local development
+  // Verify critical environment variables for local development too
+  const requiredEnvVars = ['DATABASE_URL', 'NEXTAUTH_SECRET'];
+  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    console.error('❌ Missing required environment variables for local development:', missingVars);
+    console.error('Please ensure your .env file has DATABASE_URL and NEXTAUTH_SECRET');
+    process.exit(1);
+  }
+  
+  // Read and update schema for local development (now using PostgreSQL)
   let schema = fs.readFileSync(schemaPath, 'utf8');
   
-  if (schema.includes('provider = "postgresql"')) {
-    schema = schema.replace(/provider = "postgresql"/g, 'provider = "sqlite"');
+  if (schema.includes('provider = "sqlite"')) {
+    schema = schema.replace(/provider = "sqlite"/g, 'provider = "postgresql"');
     fs.writeFileSync(schemaPath, schema);
-    console.log('🔄 Switched from PostgreSQL to SQLite');
-  } else if (schema.includes('provider = "sqlite"')) {
-    console.log('✅ Already using SQLite');
+    console.log('🔄 Switched from SQLite to PostgreSQL');
+  } else if (schema.includes('provider = "postgresql"')) {
+    console.log('✅ Already using PostgreSQL');
   }
 }
 
