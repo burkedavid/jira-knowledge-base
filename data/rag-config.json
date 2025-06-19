@@ -1,21 +1,21 @@
 {
   "searchTypes": {
-    "defect": true,
-    "user_story": true,
-    "test_case": false,
-    "document": true
+    "defects": true,
+    "userStories": true,
+    "testCases": false,
+    "documents": true
   },
   "maxResults": {
-    "defect": 5,
-    "user_story": 5,
-    "test_case": 5,
-    "document": 5
+    "defects": 5,
+    "userStories": 5,
+    "testCases": 5,
+    "documents": 5
   },
   "similarityThresholds": {
-    "defect": 0.4,
-    "user_story": 0.4,
-    "test_case": 0.4,
-    "document": 0.4
+    "defects": 0.4,
+    "userStories": 0.4,
+    "testCases": 0.4,
+    "documents": 0.4
   },
   "contentLimits": {
     "maxItemLength": 200,

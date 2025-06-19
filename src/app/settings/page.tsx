@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Settings, Database, Brain, Shield, TestTube, Zap, Building2, Users, Save, Play, Square, RefreshCw, ExternalLink, DollarSign, AlertCircle, Search, Filter, Target } from 'lucide-react'
+import { ArrowLeft, Settings, Database, Brain, Shield, TestTube, Zap, Building2, Users, Save, Play, Square, RefreshCw, ExternalLink, DollarSign, AlertCircle, Search, Filter, Target, HelpCircle } from 'lucide-react'
 import AIHeader from '@/components/ui/ai-header'
+import { Tooltip } from '@/components/ui/tooltip'
 
 interface ProductContext {
   productName: string
@@ -387,7 +388,7 @@ function RAGSettingsSection() {
           </h3>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Configure semantic search and AI analysis parameters for test case generation
+          Configure semantic search and AI analysis parameters for all AI features (test case generation, defect analysis, etc.)
         </p>
       </div>
       <div className="p-6 space-y-8">
@@ -395,7 +396,7 @@ function RAGSettingsSection() {
         <div>
           <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Search Types</h4>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Select which content types to include in RAG context for test case generation
+            Select which content types to include in RAG context for AI analysis
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {Object.entries(ragConfig.searchTypes).map(([type, enabled]) => (
@@ -474,6 +475,208 @@ function RAGSettingsSection() {
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Content Limits */}
+        <div>
+          <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Content Limits</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Configure content length limits and truncation settings
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Max Item Length
+              </label>
+              <input
+                type="number"
+                min="50"
+                max="1000"
+                value={ragConfig.contentLimits.maxItemLength}
+                onChange={(e) => setRagConfig({
+                  ...ragConfig,
+                  contentLimits: { ...ragConfig.contentLimits, maxItemLength: parseInt(e.target.value) || 200 }
+                })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Characters per item (50-1000)
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Max Total RAG Length
+              </label>
+              <input
+                type="number"
+                min="100"
+                max="5000"
+                value={ragConfig.contentLimits.maxTotalRAGLength}
+                onChange={(e) => setRagConfig({
+                  ...ragConfig,
+                  contentLimits: { ...ragConfig.contentLimits, maxTotalRAGLength: parseInt(e.target.value) || 800 }
+                })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Total context length (100-5000)
+              </p>
+            </div>
+            <div>
+              <div className="flex items-center">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={ragConfig.contentLimits.enableSmartTruncation}
+                    onChange={(e) => setRagConfig({
+                      ...ragConfig,
+                      contentLimits: { ...ragConfig.contentLimits, enableSmartTruncation: e.target.checked }
+                    })}
+                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 mr-2"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Enable Smart Truncation
+                  </span>
+                </label>
+                <Tooltip
+                  content={
+                    <div className="max-w-xs">
+                      <div className="font-medium mb-1">Smart Truncation</div>
+                      <div className="text-xs leading-relaxed">
+                        Automatically limits individual content items to the Max Item Length setting. 
+                        When enabled, long items are intelligently shortened with "..." to ensure 
+                        better AI processing and allow more diverse content within the total context limit.
+                      </div>
+                    </div>
+                  }
+                  side="right"
+                >
+                  <HelpCircle className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-2 cursor-help" />
+                </Tooltip>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Intelligently truncate content
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Relevance Filtering */}
+        <div>
+          <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Relevance Filtering</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Configure keyword-based relevance filtering
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={ragConfig.relevanceFiltering.enabled}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    relevanceFiltering: { ...ragConfig.relevanceFiltering, enabled: e.target.checked }
+                  })}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 mr-2"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Enable Relevance Filtering
+                </span>
+              </label>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Min Keyword Matches
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={ragConfig.relevanceFiltering.minKeywordMatches}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    relevanceFiltering: { ...ragConfig.relevanceFiltering, minKeywordMatches: parseInt(e.target.value) || 1 }
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Min Story Keyword Matches
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={ragConfig.relevanceFiltering.minStoryKeywordMatches}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    relevanceFiltering: { ...ragConfig.relevanceFiltering, minStoryKeywordMatches: parseInt(e.target.value) || 2 }
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Performance */}
+        <div>
+          <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Performance</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Configure performance and timeout settings
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Search Timeout (seconds)
+              </label>
+              <input
+                type="number"
+                min="10"
+                max="120"
+                value={ragConfig.performance.searchTimeout}
+                onChange={(e) => setRagConfig({
+                  ...ragConfig,
+                  performance: { ...ragConfig.performance, searchTimeout: parseInt(e.target.value) || 45 }
+                })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+            </div>
+            <div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={ragConfig.performance.enableParallelSearch}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    performance: { ...ragConfig.performance, enableParallelSearch: e.target.checked }
+                  })}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 mr-2"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Enable Parallel Search
+                </span>
+              </label>
+            </div>
+            <div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={ragConfig.performance.cacheResults}
+                  onChange={(e) => setRagConfig({
+                    ...ragConfig,
+                    performance: { ...ragConfig.performance, cacheResults: e.target.checked }
+                  })}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 mr-2"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Cache Results
+                </span>
+              </label>
+            </div>
           </div>
         </div>
 
