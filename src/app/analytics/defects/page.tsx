@@ -432,11 +432,11 @@ ${report.response}`
       ]
     } else {
       return [
-        "Generate Executive Intelligence summary with risk assessment for this period",
         "What Business Risk Coverage patterns emerged and what's the damage × frequency analysis?",
         "Identify quality momentum changes and trend velocity for strategic planning",
         "Create automation ROI calculator for the highest impact opportunities",
         "Generate predictive intelligence for upcoming quality interventions needed",
+        "Which components need immediate attention based on defect frequency and business impact?",
         "Test Automation ROI Report - Create a focused test automation business case for this timeframe with cost-benefit analysis"
       ]
     }
@@ -1518,7 +1518,13 @@ ${report.response}`
                   ) : (
                     <Play className="h-4 w-4" />
                   )}
-                  {loading ? 'Analyzing...' : 'Start Analysis'}
+                  {loading ? 'Analyzing...' : `Analyze ${
+                    timeframe === '7d' ? 'Last 7 Days' :
+                    timeframe === '30d' ? 'Last 30 Days' :
+                    timeframe === '90d' ? 'Last 90 Days' :
+                    timeframe === '1y' ? 'Last Year' :
+                    timeframe === 'all' ? 'All Time' : 'Selected Period'
+                  }`}
                 </button>
               </div>
             </div>
