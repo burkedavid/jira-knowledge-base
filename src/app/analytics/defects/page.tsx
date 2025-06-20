@@ -77,7 +77,8 @@ function DefectQueryInterface({ timeframe, component, onAnalyze }: DefectQueryIn
     }
   }, [])
 
-  // Auto-trigger comprehensive analysis for "all time" timeframe
+  // Auto-trigger comprehensive analysis for "all time" timeframe (MANUALLY DISABLED)
+  /*
   useEffect(() => {
     if (timeframe === 'all' && !autoAnalysisTriggered && !response) {
       setAutoAnalysisTriggered(true)
@@ -90,6 +91,7 @@ function DefectQueryInterface({ timeframe, component, onAnalyze }: DefectQueryIn
       setAutoAnalysisTriggered(false)
     }
   }, [timeframe, autoAnalysisTriggered, response])
+  */
 
   const saveReport = () => {
     if (!response || !query) return

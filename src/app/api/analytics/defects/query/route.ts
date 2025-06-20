@@ -72,17 +72,40 @@ export async function POST(request: NextRequest) {
           switch (result.sourceType) {
             case 'defect':
               entityData = await prisma.defect.findUnique({
-                where: { id: result.sourceId }
+                where: { id: result.sourceId },
+                select: {
+                  id: true,
+                  title: true,
+                  status: true,
+                  severity: true,
+                  component: true,
+                  createdAt: true,
+                  description: true // Consider if full description is needed or if a summary/truncation is better
+                }
               })
               break
             case 'user_story':
               entityData = await prisma.userStory.findUnique({
-                where: { id: result.sourceId }
+                where: { id: result.sourceId },
+                select: {
+                  id: true,
+                  title: true,
+                  status: true,
+                  priority: true,
+                  description: true // Consider if full description is needed
+                }
               })
               break
             case 'test_case':
               entityData = await prisma.testCase.findUnique({
-                where: { id: result.sourceId }
+                where: { id: result.sourceId },
+                select: {
+                  id: true,
+                  title: true,
+                  status: true,
+                  priority: true,
+                  steps: true // Consider if full steps are needed
+                }
               })
               break
           }
