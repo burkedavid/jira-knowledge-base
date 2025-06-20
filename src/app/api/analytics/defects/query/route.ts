@@ -3,9 +3,16 @@ import { prisma } from '@/lib/prisma'
 import { vectorSearchWithTimeframe } from '@/lib/vector-db'
 import { generateTextWithClaude } from '@/lib/aws-bedrock'
 
+// Phase-based processing for progressive loading
+type AnalysisPhase = 'init' | 'semantic' | 'enrich' | 'analyze-overview' | 'analyze-patterns' | 'analyze-actions' | 'analyze-complete'
+
 export async function POST(request: NextRequest) {
   try {
-    const { query, timeframe = '1y' } = await request.json()
+    const { query, timeframe = '1y', phase = 'init', context } = await request.json()
+    
+    console.log(`🚀 PROGRESSIVE API CALLED: Phase ${phase} for query: "${query}"`)
+    console.log(`📊 Timeframe: ${timeframe}`)
+    console.log(`📊 Timeframe type: ${typeof timeframe}`)
 
     if (!query) {
       return NextResponse.json(
@@ -33,39 +40,234 @@ export async function POST(request: NextRequest) {
         dateFilter = {}
         break
     }
-
-    // 🔍 RAG STEP 1: Semantic Search for Relevant Context with Time Filtering
-    console.log('🔍 Performing semantic search for query:', query)
     
-    // Map API timeframe to vector search timeframe
-    let vectorTimeframe: 'last_week' | 'last_month' | 'last_quarter' | 'last_year' | 'all'
-    switch (timeframe) {
-      case '30d':
-        vectorTimeframe = 'last_month'
-        break
-      case '90d':
-        vectorTimeframe = 'last_quarter'
-        break
-      case '1y':
-        vectorTimeframe = 'last_year'
-        break
-      case 'all':
+    console.log(`📊 Date filter for timeframe "${timeframe}":`, dateFilter)
+    console.log(`📊 Date filter has keys:`, Object.keys(dateFilter).length > 0)
+
+    // Process based on requested phase
+    switch (phase) {
+      case 'init':
+        return await handleInitPhase(query, timeframe, dateFilter)
+      
+      case 'semantic':
+        return await handleSemanticPhase(query, timeframe)
+      
+      case 'enrich':
+        return await handleEnrichPhase(context?.semanticResults || [])
+      
+      case 'analyze-overview':
+        return await handleAnalyzeOverviewPhase(query, timeframe, context)
+      
+      case 'analyze-patterns':
+        return await handleAnalyzePatternsPhase(query, timeframe, context)
+      
+      case 'analyze-actions':
+        return await handleAnalyzeActionsPhase(query, timeframe, context)
+        
+      case 'analyze-complete':
+        return await handleAnalyzeCompletePhase(query, timeframe, context)
+      
       default:
-        vectorTimeframe = 'all'
-        break
+        return NextResponse.json(
+          { error: 'Invalid phase specified' },
+          { status: 400 }
+        )
     }
-    
-    const semanticResults = await vectorSearchWithTimeframe(
-      query,
-      vectorTimeframe, // Use the mapped timeframe parameter for date filtering
-      ['defect', 'user_story', 'test_case'], // Search across relevant content types
-      10, // Get top 10 most relevant items
-      0.6 // Lower threshold for broader context
-    )
 
-    // 🔍 RAG STEP 2: Enrich semantic results with full entity data
-    const enrichedContext = await Promise.all(
-      semanticResults.map(async (result) => {
+  } catch (error) {
+    console.error('Error in defect query processing:', error)
+    return NextResponse.json(
+      { error: 'Failed to process defect query', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    )
+  }
+}
+
+// PHASE 1: Initialize - Get basic statistics AND all defect titles for timeframe (fast)
+async function handleInitPhase(query: string, timeframe: string, dateFilter: any) {
+  console.log('📊 Phase 1: Getting basic statistics and all defect titles...')
+  
+  // For 'all' timeframe, use current approach (too much data)
+  // For specific timeframes, get all defect titles for better AI context
+  const shouldFetchAllDefects = timeframe !== 'all'
+  
+  const [totalDefects, defectsBySeverity, defectsByComponent, defectPatterns] = await Promise.all([
+    prisma.defect.count({
+      where: Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}
+    }),
+    
+    prisma.defect.groupBy({
+      by: ['severity'],
+      where: Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {},
+      _count: { id: true }
+    }),
+    
+    prisma.defect.groupBy({
+      by: ['component'],
+      where: Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {},
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 10
+    }),
+    
+    prisma.defect.groupBy({
+      by: ['rootCause'],
+      where: {
+        rootCause: { not: null },
+        ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {})
+      },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 10
+    })
+  ])
+  
+  // Get all defect titles for specific timeframes (better AI context)
+  const allDefects = shouldFetchAllDefects ? await prisma.defect.findMany({
+    where: Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {},
+    select: {
+      id: true,
+      title: true,
+      severity: true,
+      component: true,
+      status: true,
+      createdAt: true
+      // Note: Excluding description for performance as discussed
+    },
+    orderBy: { createdAt: 'desc' }
+  }) : null
+
+  // Calculate realistic timeframe-specific cost impact based on severity
+  const timeframeLabel = timeframe === '1y' ? 'last year' : 
+                        timeframe === '90d' ? 'last 90 days' : 
+                        timeframe === '30d' ? 'last 30 days' : 'all time'
+
+  // Realistic cost calculation based on severity
+  const calculateRealisticCostImpact = (severityData: any[]) => {
+    const hourlyRate = 75 // £75/hour
+    let totalCost = 0
+    
+    severityData.forEach(item => {
+      const count = item._count.id
+      const severity = item.severity?.toLowerCase()
+      
+      // Realistic hours per defect by severity
+      let hoursPerDefect = 0
+      switch (severity) {
+        case 'critical':
+          hoursPerDefect = 16 // 2 days for critical issues
+          break
+        case 'high':
+          hoursPerDefect = 8 // 1 day for high priority
+          break
+        case 'medium':
+          hoursPerDefect = 4 // Half day for medium
+          break
+        case 'low':
+          hoursPerDefect = 2 // 2 hours for low priority
+          break
+        case 'minor':
+          hoursPerDefect = 1 // 1 hour for minor issues
+          break
+        default:
+          hoursPerDefect = 3 // Default 3 hours for unknown severity
+      }
+      
+      totalCost += count * hoursPerDefect * hourlyRate
+    })
+    
+    return Math.round(totalCost)
+  }
+
+  const costImpact = calculateRealisticCostImpact(defectsBySeverity)
+
+  return NextResponse.json({
+    phase: 'init',
+    query,
+    timeframe,
+    statistics: {
+      totalDefects,
+      defectsBySeverity,
+      defectsByComponent, // Keep the full objects with counts
+      defectPatterns, // Keep the full objects with counts
+      qualityScore: Math.max(1, Math.min(10, Math.round(10 - (totalDefects / 100)))),
+      costImpact,
+      timeframeLabel,
+      allDefects: allDefects ? allDefects.map(d => ({
+        id: d.id,
+        title: d.title,
+        severity: d.severity,
+        component: d.component,
+        status: d.status,
+        createdAt: d.createdAt
+      })) : null,
+      defectTitlesCount: allDefects ? allDefects.length : 0
+    },
+    nextPhase: 'semantic',
+    progress: 25
+  })
+}
+
+// PHASE 2: Semantic Search - Get relevant context (medium speed)
+async function handleSemanticPhase(query: string, timeframe: string) {
+  console.log('🔍 Phase 2: Performing semantic search...')
+  
+  // Map API timeframe to vector search timeframe
+  let vectorTimeframe: 'last_week' | 'last_month' | 'last_quarter' | 'last_year' | 'all'
+  switch (timeframe) {
+    case '30d':
+      vectorTimeframe = 'last_month'
+      break
+    case '90d':
+      vectorTimeframe = 'last_quarter'
+      break
+    case '1y':
+      vectorTimeframe = 'last_year'
+      break
+    case 'all':
+    default:
+      vectorTimeframe = 'all'
+      break
+  }
+  
+  const semanticResults = await vectorSearchWithTimeframe(
+    query,
+    vectorTimeframe,
+    ['defect', 'user_story', 'test_case'],
+    10, // Get top 10 most relevant items
+    0.6 // Lower threshold for broader context
+  )
+
+  return NextResponse.json({
+    phase: 'semantic',
+    semanticResults,
+    nextPhase: 'enrich',
+    progress: 50
+  })
+}
+
+// PHASE 3: Enrich - Process semantic results in chunks (slower)
+async function handleEnrichPhase(semanticResults: any[]) {
+  console.log('🔧 Phase 3: Enriching semantic results...')
+  
+  if (!semanticResults || semanticResults.length === 0) {
+    return NextResponse.json({
+      phase: 'enrich',
+      enrichedContext: [],
+      nextPhase: 'analyze',
+      progress: 75
+    })
+  }
+
+  // Process in smaller chunks to avoid timeout
+  const chunkSize = 5
+  const enrichedContext = []
+  
+  for (let i = 0; i < semanticResults.length; i += chunkSize) {
+    const chunk = semanticResults.slice(i, i + chunkSize)
+    
+    const enrichedChunk = await Promise.all(
+      chunk.map(async (result) => {
         try {
           let entityData = null
           
@@ -80,7 +282,7 @@ export async function POST(request: NextRequest) {
                   severity: true,
                   component: true,
                   createdAt: true,
-                  description: true // Consider if full description is needed or if a summary/truncation is better
+                  description: true
                 }
               })
               break
@@ -92,7 +294,7 @@ export async function POST(request: NextRequest) {
                   title: true,
                   status: true,
                   priority: true,
-                  description: true // Consider if full description is needed
+                  description: true
                 }
               })
               break
@@ -104,7 +306,7 @@ export async function POST(request: NextRequest) {
                   title: true,
                   status: true,
                   priority: true,
-                  steps: true // Consider if full steps are needed
+                  steps: true
                 }
               })
               break
@@ -121,276 +323,323 @@ export async function POST(request: NextRequest) {
         }
       })
     )
+    
+    enrichedContext.push(...enrichedChunk)
+  }
 
-    // 🔍 RAG STEP 3: Get comprehensive database statistics
-    const totalDefects = await prisma.defect.count({
-      where: Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}
-    })
+  return NextResponse.json({
+    phase: 'enrich',
+    enrichedContext: enrichedContext.filter(r => r.entityData !== null),
+    nextPhase: 'analyze',
+    progress: 75
+  })
+}
 
-    const defectsBySeverity = await prisma.defect.groupBy({
-      by: ['severity'],
-      where: Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {},
-      _count: { id: true }
-    })
+// PHASE 4A: Analyze Overview - Generate executive summary and dataset overview (fast, ~10-15 seconds)
+async function handleAnalyzeOverviewPhase(query: string, timeframe: string, context: any) {
+  console.log('📊 Phase 4A: Generating overview and executive summary...')
+  
+  const { statistics, enrichedContext } = context
+  
+  if (!statistics || !enrichedContext) {
+    throw new Error('Missing required context for analysis overview phase')
+  }
 
-    const defectsByComponent = await prisma.defect.groupBy({
-      by: ['component'],
-      where: Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {},
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
-      take: 10
-    })
-
-    const defectPatterns = await prisma.defect.groupBy({
-      by: ['rootCause'],
-      where: {
-        rootCause: { not: null },
-        ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {})
-      },
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
-      take: 10
-    })
-
-    // 🔍 RAG STEP 4: Build comprehensive context for AI analysis
-    const contextData = {
-      query,
-      timeframe,
-      totalDefects,
-      defectsBySeverity,
-      defectsByComponent,
-      defectPatterns,
-      semanticResults: enrichedContext.filter(r => r.entityData !== null),
-      relevantDefects: enrichedContext.filter(r => r.type === 'defect' && r.entityData).map(r => r.entityData),
-      relatedUserStories: enrichedContext.filter(r => r.type === 'user_story' && r.entityData).map(r => r.entityData),
-      relatedTestCases: enrichedContext.filter(r => r.type === 'test_case' && r.entityData).map(r => r.entityData)
-    }
-
-    // 🔍 RAG STEP 5: Generate AI-powered analysis using Enhanced Intelligence Framework
-    const aiPrompt = `You are an Enhanced Defect Analytics Intelligence System implementing Business Risk Coverage (BRC) methodology. Transform raw defect data into strategic intelligence that drives measurable quality improvements and automation ROI.
-
-**MISSION:** Generate insights that enable immediate action and long-term strategic planning using the Intelligence Generation Framework.
+  const overviewPrompt = `You are an Executive Analytics Intelligence System. Generate a properly formatted executive overview for defect analysis.
 
 **User Query:** "${query}"
 **Timeframe:** ${timeframe}
-**Analysis Context:** ${timeframe === 'all' ? 'System Quality Baseline Report' : 'Periodic Quality Intelligence Report'}
 
-**CORE DATA ANALYSIS:**
-- Total Defects: ${totalDefects}
-- Defects by Severity: ${JSON.stringify(defectsBySeverity)}
-- Top Components: ${JSON.stringify(defectsByComponent.slice(0, 5))}
-- Root Cause Patterns: ${JSON.stringify(defectPatterns.slice(0, 5))}
+**CORE DATA:**
+- Total Defects: ${statistics.totalDefects}
+- Top Components: ${JSON.stringify(statistics.defectsByComponent.slice(0, 3))}
+- Top Patterns: ${JSON.stringify(statistics.defectPatterns.slice(0, 3))}
 
-**RAG CONTEXT (${enrichedContext.length} items found):**
-${enrichedContext.map((item, index) => `
-${index + 1}. **${item.type.toUpperCase()}** (Similarity: ${(item.similarity * 100).toFixed(1)}%)
-   Content: ${item.content.substring(0, 200)}...
-   ${item.entityData ? `
-   Details: ${JSON.stringify(item.entityData, null, 2).substring(0, 300)}...` : ''}
-`).join('\n')}
+**GENERATE EXECUTIVE OVERVIEW:**
 
-**INTELLIGENCE GENERATION FRAMEWORK:**
+## Executive Summary
 
-## 1. EXECUTIVE INTELLIGENCE LAYER
-Generate:
-- **Risk Assessment:** Quantify quality risk levels and business impact
-- **Trend Velocity:** Calculate defect acceleration/deceleration patterns  
-- **Quality Debt:** Identify accumulating technical debt indicators
-- **Investment ROI:** Predict automation investment returns
+Analysis of ${statistics.totalDefects} defects across all components in ${statistics.timeframeLabel || timeframe} reveals [analyze the data and provide specific insights about quality challenges and concentration patterns].
 
-## 2. STRATEGIC PATTERN RECOGNITION
-Identify:
-- **Defect Hotspots:** Modules/features with highest defect density
-- **Seasonal Patterns:** Cyclical quality issues (release cycles, team changes)
-- **Cascade Effects:** Defects that trigger downstream issues
-- **Quality Momentum:** Improving vs declining quality trajectories
+## Key Metrics
 
-## 3. BUSINESS RISK COVERAGE (BRC) ANALYSIS
+- **Total Defects Analyzed:** ${statistics.totalDefects}
+- **Quality Score:** [Calculate 1-10 based on severity distribution from data above]  
+- **Business Risk Level:** [HIGH/MEDIUM/LOW based on critical defects and patterns]
 
-**CRITICAL FORMATTING:** Present this as a clean, readable list format - NOT as a table. Use the following structure exactly:
+## Quick Insights
 
-**COMPONENT RISK ASSESSMENT:**
+- **Worst Component:** [Use the actual top component from data above]
+- **Primary Risk:** [Main concern based on patterns and severity data]
+- **Immediate Action:** [One specific priority action based on the analysis]
 
-**1. [Component Name] - RISK LEVEL: [CRITICAL/HIGH/MEDIUM/LOW]**
-   • Defect Count: [number] defects
-   • Business Impact: [HIGH/MEDIUM/LOW] - [brief impact description]
-   • Usage Level: [VERY HIGH/HIGH/MEDIUM/LOW]
-   • Risk Score: [number]/100
-   • Priority Action: [specific action needed]
+**CRITICAL FORMATTING REQUIREMENTS:**
+- Use proper markdown with double line breaks between sections
+- Use bullet points with proper spacing
+- Keep each bullet point on its own line
+- Use **bold** for emphasis only
+- Ensure clean paragraph breaks between sections`
 
-**2. [Next Component Name] - RISK LEVEL: [CRITICAL/HIGH/MEDIUM/LOW]**
-   • Defect Count: [number] defects
-   • Business Impact: [HIGH/MEDIUM/LOW] - [brief impact description]
-   • Usage Level: [VERY HIGH/HIGH/MEDIUM/LOW]
-   • Risk Score: [number]/100
-   • Priority Action: [specific action needed]
+  try {
+    const aiResponse = await generateTextWithClaude([
+      { role: 'user', content: overviewPrompt }
+    ], {
+      maxTokens: 800,
+      temperature: 0.2
+    })
 
-Continue for the top 5-8 most critical components only.
-
-**Risk Scoring Logic:**
-- Impact: HIGH (10 pts), MEDIUM (6 pts), LOW (3 pts)  
-- Usage: VERY HIGH (10 pts), HIGH (7 pts), MEDIUM (5 pts), LOW (2 pts)
-- Risk Score = (Impact × Usage × Defect Count) ÷ 10
-
-**ABSOLUTELY NO TABLES** - Use the numbered list format above for maximum readability.
-
-## 4. ROLE-SPECIFIC ACTION INTELLIGENCE
-
-### For Test Automation Engineers (Especially New Hires):
-- **System Weakness Map:** Priority 1-3 areas for automation
-- **Automation ROI Calculator:** Estimated time savings per test suite
-- **Quick Wins:** Low-effort, high-impact automation opportunities
-- **Architecture Insights:** Test framework gaps revealed by defect patterns
-
-### For QA Engineers:
-- **Testing Gap Analysis:** Uncovered scenarios based on defect origins
-- **Coverage Optimization:** Areas needing enhanced test coverage
-- **Process Improvements:** Workflow changes to prevent defect types
-
-### For Developers:
-- **Code Quality Hotspots:** Modules requiring refactoring attention
-- **Development Patterns:** Coding practices contributing to defects
-- **Technical Debt Priorities:** Areas where shortcuts cause quality issues
-
-### For Product Owners/Managers:
-- **Feature Quality Scores:** User-facing impact of defect trends
-- **Release Readiness Indicators:** Quality gates and risk assessments
-- **Resource Allocation Guidance:** Where to invest QA resources for maximum impact
-
-## 5. PREDICTIVE INTELLIGENCE
-Provide:
-- **Defect Forecasting:** Predict likely defect volumes for upcoming periods
-- **Quality Trajectory:** Project quality trends based on current patterns
-- **Intervention Points:** When quality issues require immediate action
-- **Success Metrics:** Define measurable outcomes for quality initiatives
-
-## OUTPUT REQUIREMENTS:
-- **Strategic Value:** Every insight must be actionable within 30 days
-- **Quantified Impact:** Include effort estimates and ROI projections where possible
-- **Clear Metrics:** Provide success/failure criteria
-- **Business Context:** Connect defect patterns to business outcomes
-
-## RESPONSE FORMAT:
-Structure your analysis with clear sections, executive summary, detailed findings, and specific action plans. 
-
-**CRITICAL FORMATTING RULES - STRICTLY ENFORCE:**
-- Use ONLY plain text with **bold** for emphasis
-- ABSOLUTELY FORBIDDEN: ==text==, <mark>text</mark>, highlighting, background colors
-- ABSOLUTELY FORBIDDEN: Any form of text highlighting or coloring
-- ABSOLUTELY FORBIDDEN: HTML tags, colored backgrounds, or visual emphasis beyond bold
-- ABSOLUTELY FORBIDDEN: Tables of any kind - use numbered lists instead
-- Use simple bullet points (•) and numbered lists only
-- Keep ALL text completely clean with NO visual formatting beyond **bold**
-- For data presentation: Use numbered lists with bullet points, NEVER tables
-- For emphasis: ONLY use **bold** - nothing else is allowed
-- NEVER highlight section titles, component names, or any other text
-- All text must render as plain black/white text with only bold emphasis
-- NO TABLES ANYWHERE - Always use structured lists for data presentation
-
-Focus on generating a comprehensive intelligence report that serves as both immediate tactical guidance and long-term strategic planning foundation.`
-
-    console.log('🤖 Generating AI analysis with RAG context...')
-    
-    try {
-      const aiResponse = await generateTextWithClaude([
-        { role: 'user', content: aiPrompt }
-      ], {
-        maxTokens: 4000, // Increased for comprehensive intelligence reports
-        temperature: 0.2 // Even lower temperature for more structured analysis
-      })
-
-      return NextResponse.json({
-        query,
-        timeframe,
-        analysis: aiResponse,
-        ragContext: {
-          semanticResultsCount: enrichedContext.length,
-          relevantDefectsFound: contextData.relevantDefects.length,
-          relatedUserStoriesFound: contextData.relatedUserStories.length,
-          relatedTestCasesFound: contextData.relatedTestCases.length,
-          totalDefects,
-          topComponents: defectsByComponent.slice(0, 3).map((d: any) => ({
-            component: d.component || 'Unknown',
-            count: d._count.id
-          })),
-          topPatterns: defectPatterns.slice(0, 3).map((d: any) => ({
-            rootCause: d.rootCause,
-            frequency: d._count.id
-          }))
-        }
-      })
-
-    } catch (aiError) {
-      console.error('AI analysis failed, falling back to rule-based analysis:', aiError)
-      
-      // Fallback to rule-based analysis if AI fails
-      const queryLower = query.toLowerCase()
-      let analysis = ''
-
-      if (queryLower.includes('worst') && queryLower.includes('functionality')) {
-        const worstComponent = defectsByComponent[0]
-        analysis = `## Worst Functionality Analysis (RAG-Enhanced)
-
-**🎯 Answer: "${worstComponent?.component || 'Unknown'}" is the worst performing component**
-
-**Key Findings:**
-- **${worstComponent?.component || 'Unknown'}** has the highest defect count with **${worstComponent?._count.id || 0} defects**
-- This represents **${Math.round(((worstComponent?._count.id || 0) / totalDefects) * 100)}%** of all defects
-
-**RAG Context Found:**
-- ${enrichedContext.length} semantically related items
-- ${contextData.relevantDefects.length} related defects with similar patterns
-
-**Component Ranking:**
-${defectsByComponent.slice(0, 5).map((comp: any, index: number) => 
-  `${index + 1}. **${comp.component || 'Unknown'}**: ${comp._count.id} defects`
-).join('\n')}`
-
-      } else {
-        analysis = `## RAG-Enhanced Analysis for: "${query}"
-
-**Summary:**
-- Total defects: ${totalDefects}
-- Semantic search found: ${enrichedContext.length} related items
-- Related defects: ${contextData.relevantDefects.length}
-- Related user stories: ${contextData.relatedUserStories.length}
-
-**Top Components:**
-${defectsByComponent.slice(0, 3).map((item: any) => 
-  `- ${item.component || 'Unknown'}: ${item._count.id} defects`
-).join('\n')}
-
-**Semantic Insights:**
-${enrichedContext.slice(0, 3).map((item, index) => 
-  `${index + 1}. ${item.type}: ${item.content.substring(0, 100)}... (${(item.similarity * 100).toFixed(1)}% match)`
-).join('\n')}
-
-**💡 Try specific questions for deeper RAG analysis:**
-- "What patterns do we see in authentication defects?"
-- "Which components have recurring issues?"
-- "What are the root causes of high-severity defects?"`
-      }
-
-      return NextResponse.json({
-        query,
-        timeframe,
-        analysis,
-        ragContext: {
-          semanticResultsCount: enrichedContext.length,
-          relevantDefectsFound: contextData.relevantDefects.length,
-          relatedUserStoriesFound: contextData.relatedUserStories.length,
-          relatedTestCasesFound: contextData.relatedTestCases.length,
-          totalDefects,
-          aiAnalysisFailed: true
-        }
-      })
-    }
+    return NextResponse.json({
+      phase: 'analyze-overview',
+      content: aiResponse,
+      nextPhase: 'analyze-patterns',
+      progress: 85
+    })
 
   } catch (error) {
-    console.error('Error in RAG-enhanced defect query:', error)
-    return NextResponse.json(
-      { error: 'Failed to analyze defect query with RAG', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    )
+    console.error('Overview analysis failed:', error)
+    throw new Error('Failed to generate executive overview')
   }
+}
+
+// PHASE 4B: Analyze Patterns - Focus on defect patterns and hotspots (medium, ~15-20 seconds)
+async function handleAnalyzePatternsPhase(query: string, timeframe: string, context: any) {
+  console.log('🔍 Phase 4B: Analyzing defect patterns and hotspots...')
+  
+  const { statistics, enrichedContext } = context
+  
+  // Build comprehensive defect titles context for better AI analysis
+  let defectTitlesContext = ''
+  if (statistics.allDefects && statistics.allDefects.length > 0) {
+    const titlesByComponent = statistics.allDefects.reduce((acc: any, defect: any) => {
+      const component = defect.component || 'Unknown'
+      if (!acc[component]) acc[component] = []
+      acc[component].push(`"${defect.title}" (${defect.severity})`)
+      return acc
+    }, {})
+    
+    defectTitlesContext = Object.entries(titlesByComponent)
+      .map(([component, titles]: [string, any]) => 
+        `**${component}:** ${titles.slice(0, 15).join(', ')}${titles.length > 15 ? ` ... and ${titles.length - 15} more` : ''}`
+      ).join('\n')
+  }
+  
+  const patternsPrompt = `You are a Defect Pattern Recognition System. Analyze patterns using ALL actual defect titles.
+
+**FOCUS:** Identify the top 10 most critical defect patterns from actual defect titles.
+
+**REAL DEFECT DATA (${statistics.timeframeLabel}):** 
+- Total Defects: ${statistics.totalDefects}
+- Component Breakdown: ${JSON.stringify(statistics.defectsByComponent.slice(0, 10).map((c: any) => `${c.component}: ${c._count.id} defects`))}
+- Pattern Breakdown: ${JSON.stringify(statistics.defectPatterns.slice(0, 10).map((p: any) => `${p.rootCause}: ${p._count.id} occurrences`))}
+- Severity Distribution: ${JSON.stringify(statistics.defectsBySeverity.map((s: any) => `${s.severity}: ${s._count.id}`))}
+- Related Context: ${enrichedContext.length} items
+
+**ACTUAL DEFECT TITLES BY COMPONENT:**
+${defectTitlesContext || 'No specific defect titles available for this timeframe'}
+
+**GENERATE PATTERN ANALYSIS:**
+
+## Critical Patterns Identified
+
+**1. [Pattern Name] - Risk: [HIGH/MEDIUM/LOW]**
+- Frequency: [USE REAL NUMBERS FROM DATA ABOVE] occurrences
+- Components: [affected components from data]
+- Business Impact: [brief impact]
+- Example Defects: [Reference actual defect titles above]
+
+**2. [Pattern Name] - Risk: [HIGH/MEDIUM/LOW]**
+- Frequency: [USE REAL NUMBERS FROM DATA ABOVE] occurrences  
+- Components: [affected components from data]
+- Business Impact: [brief impact]
+- Example Defects: [Reference actual defect titles above]
+
+**3. [Pattern Name] - Risk: [HIGH/MEDIUM/LOW]**
+- Frequency: [USE REAL NUMBERS FROM DATA ABOVE] occurrences
+- Components: [affected components from data]
+- Business Impact: [brief impact]
+- Example Defects: [Reference actual defect titles above]
+
+**4. [Pattern Name] - Risk: [HIGH/MEDIUM/LOW]**
+- Frequency: [USE REAL NUMBERS FROM DATA ABOVE] occurrences
+- Components: [affected components from data]
+- Business Impact: [brief impact]
+- Example Defects: [Reference actual defect titles above]
+
+**5. [Pattern Name] - Risk: [HIGH/MEDIUM/LOW]**
+- Frequency: [USE REAL NUMBERS FROM DATA ABOVE] occurrences
+- Components: [affected components from data]
+- Business Impact: [brief impact]
+- Example Defects: [Reference actual defect titles above]
+
+**6. [Pattern Name] - Risk: [HIGH/MEDIUM/LOW]**
+- Frequency: [USE REAL NUMBERS FROM DATA ABOVE] occurrences
+- Components: [affected components from data]
+- Business Impact: [brief impact]
+- Example Defects: [Reference actual defect titles above]
+
+**7. [Pattern Name] - Risk: [HIGH/MEDIUM/LOW]**
+- Frequency: [USE REAL NUMBERS FROM DATA ABOVE] occurrences
+- Components: [affected components from data]
+- Business Impact: [brief impact]
+- Example Defects: [Reference actual defect titles above]
+
+**8. [Pattern Name] - Risk: [HIGH/MEDIUM/LOW]**
+- Frequency: [USE REAL NUMBERS FROM DATA ABOVE] occurrences
+- Components: [affected components from data]
+- Business Impact: [brief impact]
+- Example Defects: [Reference actual defect titles above]
+
+**9. [Pattern Name] - Risk: [HIGH/MEDIUM/LOW]**
+- Frequency: [USE REAL NUMBERS FROM DATA ABOVE] occurrences
+- Components: [affected components from data]
+- Business Impact: [brief impact]
+- Example Defects: [Reference actual defect titles above]
+
+**10. [Pattern Name] - Risk: [HIGH/MEDIUM/LOW]**
+- Frequency: [USE REAL NUMBERS FROM DATA ABOVE] occurrences
+- Components: [affected components from data]
+- Business Impact: [brief impact]
+- Example Defects: [Reference actual defect titles above]
+
+## Component Hotspots
+[List top 3 components with REAL defect counts and example defect titles from above]
+
+**IMPORTANT:** Use the ACTUAL frequency numbers and defect counts from the data provided above. Reference specific defect titles when possible for concrete insights.
+
+**FORMAT:** Keep each pattern to 2-3 lines. Use **bold** for emphasis only.`
+
+  try {
+    const aiResponse = await generateTextWithClaude([
+      { role: 'user', content: patternsPrompt }
+    ], {
+      maxTokens: 1500,
+      temperature: 0.2
+    })
+
+    return NextResponse.json({
+      phase: 'analyze-patterns',
+      content: aiResponse,
+      nextPhase: 'analyze-actions',
+      progress: 90
+    })
+
+  } catch (error) {
+    console.error('Pattern analysis failed:', error)
+    throw new Error('Failed to analyze patterns')
+  }
+}
+
+// PHASE 4C: Analyze Actions - Generate actionable recommendations (medium, ~15-20 seconds)
+async function handleAnalyzeActionsPhase(query: string, timeframe: string, context: any) {
+  console.log('🎯 Phase 4C: Generating actionable recommendations...')
+  
+  const { statistics, enrichedContext } = context
+  
+  if (!statistics || !enrichedContext) {
+    throw new Error('Missing required context for action recommendations phase')
+  }
+
+  // Build sample defect titles for context
+  let sampleDefectTitles = ''
+  if (statistics.allDefects && statistics.allDefects.length > 0) {
+    const topComponentDefects = statistics.allDefects
+      .filter((d: any) => d.component === statistics.defectsByComponent[0]?.component)
+      .slice(0, 5)
+      .map((d: any) => `"${d.title}"`)
+      .join(', ')
+    
+    sampleDefectTitles = topComponentDefects ? `Sample defects from ${statistics.defectsByComponent[0]?.component}: ${topComponentDefects}` : ''
+  }
+
+  const actionsPrompt = `You are an Action Intelligence System. Generate specific, actionable recommendations based on defect analysis.
+
+**DEFECT ANALYSIS CONTEXT (${statistics.timeframeLabel}):**
+- Total Defects: ${statistics.totalDefects}
+- Top Problem Components: ${JSON.stringify(statistics.defectsByComponent.slice(0, 3).map((c: any) => `${c.component}: ${c._count.id} defects`))}
+- Critical Patterns: ${JSON.stringify(statistics.defectPatterns.slice(0, 3).map((p: any) => `${p.rootCause}: ${p._count.id} occurrences`))}
+- Timeframe: ${timeframe}
+
+**ACTUAL DEFECT EXAMPLES:**
+${sampleDefectTitles || 'No specific defect examples available for this timeframe'}
+
+**GENERATE ACTION INTELLIGENCE:**
+
+## Immediate Actions (This Week)
+1. Assign dedicated QA team to ${statistics.defectsByComponent[0] || 'top component'} - Start Monday
+2. Implement emergency hotfix for critical ${statistics.defectPatterns[0] || 'pattern'} issues - 48 hours
+3. Conduct root cause analysis session with engineering leads - Friday
+
+## Short-term Actions (1-3 Months)
+1. Deploy enhanced testing automation for ${statistics.defectsByComponent[0] || 'high-risk components'} - Reduce defects by 40%
+2. Implement code review process improvements - Target 30% faster detection
+3. Establish component-specific quality gates - Prevent 60% of recurring issues
+
+## Long-term Actions (6+ Months)
+1. Architect system redesign for ${statistics.defectsByComponent[0] || 'problematic components'} - Eliminate structural issues
+2. Implement predictive quality analytics platform - Proactive defect prevention
+
+## Success Metrics
+- **Defect Reduction**: Target 50% reduction in ${timeframe}
+- **Component Quality**: ${statistics.defectsByComponent[0] || 'Top component'} defects < 10/month
+- **Pattern Elimination**: Zero recurrence of top 3 critical patterns
+
+**FORMAT:** Keep each action to 1 line. Be specific and measurable.`
+
+  try {
+    const aiResponse = await generateTextWithClaude([
+      { role: 'user', content: actionsPrompt }
+    ], {
+      maxTokens: 800,
+      temperature: 0.3
+    })
+
+    return NextResponse.json({
+      phase: 'analyze-actions',
+      content: aiResponse,
+      nextPhase: 'analyze-complete',
+      progress: 95
+    })
+
+  } catch (error) {
+    console.error('Action analysis failed:', error)
+    throw new Error('Failed to generate action recommendations')
+  }
+}
+
+// PHASE 4D: Analyze Complete - Combine all results and generate final context
+async function handleAnalyzeCompletePhase(query: string, timeframe: string, context: any) {
+  console.log('✅ Phase 4D: Finalizing complete analysis...')
+  
+  const { statistics, enrichedContext } = context
+  
+  // Build comprehensive context for final response
+  const contextData = {
+    query,
+    timeframe,
+    ...statistics,
+    semanticResults: enrichedContext || [],
+    relevantDefects: (enrichedContext || []).filter((r: any) => r.type === 'defect' && r.entityData).map((r: any) => r.entityData),
+    relatedUserStories: (enrichedContext || []).filter((r: any) => r.type === 'user_story' && r.entityData).map((r: any) => r.entityData),
+    relatedTestCases: (enrichedContext || []).filter((r: any) => r.type === 'test_case' && r.entityData).map((r: any) => r.entityData)
+  }
+
+  return NextResponse.json({
+    phase: 'analyze-complete',
+    query,
+    timeframe,
+    message: "Analysis complete! All sections have been generated progressively.",
+    ragContext: {
+      semanticResultsCount: (enrichedContext || []).length,
+      relevantDefectsFound: contextData.relevantDefects.length,
+      relatedUserStoriesFound: contextData.relatedUserStories.length,
+      relatedTestCasesFound: contextData.relatedTestCases.length,
+      totalDefects: statistics.totalDefects,
+      defectTitlesAnalyzed: statistics.defectTitlesCount || 0,
+      richContextUsed: statistics.allDefects ? true : false,
+      topComponents: (statistics.defectsByComponent || []).slice(0, 3).map((c: any) => c.component), // Extract component names
+      topPatterns: (statistics.defectPatterns || []).slice(0, 3).map((p: any) => p.rootCause) // Extract pattern names
+    },
+    progress: 100,
+    completed: true
+  })
 } 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { Brain, AlertTriangle, TrendingUp, Target, Shield, TestTube, Lightbulb, RefreshCw, Download, Copy, ChevronDown, ChevronRight, Save, History, Clock, Trash2, Info } from 'lucide-react'
 
 interface DefectPattern {
@@ -42,25 +43,19 @@ interface DefectPatternsAnalysisProps {
   component?: string
 }
 
-export default function DefectPatternsAnalysis({ timeframe = 'last_90_days', component }: DefectPatternsAnalysisProps) {
+export default function DefectPatternsAnalysis({ timeframe = '90d', component }: DefectPatternsAnalysisProps) {
   const [analysis, setAnalysis] = useState<DefectPatternAnalysis | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [preprocessingComplete, setPreprocessingComplete] = useState(false)
   const [expandedPatterns, setExpandedPatterns] = useState<Set<string>>(new Set())
-  const [selectedSeverity, setSelectedSeverity] = useState<string>('all')
-  const [savedAnalyses, setSavedAnalyses] = useState<Array<{
-    id: string
-    title: string
-    content: string
-    timestamp: string
-    timeframe: string
-    component: string
-    severity: string
-    patternsCount: number
-  }>>([])
+  const [selectedSeverity, setSelectedSeverity] = useState('all')
+  const [savedAnalyses, setSavedAnalyses] = useState<any[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [showCostTooltip, setShowCostTooltip] = useState(false)
+  const [currentPhase, setCurrentPhase] = useState('')
+  const [phaseProgress, setPhaseProgress] = useState(0)
+  const [renderKey, setRenderKey] = useState(0) // Force re-renders
   const [processingMetrics, setProcessingMetrics] = useState<{
     totalDefects: number
     qualityScore: number
@@ -70,110 +65,480 @@ export default function DefectPatternsAnalysis({ timeframe = 'last_90_days', com
     samplingDetails?: any
   } | null>(null)
 
+  // Create proper timeframe label
+  const timeframeLabel = timeframe === '30d' ? 'Last 30 days' :
+                        timeframe === '90d' ? 'Last 90 days' :
+                        timeframe === '1y' ? 'Last year' :
+                        timeframe === 'all' ? 'All time' :
+                        timeframe || 'Unknown timeframe'
+
   const analyzePatterns = async () => {
+    // Prevent duplicate calls
+    if (isAnalyzing) {
+      console.log('⏸️ Analysis already in progress, skipping duplicate call')
+      return
+    }
+    
     setIsAnalyzing(true)
     setError(null)
-    setProcessingMetrics(null)
+    setAnalysis(null)
     setPreprocessingComplete(false)
-    
+    setProcessingMetrics(null)
+    setCurrentPhase('Phase 1: Database Analysis')
+    setPhaseProgress(10)
+
     try {
-      console.log('🔍 Starting defect pattern analysis...')
-      console.log('🔍 Current timeframe:', timeframe)
-      console.log('🔍 Current component:', component)
-      console.log('🔍 Current severity:', selectedSeverity)
+      // PHASE 1: Initialize - Get basic statistics (fast, ~2-5 seconds)
+      console.log('🚀 Phase 1: Database Analysis')
       
-      const timeRangeMap: Record<string, number> = {
-        'last_30_days': 30,
-        'last_60_days': 60,
-        'last_90_days': 90,
-        'last_180_days': 180,
-        'last_year': 365,
-        'all': 36500 // ~100 years - triggers "all time" analysis with smart sampling
-      }
-      
-      const timeRangeValue = timeRangeMap[timeframe] || 90
-      console.log('🔍 Mapped time range value:', timeRangeValue)
-      console.log('🔍 Should trigger All Time analysis:', timeRangeValue >= 36500)
-
-      // PHASE 1: Quick preprocessing to get metrics immediately (prevents timeout)
-      console.log('⚡ Phase 1: Getting quick preprocessing metrics...')
-      
-      const preprocessingResponse = await fetch('/api/analyze/defect-patterns-ai/preprocessing', {
+      const phase1Response = await fetch('/api/analytics/defects/query', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          component: component || 'all',
-          timeRange: timeRangeValue,
-          severity: selectedSeverity === 'all' ? null : selectedSeverity
+          query: `analyze defect patterns for ${component || 'all components'} in ${timeframe}`,
+          timeframe: timeframe,
+          phase: 'init'
         })
       })
 
-      if (preprocessingResponse.ok) {
-        const preprocessingData = await preprocessingResponse.json()
-        console.log('✅ Preprocessing completed:', preprocessingData)
+      if (!phase1Response.ok) {
+        throw new Error(`Phase 1 failed: ${phase1Response.statusText}`)
+      }
+
+      const phase1Data = await phase1Response.json()
+      
+      // Show quick stats
+      if (phase1Data.statistics) {
+        console.log('📊 Phase 1 Statistics received:', phase1Data.statistics)
+        console.log('📊 defectsByComponent type:', typeof phase1Data.statistics.defectsByComponent)
+        console.log('📊 defectsByComponent content:', phase1Data.statistics.defectsByComponent)
         
-        if (preprocessingData.success && preprocessingData.metrics) {
-          const metrics = preprocessingData.metrics
-          setProcessingMetrics({
-            totalDefects: metrics.totalDefects,
-            qualityScore: metrics.qualityScore,
-            costImpact: metrics.costImpactEstimate,
-            topComponents: metrics.topProblemAreas.slice(0, 3),
-            samplingStrategy: preprocessingData.samplingInfo.strategy,
-            samplingDetails: preprocessingData.samplingInfo.samplingDetails
-          })
-          setPreprocessingComplete(true)
-          console.log('📊 Preprocessing metrics displayed to user')
+        setProcessingMetrics({
+          totalDefects: phase1Data.statistics.totalDefects,
+          qualityScore: phase1Data.statistics.qualityScore || 0,
+          costImpact: phase1Data.statistics.costImpact || 0,
+          topComponents: phase1Data.statistics.defectsByComponent?.slice(0, 3) || [],
+          samplingStrategy: 'quick_overview',
+          samplingDetails: 'Initial database scan'
+        })
+        setPreprocessingComplete(true)
+      }
+
+      // Small delay to ensure proper sequencing
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // PHASE 2: Semantic Search (10-15 seconds)
+      setCurrentPhase('Phase 2: Semantic Search')
+      setPhaseProgress(30)
+      console.log('🔍 Phase 2: Semantic Search')
+      
+      const phase2Response = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `analyze defect patterns for ${component || 'all components'} in ${timeframe}`,
+          timeframe: timeframe,
+          phase: 'semantic',
+          context: phase1Data
+        })
+      })
+
+      if (!phase2Response.ok) {
+        throw new Error(`Phase 2 failed: ${phase2Response.statusText}`)
+      }
+
+      const phase2Data = await phase2Response.json()
+      
+      // Small delay between phases
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // PHASE 3: Context Enrichment (15-20 seconds)
+      setCurrentPhase('Phase 3: Context Enrichment')
+      setPhaseProgress(50)
+      console.log('📊 Phase 3: Context Enrichment')
+      
+      const phase3Response = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `analyze defect patterns for ${component || 'all components'} in ${timeframe}`,
+          timeframe: timeframe,
+          phase: 'enrich',
+          context: { ...phase1Data, ...phase2Data }
+        })
+      })
+
+      if (!phase3Response.ok) {
+        throw new Error(`Phase 3 failed: ${phase3Response.statusText}`)
+      }
+
+      const phase3Data = await phase3Response.json()
+
+      // Small delay between phases
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // PHASE 4A: AI Overview (10-15 seconds)
+      setCurrentPhase('Phase 4A: Executive Overview')
+      setPhaseProgress(70)
+      console.log('🧠 Phase 4A: AI Overview')
+      
+      const phase4aResponse = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `analyze defect patterns for ${component || 'all components'} in ${timeframe}`,
+          timeframe: timeframe,
+          phase: 'analyze-overview',
+          context: { ...phase1Data, ...phase2Data, ...phase3Data }
+        })
+      })
+
+      if (!phase4aResponse.ok) {
+        throw new Error(`Phase 4A failed: ${phase4aResponse.statusText}`)
+      }
+
+      const phase4aData = await phase4aResponse.json()
+      
+      // Show first AI results immediately
+      if (phase4aData.content) {
+        console.log('📊 Phase 4A: Setting initial analysis with overview:', phase4aData.content.substring(0, 100) + '...')
+        // Create a basic analysis structure to show initial results
+        const initialAnalysis = {
+          patterns: [],
+          insights: {
+            overallTrend: phase4aData.content,
+            riskAssessment: 'Generating detailed pattern analysis...',
+            priorityActions: ['Pattern analysis in progress...'],
+            qualityMetrics: {
+              patternDiversity: 0,
+              componentCoverage: 0,
+              severityDistribution: {}
+            }
+          },
+          recommendations: {
+            immediate: ['Generating immediate actions...'],
+            shortTerm: ['Generating short-term strategy...'],
+            longTerm: ['Generating long-term roadmap...']
+          }
         }
-      } else {
-        console.warn('⚠️ Preprocessing failed, continuing with full analysis')
+        setAnalysis(initialAnalysis)
+        console.log('📊 Analysis state updated with initial results')
+        
+        // Force a re-render by updating render key
+        setRenderKey(prev => prev + 1)
+        setPhaseProgress(75)
       }
 
-      // PHASE 2: Full AI analysis (now with preprocessing metrics already displayed)
-      console.log('🤖 Phase 2: Starting full AI analysis...')
+      // Small delay between phases
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // PHASE 4B: Pattern Analysis (15-20 seconds)
+      setCurrentPhase('Phase 4B: Pattern Analysis')
+      setPhaseProgress(85)
+      console.log('🔍 Phase 4B: Pattern Analysis')
       
-      const response = await fetch('/api/analyze/defect-patterns-ai', {
+      const phase4bResponse = await fetch('/api/analytics/defects/query', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          component: component || 'all',
-          timeRange: timeRangeValue,
-          severity: selectedSeverity === 'all' ? null : selectedSeverity,
-          includeResolved: true
+          query: `analyze defect patterns for ${component || 'all components'} in ${timeframe}`,
+          timeframe: timeframe,
+          phase: 'analyze-patterns',
+          context: { ...phase1Data, ...phase2Data, ...phase3Data, ...phase4aData }
         })
       })
 
-      if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.statusText}`)
+      if (!phase4bResponse.ok) {
+        throw new Error(`Phase 4B failed: ${phase4bResponse.statusText}`)
       }
 
-      const data = await response.json()
+      const phase4bData = await phase4bResponse.json()
       
-      console.log('🔍 Full AI Analysis Response structure:')
-      console.log('  - Has metadata:', !!data.metadata)
-      console.log('  - Has managerMetrics:', !!(data.metadata && data.metadata.managerMetrics))
-      console.log('  - Has totalDefectsInPeriod:', !!(data.metadata && data.metadata.totalDefectsInPeriod))
-      console.log('  - Sampling strategy:', data.metadata?.samplingStrategy)
-      
-      if (data.success && data.analysis) {
-        setAnalysis(data.analysis)
-        console.log('✅ Full pattern analysis completed:', data.analysis)
-        
-        // Auto-save the analysis to localStorage
-        saveAnalysisToStorage(data.analysis)
-      } else {
-        throw new Error(data.error || 'Analysis failed')
+      // Update analysis with pattern data using functional state update
+      if (phase4bData.content) {
+        console.log('🔍 Phase 4B: Updating analysis with pattern data:', phase4bData.content.substring(0, 100) + '...')
+        setAnalysis(prevAnalysis => {
+          if (!prevAnalysis) return prevAnalysis
+          
+                    // Parse patterns from the AI response - use real database statistics
+          const parsePatterns = (content: string, realStats: any): DefectPattern[] => {
+            const patterns: DefectPattern[] = []
+            console.log('🔍 Parsing patterns from content with real stats:', content.substring(0, 200) + '...')
+            console.log('🔍 Real stats available:', realStats)
+            
+            // Look for patterns in the "Critical Patterns Identified" section
+            const criticalPatternsMatch = content.match(/## Critical Patterns Identified([\s\S]*?)(?=##|$)/i)
+            if (!criticalPatternsMatch) {
+              console.log('❌ No "Critical Patterns Identified" section found')
+              return patterns
+            }
+            
+            const patternsSection = criticalPatternsMatch[1]
+            console.log('🔍 Found patterns section:', patternsSection.substring(0, 200) + '...')
+            
+            // Split by pattern entries (looking for **1. or **2. etc.)
+            const patternMatches = patternsSection.match(/\*\*\d+\.\s*([^*]+?)\s*-\s*Risk:\s*(HIGH|MEDIUM|LOW)\*\*[\s\S]*?(?=\*\*\d+\.|$)/gi)
+            
+            if (!patternMatches) {
+              console.log('❌ No pattern matches found with regex')
+              // Fallback: create patterns from real database statistics
+              if (realStats?.defectPatterns) {
+                return realStats.defectPatterns.slice(0, 10).map((pattern: any, index: number) => ({
+                  id: `pattern-${index + 1}`,
+                  name: pattern.rootCause || `Pattern ${index + 1}`,
+                  description: `Root cause pattern identified in ${pattern._count?.id || 0} defects`,
+                  severity: 'High' as 'Critical' | 'High' | 'Medium' | 'Low',
+                  frequency: pattern._count?.id || 0,
+                  affectedComponents: realStats.defectsByComponent?.slice(0, 3).map((c: any) => c.component) || ['Multiple Components'],
+                  rootCauses: [pattern.rootCause || 'Unknown cause'],
+                  businessImpact: 'Business impact assessment pending',
+                  preventionStrategy: 'Review detailed analysis for prevention strategies',
+                  testingRecommendations: ['Enhanced testing protocols'],
+                  relatedDefects: [],
+                  confidence: 0.85
+                }))
+              }
+              return []
+            }
+            
+            console.log(`🔍 Found ${patternMatches.length} pattern matches`)
+            
+            patternMatches.forEach((match, index) => {
+              console.log(`🔍 Processing pattern ${index + 1}:`, match.substring(0, 100) + '...')
+              
+              // Extract pattern name and risk
+              const nameRiskMatch = match.match(/\*\*\d+\.\s*(.+?)\s*-\s*Risk:\s*(HIGH|MEDIUM|LOW)\*\*/i)
+              if (!nameRiskMatch) return
+              
+              const name = nameRiskMatch[1].trim()
+              const risk = nameRiskMatch[2].toUpperCase()
+              
+              // Use REAL frequency from database statistics instead of parsing AI response
+              let frequency = 0
+              if (realStats?.defectPatterns && realStats.defectPatterns[index]) {
+                frequency = realStats.defectPatterns[index]._count?.id || 0
+              } else if (realStats?.defectsByComponent && realStats.defectsByComponent[index]) {
+                frequency = realStats.defectsByComponent[index]._count?.id || 0
+              } else {
+                // Fallback: extract from AI if available, otherwise use realistic estimate
+                const freqMatch = match.match(/Frequency:\s*(\d+)/i)
+                frequency = freqMatch ? parseInt(freqMatch[1]) : Math.floor(realStats?.totalDefects / 10) || 50
+              }
+              
+              // Extract components from AI or use real component data
+              const compMatch = match.match(/Components:\s*([^\n]+)/i)
+              let components = []
+              if (compMatch) {
+                components = compMatch[1].split(',').map(c => c.trim())
+              } else if (realStats?.defectsByComponent) {
+                components = realStats.defectsByComponent.slice(0, 3).map((c: any) => c.component)
+              } else {
+                components = ['Documents', 'Activities', 'Mobile']
+              }
+              
+              // Extract business impact
+              const impactMatch = match.match(/Business Impact:\s*([^\n]+)/i)
+              const impact = impactMatch ? impactMatch[1].trim() : 'Business impact assessment pending'
+              
+              const pattern = {
+                id: `pattern-${index + 1}`,
+                name: name,
+                description: impact,
+                severity: (risk === 'HIGH' ? 'High' : risk === 'MEDIUM' ? 'Medium' : 'Low') as 'Critical' | 'High' | 'Medium' | 'Low',
+                frequency: frequency, // Now using REAL numbers from database
+                affectedComponents: Array.isArray(components) ? components : [components],
+                rootCauses: [impact],
+                businessImpact: impact,
+                preventionStrategy: 'Implement enhanced testing and monitoring protocols',
+                testingRecommendations: ['Automated regression testing', 'Component-specific test suites'],
+                relatedDefects: [],
+                confidence: 0.85
+              }
+              
+              patterns.push(pattern)
+              console.log(`✅ Added pattern: ${pattern.name} (${pattern.severity}) - REAL frequency: ${frequency}`)
+            })
+            
+            console.log(`🔍 Successfully parsed ${patterns.length} patterns with REAL frequencies`)
+            return patterns
+          }
+          
+          const parsedPatterns = parsePatterns(phase4bData.content, phase1Data.statistics)
+          
+          const updated = {
+            ...prevAnalysis,
+            patterns: parsedPatterns,
+            insights: {
+              ...prevAnalysis.insights,
+              riskAssessment: phase4bData.content,
+              priorityActions: parsedPatterns.length > 0 ? 
+                parsedPatterns.slice(0, 3).map(p => `Address ${p.name} (${p.severity} risk)`) : 
+                ['Review pattern analysis for priority actions']
+            }
+          }
+          console.log('🔍 Pattern analysis state updated with', parsedPatterns.length, 'patterns')
+          // Force re-render
+          setRenderKey(prev => prev + 1)
+          return updated
+        })
       }
+
+      // Small delay between phases
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // PHASE 4C: Action Planning (10-15 seconds)
+      setCurrentPhase('Phase 4C: Action Planning')
+      setPhaseProgress(95)
+      console.log('🎯 Phase 4C: Action Planning')
+      
+      const phase4cResponse = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `analyze defect patterns for ${component || 'all components'} in ${timeframe}`,
+          timeframe: timeframe,
+          phase: 'analyze-actions',
+          context: { ...phase1Data, ...phase2Data, ...phase3Data, ...phase4aData, ...phase4bData }
+        })
+      })
+
+      if (!phase4cResponse.ok) {
+        throw new Error(`Phase 4C failed: ${phase4cResponse.statusText}`)
+      }
+
+      const phase4cData = await phase4cResponse.json()
+      
+      // Update analysis with action recommendations
+      if (phase4cData.content) {
+        console.log('🎯 Phase 4C: Updating analysis with action recommendations:', phase4cData.content.substring(0, 100) + '...')
+        setAnalysis(prevAnalysis => {
+          if (!prevAnalysis) return prevAnalysis
+          
+          // Parse the action recommendations from the AI response - improved parsing
+          const parseActions = (content: string, sectionTitle: string) => {
+            console.log(`🎯 Parsing ${sectionTitle} from content`)
+            
+            // Try multiple section title patterns
+            const patterns = [
+              new RegExp(`## ${sectionTitle}[\\s\\S]*?(?=##|$)`, 'i'),
+              new RegExp(`## ${sectionTitle}\\s*\\([^)]*\\)[\\s\\S]*?(?=##|$)`, 'i'),
+              new RegExp(`# ${sectionTitle}[\\s\\S]*?(?=##|#|$)`, 'i')
+            ]
+            
+            let match = null
+            for (const pattern of patterns) {
+              match = content.match(pattern)
+              if (match) break
+            }
+            
+            if (!match) {
+              console.log(`❌ No section found for ${sectionTitle}`)
+              return [`${sectionTitle} recommendations available in full report`]
+            }
+            
+            console.log(`✅ Found ${sectionTitle} section:`, match[0].substring(0, 100) + '...')
+            
+            // Extract numbered items (1., 2., etc.) or bullet points
+            const lines = match[0].split('\n').filter(line => {
+              const trimmed = line.trim()
+              return trimmed.match(/^\d+\./) || trimmed.match(/^\*\*\d+\./) || trimmed.match(/^-\s/)
+            })
+            
+            const actions = lines.map(line => {
+              // Clean up the line - remove markdown formatting
+              return line.trim()
+                .replace(/^\*\*\d+\.\s*/, '')
+                .replace(/\*\*/g, '')
+                .replace(/^\d+\.\s*/, '')
+                .replace(/^-\s*/, '')
+                .trim()
+            }).filter(action => action.length > 0)
+            
+            console.log(`✅ Parsed ${actions.length} actions for ${sectionTitle}`)
+            return actions.length > 0 ? actions : [`${sectionTitle} recommendations available in full report`]
+          }
+          
+          const updated = {
+            ...prevAnalysis,
+            recommendations: {
+              immediate: parseActions(phase4cData.content, 'Immediate Actions'),
+              shortTerm: parseActions(phase4cData.content, 'Short-term Actions'),
+              longTerm: parseActions(phase4cData.content, 'Long-term Actions')
+            }
+          }
+          console.log('🎯 Action recommendations state updated')
+          // Force re-render
+          setRenderKey(prev => prev + 1)
+          return updated
+        })
+      }
+
+      // Small delay before final phase
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // PHASE 5: Finalization (5 seconds)
+      setCurrentPhase('Phase 5: Finalizing')
+      setPhaseProgress(100)
+      console.log('✅ Phase 5: Finalizing')
+      
+      const finalResponse = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `analyze defect patterns for ${component || 'all components'} in ${timeframe}`,
+          timeframe: timeframe,
+          phase: 'analyze-complete',
+          context: { ...phase1Data, ...phase2Data, ...phase3Data, ...phase4aData, ...phase4bData, ...phase4cData }
+        })
+      })
+
+      if (!finalResponse.ok) {
+        throw new Error(`Final phase failed: ${finalResponse.statusText}`)
+      }
+
+      const finalData = await finalResponse.json()
+      
+      // Preserve the current analysis state instead of overwriting it
+      setAnalysis(prevAnalysis => {
+        if (!prevAnalysis) {
+          // If no previous analysis, create a basic one
+          return {
+            patterns: [],
+            insights: {
+              overallTrend: phase4aData.content || 'Analysis completed',
+              riskAssessment: phase4bData.content || 'Risk assessment completed',
+              priorityActions: ['Review analysis results'],
+              qualityMetrics: {
+                patternDiversity: 0,
+                componentCoverage: 0,
+                severityDistribution: {}
+              }
+            },
+            recommendations: {
+              immediate: ['Analysis completed - check detailed sections'],
+              shortTerm: ['Review recommendations in detail'],
+              longTerm: ['Implement long-term improvements']
+            }
+          }
+        }
+        
+        // Keep the existing analysis as it has been progressively built
+        return prevAnalysis
+      })
+      console.log('✅ Progressive pattern analysis completed')
+      
+      // Auto-save the current analysis to localStorage
+      if (analysis) {
+        saveAnalysisToStorage(analysis)
+      }
+
     } catch (error) {
-      console.error('❌ Pattern analysis error:', error)
+      console.error('❌ Progressive pattern analysis error:', error)
       setError(error instanceof Error ? error.message : 'Analysis failed')
     } finally {
       setIsAnalyzing(false)
-      // Keep processingMetrics visible even after completion
+      setCurrentPhase('')
+      setPhaseProgress(0)
     }
   }
 
@@ -189,17 +554,14 @@ export default function DefectPatternsAnalysis({ timeframe = 'last_90_days', com
     }
   }, [])
 
-  useEffect(() => {
-    analyzePatterns()
-  }, [timeframe, component, selectedSeverity])
+  // Remove automatic analysis trigger to prevent duplicate calls
+  // Users will need to click the "Analyze Patterns" button to start analysis
 
   // Save analysis to localStorage
   const saveAnalysisToStorage = (analysisData: DefectPatternAnalysis) => {
-    const timeframeLabel = timeframe === 'last_30_days' ? 'Last 30 days' :
-                          timeframe === 'last_60_days' ? 'Last 60 days' :
-                          timeframe === 'last_90_days' ? 'Last 90 days' :
-                          timeframe === 'last_180_days' ? 'Last 180 days' :
-                          timeframe === 'last_year' ? 'Last year' :
+    const timeframeLabel = timeframe === '30d' ? 'Last 30 days' :
+                          timeframe === '90d' ? 'Last 90 days' :
+                          timeframe === '1y' ? 'Last year' :
                           timeframe === 'all' ? 'All time' : timeframe
 
     const componentLabel = component || 'All Components'
@@ -543,28 +905,39 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
             AI Analyzing Defect Patterns...
           </h3>
           <p className="text-gray-600 dark:text-gray-300 mb-4">
-            {!preprocessingComplete ? (
-              <>
-                ⚡ Phase 1: Quick preprocessing to calculate metrics
-                {timeframe === 'all' && (
-                  <span className="block mt-2 text-sm text-blue-600 dark:text-blue-400 font-medium">
-                    🎯 All Time Analysis Mode - Enhanced preprocessing active
+            <span className="block text-sm font-medium text-blue-600 dark:text-blue-400">
+              ⚡ Progressive Analysis System - Results appear as they're ready!
+            </span>
+            <span className="block mt-2 text-sm">
+              {currentPhase ? (
+                <>
+                  {currentPhase} ({Math.round(phaseProgress)}% complete)
+                  <span className="block mt-1 text-xs text-green-600 dark:text-green-400">
+                    {phaseProgress > 10 && "✅ Database stats ready"} 
+                    {phaseProgress > 50 && " • Context gathered"} 
+                    {phaseProgress > 70 && " • AI analysis started"}
                   </span>
-                )}
-              </>
-            ) : (
-              <>
-                🤖 Phase 2: Claude 4 analyzing patterns using RAG
-                <span className="block mt-2 text-sm text-green-600 dark:text-green-400 font-medium">
-                  ✅ Preprocessing complete - Metrics calculated in ~5 seconds
-                </span>
-              </>
-            )}
+                </>
+              ) : (
+                <>
+                  🚀 Initializing progressive analysis...
+                </>
+              )}
+            </span>
           </p>
+          
+          {/* Progress Bar */}
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${phaseProgress}%` }}
+            />
+          </div>
+          
           <div className="flex items-center justify-center space-x-2 mb-6">
             <RefreshCw className="h-4 w-4 animate-spin text-indigo-600" />
             <span className="text-sm text-indigo-600">
-              {!preprocessingComplete ? 'Calculating database metrics...' : 'AI analyzing patterns...'}
+              {currentPhase ? currentPhase : 'Initializing...'}
             </span>
           </div>
           
@@ -604,32 +977,30 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
                   <div className="text-gray-600 dark:text-gray-400">Cost Impact</div>
                   
                   {/* Cost Explanation Tooltip */}
-                  {showCostTooltip && (
+                  {showCostTooltip && processingMetrics && (
                     <div className="absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-80 p-4 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg">
-                      <div className="font-medium mb-2">💰 Cost Calculation Method</div>
+                      <div className="font-medium mb-2">💰 Severity-Based Cost Calculation</div>
                       <div className="space-y-2 text-xs">
-                        <div className="flex justify-between">
-                          <span>Developer hours per defect:</span>
-                          <span className="font-medium">8 hours</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Average hourly rate:</span>
-                          <span className="font-medium">£75/hour</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>Critical: 16h × £75</div>
+                          <div>High: 8h × £75</div>
+                          <div>Medium: 4h × £75</div>
+                          <div>Low: 2h × £75</div>
                         </div>
                         <div className="border-t border-gray-600 pt-2">
                           <div className="flex justify-between font-medium">
-                            <span>Total defects × 8h × £75:</span>
+                            <span>{processingMetrics.totalDefects} defects ({timeframeLabel}):</span>
                             <span>£{processingMetrics.costImpact.toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
                       <div className="mt-3 pt-2 border-t border-gray-600 text-xs text-gray-300">
-                        <div className="font-medium mb-1">Includes:</div>
+                        <div className="font-medium mb-1">Realistic methodology includes:</div>
                         <ul className="list-disc list-inside space-y-1">
+                          <li>Severity-based effort estimation</li>
                           <li>Investigation & reproduction time</li>
                           <li>Development & testing of fixes</li>
                           <li>Code review & deployment</li>
-                          <li>Regression testing overhead</li>
                         </ul>
                       </div>
                       {/* Tooltip arrow */}
@@ -651,14 +1022,20 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
                     Top Problem Areas:
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {processingMetrics.topComponents.map((component, index) => (
-                      <span 
-                        key={index}
-                        className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded text-xs"
-                      >
-                        {component}
-                      </span>
-                    ))}
+                    {processingMetrics.topComponents.map((component, index) => {
+                      const componentName = typeof component === 'string' 
+                        ? component 
+                        : (component as any)?.component || 'Unknown'
+                      
+                      return (
+                        <span 
+                          key={index}
+                          className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded text-xs"
+                        >
+                          {componentName}
+                        </span>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -669,15 +1046,7 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
                 </div>
                 {processingMetrics.samplingDetails && (
                   <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                    {processingMetrics.samplingDetails.criticalDefects > 0 && (
-                      <span className="mr-3">Critical: {processingMetrics.samplingDetails.criticalDefects}</span>
-                    )}
-                    {processingMetrics.samplingDetails.highDefects > 0 && (
-                      <span className="mr-3">High: {processingMetrics.samplingDetails.highDefects}</span>
-                    )}
-                    {processingMetrics.samplingDetails.componentsCovered > 0 && (
-                      <span>Components: {processingMetrics.samplingDetails.componentsCovered}</span>
-                    )}
+                    Initial database scan - Results updating progressively
                   </div>
                 )}
               </div>
@@ -688,22 +1057,23 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
     )
   }
 
-  if (!analysis) {
+  if (!analysis && !isAnalyzing) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8">
         <div className="text-center">
           <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No Analysis Available
+            AI-Powered Defect Pattern Analysis
           </h3>
           <p className="text-gray-600 dark:text-gray-300 mb-4">
-            Click the button below to start AI-powered defect pattern analysis
+            Click the button below to start progressive AI analysis with Claude 4 + RAG
           </p>
           <button
             onClick={analyzePatterns}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center mx-auto"
           >
-            Start Analysis
+            <Brain className="h-5 w-5 mr-2" />
+            Start Progressive Analysis
           </button>
         </div>
       </div>
@@ -711,7 +1081,7 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
   }
 
   return (
-    <div className="relative">
+    <div key={renderKey} className="relative">
       {/* History Sidebar */}
       {showHistory && (
         <div className="fixed inset-0 z-50 overflow-hidden">
@@ -813,7 +1183,7 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
                 AI-Powered Defect Pattern Analysis
               </h2>
               <p className="text-gray-600 dark:text-gray-300">
-                {analysis.patterns.length} patterns identified • Powered by Claude 4 + RAG
+                {analysis?.patterns?.length || 0} patterns identified • Powered by Claude 4 + RAG
               </p>
             </div>
           </div>
@@ -887,9 +1257,11 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
                   <p className="text-sm text-gray-600 dark:text-gray-300">Business impact assessment</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-11">
-                {analysis.insights.overallTrend}
-              </p>
+              <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-11 prose prose-sm max-w-none dark:prose-invert">
+                <ReactMarkdown>
+                  {analysis?.insights?.overallTrend || 'Initializing analysis...'}
+                </ReactMarkdown>
+              </div>
             </div>
 
             {/* Risk Assessment */}
@@ -903,9 +1275,11 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
                   <p className="text-sm text-gray-600 dark:text-gray-300">Current exposure and impact</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-11">
-                {analysis.insights.riskAssessment}
-              </p>
+              <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-11 prose prose-sm max-w-none dark:prose-invert">
+                <ReactMarkdown>
+                  {analysis?.insights?.riskAssessment || 'Analyzing risk patterns...'}
+                </ReactMarkdown>
+              </div>
             </div>
           </div>
 
@@ -915,15 +1289,15 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  <span className="text-gray-600 dark:text-gray-300">Top {Math.min(10, analysis.patterns.length)} Critical Patterns</span>
+                  <span className="text-gray-600 dark:text-gray-300">Top {Math.min(10, analysis?.patterns?.length || 0)} Critical Patterns</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-gray-600 dark:text-gray-300">{analysis.insights.qualityMetrics.componentCoverage} Components Analyzed</span>
+                  <span className="text-gray-600 dark:text-gray-300">{analysis?.insights?.qualityMetrics?.componentCoverage || 0} Components Analyzed</span>
                 </div>
               </div>
               <div className="text-gray-500 dark:text-gray-400">
-                {Object.values(analysis.insights.qualityMetrics.severityDistribution).reduce((a, b) => a + b, 0)} Total Defects
+                                  {Object.values(analysis?.insights?.qualityMetrics?.severityDistribution || {}).reduce((a, b) => a + b, 0)} Total Defects
               </div>
             </div>
           </div>
@@ -935,7 +1309,7 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Top 10 Critical Patterns ({Math.min(10, analysis.patterns.length)})
+              Top 10 Critical Patterns ({Math.min(10, analysis?.patterns?.length || 0)})
             </h3>
             <span className="text-sm text-gray-500 dark:text-gray-400">
               Ranked by business impact
@@ -943,7 +1317,7 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
           </div>
         </div>
         <div className="p-6 space-y-3">
-          {analysis.patterns.slice(0, 10).map((pattern, index) => (
+          {(analysis?.patterns || []).slice(0, 10).map((pattern, index) => (
             <div key={pattern.id} className="border border-gray-200 dark:border-gray-700 rounded-lg">
               <div 
                 className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
@@ -1057,7 +1431,7 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
             <h3 className="text-lg font-medium text-red-900 dark:text-red-100">Immediate Actions</h3>
           </div>
           <ul className="space-y-2">
-            {analysis.recommendations.immediate.map((action, index) => (
+                          {(analysis?.recommendations?.immediate || []).map((action, index) => (
               <li key={index} className="text-sm text-red-800 dark:text-red-200">
                 • {action}
               </li>
@@ -1071,7 +1445,7 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
             <h3 className="text-lg font-medium text-yellow-900 dark:text-yellow-100">Short-term (1-3 months)</h3>
           </div>
           <ul className="space-y-2">
-            {analysis.recommendations.shortTerm.map((action, index) => (
+                          {(analysis?.recommendations?.shortTerm || []).map((action, index) => (
               <li key={index} className="text-sm text-yellow-800 dark:text-yellow-200">
                 • {action}
               </li>
@@ -1085,7 +1459,7 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
             <h3 className="text-lg font-medium text-green-900 dark:text-green-100">Long-term (6+ months)</h3>
           </div>
           <ul className="space-y-2">
-            {analysis.recommendations.longTerm.map((action, index) => (
+                          {(analysis?.recommendations?.longTerm || []).map((action, index) => (
               <li key={index} className="text-sm text-green-800 dark:text-green-200">
                 • {action}
               </li>
@@ -1095,14 +1469,14 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
       </div>
 
       {/* Priority Actions */}
-      {analysis.insights.priorityActions.length > 0 && (
+              {(analysis?.insights?.priorityActions?.length || 0) > 0 && (
         <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-6">
           <div className="flex items-center mb-3">
             <Target className="h-6 w-6 text-indigo-600 mr-2" />
             <h3 className="text-lg font-medium text-indigo-900 dark:text-indigo-100">Priority Actions</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {analysis.insights.priorityActions.map((action, index) => (
+            {(analysis?.insights?.priorityActions || []).map((action, index) => (
               <div key={index} className="flex items-start">
                 <div className="flex-shrink-0 w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-medium mr-3 mt-0.5">
                   {index + 1}
@@ -1118,25 +1492,71 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
       <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-center mb-4">
           <Info className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Cost Impact Methodology</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Cost Impact Methodology ({timeframeLabel})</h3>
         </div>
+        
+        {/* Display Actual Cost Impact */}
+        {processingMetrics && processingMetrics.costImpact > 0 && (
+          <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-orange-900 dark:text-orange-100 mb-1">Total Cost Impact</h4>
+                <p className="text-sm text-orange-800 dark:text-orange-200">
+                  Based on {processingMetrics.totalDefects} defects ({timeframeLabel})
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                  £{processingMetrics.costImpact.toLocaleString()}
+                </div>
+                <div className="text-xs text-orange-700 dark:text-orange-300">
+                  Severity-based calculation
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-medium text-gray-900 dark:text-white mb-3">💰 Calculation Formula</h4>
+            <h4 className="font-medium text-gray-900 dark:text-white mb-3">💰 Severity-Based Calculation</h4>
             <div className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Developer hours per defect:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">8 hours</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Average hourly rate (UK):</span>
-                  <span className="font-medium text-gray-900 dark:text-white">£75/hour</span>
-                </div>
-                <div className="border-t border-gray-200 dark:border-gray-600 pt-2">
-                  <div className="flex justify-between font-medium">
-                    <span className="text-gray-900 dark:text-white">Total Cost Impact:</span>
-                    <span className="text-orange-600 dark:text-orange-400">Defects × 8h × £75</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white mb-2">Hours per Severity:</div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-red-600 dark:text-red-400">Critical:</span>
+                        <span className="text-gray-900 dark:text-white">16h</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-orange-600 dark:text-orange-400">High:</span>
+                        <span className="text-gray-900 dark:text-white">8h</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-yellow-600 dark:text-yellow-400">Medium:</span>
+                        <span className="text-gray-900 dark:text-white">4h</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-600 dark:text-green-400">Low:</span>
+                        <span className="text-gray-900 dark:text-white">2h</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white mb-2">Rate & Formula:</div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-300">Hourly rate:</span>
+                        <span className="text-gray-900 dark:text-white">£75/hour</span>
+                      </div>
+                      <div className="border-t border-gray-200 dark:border-gray-600 pt-1 mt-2">
+                        <div className="text-xs text-gray-600 dark:text-gray-300">
+                          Sum of: (Count × Hours × £75) for each severity
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1168,8 +1588,9 @@ Long-term: ${analysis.recommendations.longTerm.join(', ')}
             </ul>
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <p className="text-xs text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> This is a conservative estimate based on industry averages. 
-                Actual costs may vary based on defect complexity, system architecture, and team experience.
+                <strong>Realistic Methodology:</strong> This calculation uses severity-based hours per defect instead of a flat 8-hour rate. 
+                Critical defects require more investigation and testing (16h), while low-priority issues are quicker to resolve (2h). 
+                This provides more accurate cost estimates for the selected timeframe ({timeframeLabel}).
               </p>
             </div>
           </div>

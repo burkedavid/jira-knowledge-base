@@ -64,6 +64,8 @@ function DefectQueryInterface({ timeframe, component, onAnalyze }: DefectQueryIn
   const [reportTitle, setReportTitle] = useState('')
   const [analysisContext, setAnalysisContext] = useState<any>(null)
   const [showTransparency, setShowTransparency] = useState(false)
+  const [analysisProgress, setAnalysisProgress] = useState(0)
+  const [currentPhase, setCurrentPhase] = useState('')
 
   // Load saved reports on component mount
   useEffect(() => {
@@ -176,25 +178,7 @@ ${report.response}`
     setAnalysisContext(null)
 
     try {
-      const res = await fetch('/api/analytics/defects/query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: autoQuery,
-          timeframe,
-          component: component || undefined
-        }),
-      })
-
-      if (!res.ok) {
-        throw new Error('Failed to analyze query')
-      }
-
-      const data = await res.json()
-      setResponse(data.analysis)
-      setAnalysisContext(data.ragContext)
+      await handleProgressiveAnalysis(autoQuery)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -212,29 +196,226 @@ ${report.response}`
     setAnalysisContext(null)
 
     try {
-      const res = await fetch('/api/analytics/defects/query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: query.trim(),
-          timeframe,
-          component: component || undefined
-        }),
-      })
-
-      if (!res.ok) {
-        throw new Error('Failed to analyze query')
-      }
-
-      const data = await res.json()
-      setResponse(data.analysis)
-      setAnalysisContext(data.ragContext)
+      await handleProgressiveAnalysis(query.trim())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Progressive Analysis Handler - Breaks large operations into phases
+  const handleProgressiveAnalysis = async (analysisQuery: string) => {
+    let accumulatedContext: any = {}
+    let accumulatedResponse = ""
+    
+    // Reset progress tracking
+    setAnalysisProgress(0)
+    setCurrentPhase('')
+
+    try {
+      // PHASE 1: Initialize - Get basic statistics (fast, ~2-5 seconds)
+      setCurrentPhase('Phase 1: Database Analysis')
+      setAnalysisProgress(5)
+      setResponse("🚀 **Phase 1/7**: Analyzing database statistics and baseline metrics...\n\n⏱️ Estimated time: 5 seconds")
+      
+      const phase1Response = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: analysisQuery,
+          timeframe,
+          component: component || undefined,
+          phase: 'init'
+        }),
+      })
+
+      if (!phase1Response.ok) {
+        throw new Error('Phase 1 failed: Unable to get basic statistics')
+      }
+
+      const phase1Data = await phase1Response.json()
+      accumulatedContext.statistics = phase1Data.statistics
+      setAnalysisProgress(15)
+
+      // Update UI with Phase 1 results
+      setResponse(`✅ **Phase 1/7 Complete**: Database statistics collected\n\n📊 **Quick Stats**: ${phase1Data.statistics.totalDefects} defects analyzed\n\n🔄 **Phase 2/7**: Performing semantic search across knowledge base...\n\n⏱️ Estimated time: 10 seconds`)
+
+      // PHASE 2: Semantic Search - Get relevant context (medium speed, ~5-15 seconds)
+      setCurrentPhase('Phase 2: Semantic Search')
+      setAnalysisProgress(25)
+      
+      const phase2Response = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: analysisQuery,
+          timeframe,
+          phase: 'semantic'
+        }),
+      })
+
+      if (!phase2Response.ok) {
+        throw new Error('Phase 2 failed: Semantic search unsuccessful')
+      }
+
+      const phase2Data = await phase2Response.json()
+      accumulatedContext.semanticResults = phase2Data.semanticResults
+      setAnalysisProgress(35)
+
+      // Update UI with Phase 2 results
+      setResponse(`✅ **Phase 1/7 Complete**: Database statistics collected\n✅ **Phase 2/7 Complete**: Semantic search found ${phase2Data.semanticResults.length} relevant items\n\n🔄 **Phase 3/7**: Enriching context with detailed entity data...\n\n⏱️ Estimated time: 15 seconds`)
+
+      // PHASE 3: Enrich - Process semantic results in chunks (slower, ~10-25 seconds)
+      setCurrentPhase('Phase 3: Context Enrichment')
+      setAnalysisProgress(45)
+      
+      const phase3Response = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: analysisQuery,
+          timeframe,
+          phase: 'enrich',
+          context: { semanticResults: phase2Data.semanticResults }
+        }),
+      })
+
+      if (!phase3Response.ok) {
+        throw new Error('Phase 3 failed: Context enrichment unsuccessful')
+      }
+
+      const phase3Data = await phase3Response.json()
+      accumulatedContext.enrichedContext = phase3Data.enrichedContext
+      setAnalysisProgress(55)
+
+      // Update UI with Phase 3 results
+      setResponse(`✅ **Phase 1/7 Complete**: Database statistics collected\n✅ **Phase 2/7 Complete**: Semantic search found ${phase2Data.semanticResults.length} relevant items\n✅ **Phase 3/7 Complete**: Context enriched with ${phase3Data.enrichedContext.length} detailed entities\n\n🤖 **Phase 4/7**: Generating executive overview...\n\n⏱️ Estimated time: 15 seconds`)
+
+      // PHASE 4A: Analyze Overview - Generate executive summary (fast, ~10-15 seconds)
+      setCurrentPhase('Phase 4: Executive Overview')
+      setAnalysisProgress(65)
+      
+      const phase4aResponse = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: analysisQuery,
+          timeframe,
+          phase: 'analyze-overview',
+          context: accumulatedContext
+        }),
+      })
+
+      if (!phase4aResponse.ok) {
+        throw new Error('Phase 4A failed: Overview generation unsuccessful')
+      }
+
+      const phase4aData = await phase4aResponse.json()
+      accumulatedResponse += phase4aData.content + "\n\n---\n\n"
+      setAnalysisProgress(70)
+
+      // Show first results!
+      setResponse(accumulatedResponse + "🔄 **Phase 5/7**: Analyzing defect patterns and hotspots...\n\n⏱️ Estimated time: 20 seconds")
+
+      // PHASE 4B: Analyze Patterns - Focus on defect patterns (medium, ~15-20 seconds)
+      setCurrentPhase('Phase 5: Pattern Analysis')
+      setAnalysisProgress(75)
+      
+      const phase4bResponse = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: analysisQuery,
+          timeframe,
+          phase: 'analyze-patterns',
+          context: accumulatedContext
+        }),
+      })
+
+      if (!phase4bResponse.ok) {
+        throw new Error('Phase 4B failed: Pattern analysis unsuccessful')
+      }
+
+      const phase4bData = await phase4bResponse.json()
+      accumulatedResponse += phase4bData.content + "\n\n---\n\n"
+      setAnalysisProgress(85)
+
+      // Show updated results!
+      setResponse(accumulatedResponse + "🔄 **Phase 6/7**: Generating actionable recommendations...\n\n⏱️ Estimated time: 15 seconds")
+
+      // PHASE 4C: Analyze Actions - Generate actionable recommendations (medium, ~15-20 seconds)
+      setCurrentPhase('Phase 6: Action Planning')
+      setAnalysisProgress(90)
+      
+      const phase4cResponse = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: analysisQuery,
+          timeframe,
+          phase: 'analyze-actions',
+          context: accumulatedContext
+        }),
+      })
+
+      if (!phase4cResponse.ok) {
+        throw new Error('Phase 4C failed: Action planning unsuccessful')
+      }
+
+      const phase4cData = await phase4cResponse.json()
+      accumulatedResponse += phase4cData.content + "\n\n---\n\n"
+      setAnalysisProgress(95)
+
+      // Show final results building up!
+      setResponse(accumulatedResponse + "✅ **Phase 7/7**: Finalizing comprehensive analysis...\n\n⏱️ Estimated time: 5 seconds")
+
+      // PHASE 4D: Analyze Complete - Finalize
+      setCurrentPhase('Phase 7: Finalization')
+      setAnalysisProgress(98)
+      
+      const phase4dResponse = await fetch('/api/analytics/defects/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: analysisQuery,
+          timeframe,
+          phase: 'analyze-complete',
+          context: accumulatedContext
+        }),
+      })
+
+      if (!phase4dResponse.ok) {
+        throw new Error('Phase 4D failed: Finalization unsuccessful')
+      }
+
+      const phase4dData = await phase4dResponse.json()
+      
+      // Final results - remove the loading message and show complete analysis
+      setAnalysisProgress(100)
+      setCurrentPhase('Complete')
+      setResponse(accumulatedResponse.replace(/🔄.*?\n\n⏱️.*?\n\n/g, '') + "✅ **Analysis Complete!** All insights generated successfully.")
+      setAnalysisContext(phase4dData.ragContext)
+
+    } catch (error) {
+      console.error('Progressive analysis error:', error)
+      
+      // Enhanced error handling with recovery suggestions
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      
+      setError(`⚠️ **Analysis Error**: ${errorMessage}
+      
+**Recovery Options:**
+- Try a shorter, more specific query
+- Select a smaller timeframe (30d or 90d instead of "all time")
+- Check your internet connection and try again
+- Contact support if the issue persists
+
+**Technical Details:**
+- Progress: ${analysisProgress}% complete when error occurred
+- Current phase: ${currentPhase}`)
+      
+      throw error
     }
   }
 
@@ -262,6 +443,20 @@ ${report.response}`
   }
 
   const exampleQueries = getContextualQueries(timeframe)
+
+  // Progress Bar Component
+  const ProgressBar = ({ progress, phase }: { progress: number, phase: string }) => (
+    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-4">
+      <div 
+        className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500 ease-out flex items-center justify-end pr-2"
+        style={{ width: `${Math.max(progress, 5)}%` }}
+      >
+        <span className="text-xs font-medium text-white opacity-90">
+          {progress}%
+        </span>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
@@ -542,18 +737,57 @@ ${report.response}`
                   </div>
                 </div>
                 
-                {analysisContext.topComponents && analysisContext.topComponents.length > 0 && (
-                  <div className="mt-4">
-                    <p className="font-medium text-green-900 dark:text-green-100 mb-2">Top Components Analyzed:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {analysisContext.topComponents.map((comp: any, index: number) => (
-                        <span key={index} className="px-2 py-1 bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded text-xs">
-                          {comp.component}: {comp.count} defects
+                {/* Enhanced Context Information */}
+                <div className="mt-4 space-y-3">
+                  {/* Rich Context Indicator */}
+                  {analysisContext.richContextUsed && (
+                    <div className="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                          🎯 Rich Context Analysis Active
                         </span>
-                      ))}
+                      </div>
+                      <div className="text-sm text-blue-800 dark:text-blue-200">
+                        <span className="font-medium">{analysisContext.defectTitlesAnalyzed || 0}</span> defect titles analyzed for better pattern recognition
+                        {analysisContext.defectTitlesAnalyzed === 0 && (
+                          <span className="text-xs text-blue-600 dark:text-blue-300 ml-2">
+                            (Using 'All time' - statistical analysis only)
+                          </span>
+                        )}
+                      </div>
                     </div>
+                  )}
+                  
+                  {/* Component Analysis */}
+                  {analysisContext.topComponents && analysisContext.topComponents.length > 0 && (
+                    <div className="mt-4">
+                      <p className="font-medium text-green-900 dark:text-green-100 mb-2">Top Components Analyzed:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {analysisContext.topComponents.map((comp: any, index: number) => (
+                          <span key={index} className="px-2 py-1 bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded text-xs">
+                            {comp}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Analysis Quality Indicator */}
+                  <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                    <span>Analysis Quality:</span>
+                    <span className={`font-medium ${
+                      analysisContext.richContextUsed ? 
+                        'text-green-600 dark:text-green-400' : 
+                        'text-yellow-600 dark:text-yellow-400'
+                    }`}>
+                      {analysisContext.richContextUsed ? 
+                        '🟢 High (All defect titles)' : 
+                        '🟡 Standard (Statistical only)'
+                      }
+                    </span>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
@@ -571,7 +805,7 @@ ${report.response}`
                   Generating Intelligence Report...
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Processing {timeframe === 'all' ? 'comprehensive system baseline' : 'tactical intelligence'} analysis
+                  Progressive analysis with incremental results (7 phases)
                 </p>
               </div>
             </div>
@@ -583,9 +817,7 @@ ${report.response}`
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Analysis Progress</span>
                 <span className="text-sm text-gray-500 dark:text-gray-400">Processing...</span>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '65%' }}></div>
-              </div>
+              <ProgressBar progress={analysisProgress} phase={currentPhase} />
             </div>
             
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
@@ -662,49 +894,47 @@ ${report.response}`
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Brain className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <Shield className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white">
-                    {timeframe === 'all' ? 
-                      'System Quality Baseline Intelligence Report' : 
-                      'Strategic Quality Intelligence Analysis'
-                    }
-                  </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Generated using Business Risk Coverage (BRC) methodology + AI-powered insights
-                  </p>
-                </div>
+                <Brain className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <Shield className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
-              
-              {/* Save Report Controls */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={reportTitle}
-                  onChange={(e) => setReportTitle(e.target.value)}
-                  placeholder="Report title (optional)"
-                  className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 dark:text-white w-48"
-                />
-                <button
-                  onClick={saveReport}
-                  className="flex items-center gap-1 px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                  title="Save report for demos"
-                >
-                  <Save className="h-4 w-4" />
-                  Save Report
-                </button>
-                <button
-                  onClick={() => setShowSavedReports(true)}
-                  className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                  title="View saved reports"
-                >
-                  <History className="h-4 w-4" />
-                  Saved ({savedReports.length})
-                </button>
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white">
+                  {timeframe === 'all' ? 
+                    'System Quality Baseline Intelligence Report' : 
+                    'Strategic Quality Intelligence Analysis'
+                  }
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Generated using Business Risk Coverage (BRC) methodology + AI-powered insights
+                </p>
               </div>
+            </div>
+            
+            {/* Save Report Controls */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={reportTitle}
+                onChange={(e) => setReportTitle(e.target.value)}
+                placeholder="Report title (optional)"
+                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 dark:text-white w-48"
+              />
+              <button
+                onClick={saveReport}
+                className="flex items-center gap-1 px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                title="Save report for demos"
+              >
+                <Save className="h-4 w-4" />
+                Save Report
+              </button>
+              <button
+                onClick={() => setShowSavedReports(true)}
+                className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                title="View saved reports"
+              >
+                <History className="h-4 w-4" />
+                Saved ({savedReports.length})
+              </button>
             </div>
           </div>
           <div className="p-6">
@@ -1200,7 +1430,7 @@ ${report.response}`
                           <FileText className="h-3 w-3" />
                           Load Report
                         </button>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
                           {new Date(report.timestamp).toLocaleDateString()}
                         </span>
                       </div>
@@ -1462,12 +1692,12 @@ ${report.response}`
               <div className="p-6">
                 <DefectPatternsAnalysis 
                   timeframe={
-                    timeframe === '7d' ? 'last_30_days' :
-                    timeframe === '30d' ? 'last_30_days' :
-                    timeframe === '90d' ? 'last_90_days' :
-                    timeframe === '1y' ? 'last_year' :
+                    timeframe === '7d' ? '30d' :
+                    timeframe === '30d' ? '30d' :
+                    timeframe === '90d' ? '90d' :
+                    timeframe === '1y' ? '1y' :
                     timeframe === 'all' ? 'all' :
-                    'last_90_days'
+                    '90d'
                   } 
                   component={selectedComponent}
                 />

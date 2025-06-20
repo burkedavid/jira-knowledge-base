@@ -2,146 +2,72 @@
 
 A comprehensive AI-powered platform that revolutionizes software testing and requirements analysis by combining **Retrieval-Augmented Generation (RAG)**, **Claude 4 Sonnet**, and **semantic search** to provide intelligent insights from your Jira data, documentation, and historical patterns.
 
-## 🌟 Key Highlights
+## 🌟 Key Features
 
 - **🤖 Claude 4 Sonnet Integration**: Latest AI model via AWS Bedrock for superior analysis
 - **🔍 True RAG Implementation**: Vector embeddings + semantic search + AI analysis
-- **📊 Intelligent Analytics**: AI-powered defect pattern analysis with actionable insights
+- **📊 Progressive Streaming Analytics**: Real-time AI analysis with multi-phase streaming responses
 - **🎯 Smart Test Generation**: Context-aware test cases using historical defect patterns
 - **📈 Predictive Quality**: Risk assessment and quality scoring for user stories
 - **🔄 Seamless Jira Integration**: Automated import with real-time progress tracking
-- **📚 Document Intelligence**: Upload and analyze documents with automatic embedding generation
-- **🔍 Advanced Search**: Persistent search history with localStorage integration
+- **📚 Document Intelligence**: Multi-format upload with automatic embedding generation
+- **🔐 Enterprise Security**: NextAuth with JWT tokens and route protection
 
-## 🚀 Core Features
+## 🚀 Progressive Streaming System
 
-### 🔐 **Authentication & Security System**
-- **NextAuth Integration**: Secure authentication with JWT tokens and session management
-- **Credentials Provider**: Email/password authentication with bcrypt password hashing
-- **Route Protection**: Middleware-based protection for all application routes
-- **User Management**: Built-in user account creation and management system
-- **Session Provider**: React context for authentication state management
-- **User Menu**: Dropdown interface with user info, settings access, and logout
-- **Demo Accounts**: Pre-configured demo accounts for testing and demonstrations
-- **Password Security**: Secure password hashing with bcrypt and salt rounds
-- **JWT Tokens**: Secure token-based authentication with configurable secrets
-- **Protected Routes**: Automatic redirection to login for unauthenticated users
+### **Multi-Phase AI Analysis**
+The platform uses a sophisticated streaming approach to handle large datasets efficiently:
 
-### ⚙️ **RAG Configuration System**
-- **Comprehensive API**: Full CRUD operations for RAG settings via `/api/settings/rag-config`
-- **Search Type Control**: Enable/disable defects, user stories, test cases, documents independently
-- **Performance Optimization**: Configurable result limits (0-10 per type) and search timeouts (15-60s)
-- **Quality Thresholds**: Per-content-type similarity thresholds (0.0-1.0) for result filtering
-- **Content Management**: Smart truncation with configurable length limits and total context size
-- **Relevance Filtering**: Advanced keyword-based filtering with boost terms and overlap analysis
-- **Parallel Processing**: Enable/disable concurrent searches for optimal performance
-- **Real-time Updates**: Configuration changes apply immediately without restarts
-- **Default Optimization**: Performance-tuned defaults (defects + test cases only, high thresholds)
-- **File-based Storage**: JSON configuration storage in `data/rag-config.json`
+**Phase 1: Database Analysis (5s)**
+- Statistics collection and baseline metrics
+- Real-time defect counts and severity distribution
+- Component risk assessment
 
-### 🧪 **AI-Powered Test Case Generation**
-- **RAG-Enhanced**: Uses configurable semantic search to find relevant historical defects and test cases
-- **Context-Aware**: Analyzes similar user stories and their test patterns with tunable parameters
-- **Industry Best Practices**: Incorporates testing methodologies and edge case patterns
-- **Quality Threshold Protection**: Configurable quality score threshold (default: 7/10) prevents test generation for low-quality requirements with warning dialog
-- **Structured Output**: Organized by test types (Positive, Negative, Edge Cases, Security)
-- **Enhanced UI**: Beautiful display with color-coded test categories, priority indicators, and expandable sections
-- **Export Options**: Copy all tests or download as formatted files
-- **Dual Views**: Structured view with parsed test cases and raw AI output view
-- **Configuration-Driven**: All RAG parameters controlled by configuration system
+**Phase 2: Semantic Search (15s)** 
+- Vector search across knowledge base
+- Contextual relationship mapping
+- Historical pattern identification
 
-### 📋 **Requirements Quality Analysis**
-- **RAG-Powered Assessment**: Semantic analysis of requirements quality using historical data
-- **Quality Scoring**: AI-generated scores with detailed improvement recommendations
-- **Pattern Recognition**: Identifies common quality issues from past user stories
-- **Actionable Insights**: Specific suggestions for improving acceptance criteria and clarity
-- **Enhanced Search**: Filter and search user stories with real-time dropdown
-- **Structured Results**: Organized display of strengths, improvements, and risk factors  
+**Phase 3: Context Enrichment (30s)**
+- Detailed entity data retrieval
+- Cross-reference analysis
+- Quality metric calculation
 
-### 📊 **Advanced Defect Pattern Analysis**
-- **AI-Powered Pattern Recognition**: Claude 4 analyzes defects to identify complex patterns
-- **RAG-Enhanced Context**: Uses semantic search to find related defects, user stories, and documents
-- **Comprehensive Insights**: Business impact analysis, prevention strategies, and testing recommendations
-- **Interactive UI**: Expandable pattern cards with detailed information
-- **Confidence Scoring**: AI confidence levels for each identified pattern
-- **Severity Filtering**: Filter patterns by Critical, High, Medium, Low severity
-- **Actionable Recommendations**: Immediate, short-term, and long-term action plans
-- **Component Analysis**: Identify affected components and root causes
-- **Export Capabilities**: Download detailed pattern analysis reports
+**Phase 4: AI Intelligence Generation (60s)**
+- **4A: Executive Overview** - Business impact summary
+- **4B: Pattern Analysis** - Detailed defect patterns with real frequencies
+- **4C: Action Planning** - Immediate, short-term, and long-term recommendations
 
-### 🔍 **Enhanced Knowledge Search**
-- **Semantic Search**: Vector embeddings with AWS Titan Text Embeddings V2
-- **RAG Integration**: Comprehensive context-aware search results
-- **Search History**: Persistent search history with localStorage
-- **Dual Search Modes**: Simple semantic search and advanced RAG analysis
-- **Result Management**: Copy, download, and replay previous searches
-- **Cross-Entity Search**: Find related user stories, defects, test cases, and documents
-- **Confidence Scoring**: Similarity percentages and AI confidence levels
-- **Export Functions**: Download search results and analysis
-
-### 📚 **Document Intelligence System**
-- **Multi-Format Support**: Upload PDF, DOCX, TXT, and Markdown files
-- **Automatic Processing**: Extract text content and generate embeddings
-- **Batch Upload**: Process multiple files simultaneously
-- **Folder Upload**: Upload entire directories with nested structure
-- **Section Extraction**: Intelligent document section parsing
-- **Embedding Generation**: Automatic vector embedding creation for semantic search
-- **Progress Tracking**: Real-time upload and processing status
-- **Storage Management**: File size tracking and metadata storage
-
-### 📈 **Dynamic Dashboard System**
-- **Real-Time Metrics**: Live statistics from your imported data
-- **RAG System Health**: Vector embeddings status and search capabilities
-- **Component Risk Analysis**: Identify high-risk areas based on defect patterns
-- **Recent Activity**: Import jobs with detailed status indicators
-- **Interactive Elements**: Refresh buttons and last updated timestamps
-- **Error Handling**: Graceful error display with retry options
-
-### 🔍 **Intelligent Defect Analytics**
-- **Natural Language Queries**: Ask questions like "What's the worst functionality for defects?"
-- **RAG-Powered Analysis**: Semantic understanding with comprehensive context
-- **Pattern Recognition**: Identifies root causes, component risks, and trending issues
-- **Predictive Insights**: AI-powered recommendations for preventing future defects
-- **Visual Dashboards**: Real-time metrics with component risk assessment
-- **Query Interface**: Interactive query system with example prompts
-- **Historical Analysis**: Trend analysis with visual charts and insights
+### **Real-Time User Experience**
+- **Live Progress Bars**: Visual feedback for each phase
+- **Incremental Results**: Data appears as it's processed
+- **No Timeout Issues**: Compatible with Vercel's serverless limits
+- **Error Recovery**: Graceful handling of phase failures
 
 ## 🛠 Technology Stack
 
 ### **Frontend**
 - **Next.js 14**: React framework with App Router
-- **TypeScript**: Full type safety across the application
-- **Tailwind CSS**: Utility-first styling with dark mode support
-- **shadcn/ui**: Beautiful, accessible component library
-- **Lucide Icons**: Consistent iconography
-- **localStorage Integration**: Persistent user preferences and search history
+- **TypeScript**: Full type safety
+- **Tailwind CSS**: Utility-first styling with dark mode
+- **shadcn/ui**: Accessible component library
 
 ### **Backend & AI**
-- **AWS Bedrock**: Claude 4 Sonnet integration with regional model support
-- **Vector Database**: Custom implementation with cosine similarity search
-- **tRPC**: End-to-end type-safe APIs
-- **Prisma ORM**: Type-safe database operations with PostgreSQL
-- **NextAuth**: Authentication system with JWT tokens and session management
-- **bcrypt**: Secure password hashing with salt rounds
-- **File Processing**: Multi-format document parsing and text extraction
+- **AWS Bedrock**: Claude 4 Sonnet integration
+- **Prisma ORM**: Type-safe PostgreSQL operations
+- **NextAuth**: JWT-based authentication
+- **Vector Database**: Custom cosine similarity search
 
 ### **RAG Infrastructure**
-- **Embeddings**: AWS Titan Text Embeddings V2 (1024-dimensional vectors)
-- **Semantic Search**: Cosine similarity with configurable thresholds
-- **Context Enrichment**: Multi-entity relationship mapping
-- **AI Analysis**: Claude 4 with comprehensive context injection
-- **Document Processing**: Automatic embedding generation for uploaded files
-
-### **Data Processing**
-- **Jira Integration**: REST API with intelligent rate limiting
-- **Document Processing**: PDF, DOCX, TXT, MD parsing with section extraction
-- **Batch Processing**: Resumable imports with progress tracking
-- **Real-time Updates**: Server-Sent Events for live progress
-- **File Upload**: Multi-file and folder upload with progress tracking
+- **Embeddings**: AWS Titan Text Embeddings V2 (1024-dimensional)
+- **Semantic Search**: Configurable similarity thresholds
+- **Context Injection**: Multi-entity relationship mapping
+- **Progressive Loading**: Streaming AI responses
 
 ## 📋 Prerequisites
 
 - **Node.js 18+** with npm/yarn
+- **PostgreSQL Database** (Neon, Supabase, or self-hosted)
 - **AWS Account** with Bedrock access (Claude 4 Sonnet enabled)
 - **Jira Instance** (optional, for data import)
 
@@ -157,10 +83,10 @@ npm install
 
 ### 2. **Environment Configuration**
 
-Create `.env` file with your configuration:
+Create `.env` file:
 
 ```env
-# Database (PostgreSQL)
+# Database (Required)
 DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require"
 
 # AWS Bedrock (Required for AI features)
@@ -168,27 +94,25 @@ AWS_ACCESS_KEY_ID=your-aws-access-key
 AWS_SECRET_ACCESS_KEY=your-aws-secret-key
 AWS_REGION=us-east-1
 
+# Authentication (Required)
+NEXTAUTH_SECRET=your-nextauth-secret
+NEXTAUTH_URL=http://localhost:3000
+
 # Jira Integration (Optional)
 JIRA_BASE_URL=https://your-company.atlassian.net
 JIRA_EMAIL=your-email@company.com
 JIRA_API_TOKEN=your-jira-api-token
 JIRA_PROJECT_KEY=PROJ
-
-# NextAuth (Required for authentication)
-NEXTAUTH_SECRET=your-nextauth-secret
-NEXTAUTH_URL=http://localhost:3000
 ```
 
 ### 3. **Database Setup**
 
 ```bash
-# Generate Prisma client
+# Generate Prisma client and deploy schema
 npm run db:generate
-
-# Deploy database migrations
 npm run db:migrate
 
-# Setup authentication users (demo accounts)
+# Setup demo accounts
 npm run auth:setup
 ```
 
@@ -198,91 +122,88 @@ npm run auth:setup
 npm run dev
 ```
 
-Visit **http://localhost:3000** to start using the platform.
-
-### 5. **Authentication Setup**
-
-The platform includes secure authentication with demo accounts:
-
-**Demo Accounts:**
+Visit **http://localhost:3000** and login with demo accounts:
 - **Admin**: `demo.admin@ragplatform.ai` / `DemoRAG2025!`
 - **User**: `demo.user@ragplatform.ai` / `DemoRAG2025!`
 
-**User Management Commands:**
-```bash
-# Create/reset demo accounts
-npm run auth:setup
+## 🔧 Core Capabilities
 
-# Reset all authentication users
-npm run auth:reset
-```
+### **1. AI-Powered Defect Pattern Analysis**
+- **Progressive Analysis**: Multi-phase streaming for large datasets
+- **Pattern Recognition**: AI identifies complex defect patterns with real frequencies
+- **Business Impact**: Clear cost analysis and prevention strategies
+- **Interactive UI**: Expandable pattern cards with detailed information
+- **Export Capabilities**: Download comprehensive analysis reports
 
-## 🔧 AWS Bedrock Setup
+### **2. AI Defect Root Cause Analysis**
+- **RAG-Enhanced Analysis**: Uses semantic search across user stories, documentation, and similar defects
+- **Claude 4 Integration**: Advanced AI analysis with comprehensive context
+- **Server-Side Search**: Real-time filtering across title, description, components, and root causes
+- **Analysis History**: Persistent storage of up to 50 analyses with replay functionality
+- **Interactive UI**: Modern card-based layout with enhanced filtering and statistics
 
-### **Model Access Requirements**
-1. **AWS Account** with Bedrock service access
-2. **Model Access**: Request access to Claude 4 Sonnet in AWS Console
-3. **Regional Model ID**: Uses `us.anthropic.claude-sonnet-4-20250514-v1:0`
-4. **IAM Permissions**: Bedrock InvokeModel permissions
+### **3. RAG-Enhanced Test Case Generation**
+- **Context-Aware**: Uses semantic search to find relevant historical patterns
+- **Quality Protection**: Configurable threshold (default: 7/10) prevents generation for low-quality requirements
+- **Configurable Counts**: 1-10 test cases per type (positive, negative, edge)
+- **Structured Output**: Organized by test types with color coding and priority indicators
+- **Export Options**: Copy all tests or download as formatted files
 
-### **Supported Models**
-- **Primary**: Claude 4 Sonnet (latest, most capable)
-- **Fallback**: Claude 3.5 Sonnet (if Claude 4 unavailable)
-- **Embeddings**: AWS Titan Text Embeddings V2
+### **4. Requirements Quality Analysis**
+- **Individual Analysis**: INVEST framework-based scoring with detailed recommendations
+- **Batch Analysis**: Process multiple user stories simultaneously with progress tracking
+- **RAG-Powered Assessment**: Semantic analysis using historical data and documentation
+- **Quality Scoring**: AI-generated scores with improvement recommendations
+- **Job Management**: Create, monitor, and manage batch analysis jobs
 
-### **Cost Optimization**
-- **Embeddings**: ~$0.0001 per 1K tokens (very affordable)
-- **Claude 4**: Pay-per-use, optimized prompts for efficiency
-- **Caching**: Vector embeddings cached in database
+### **5. AI Audit & Cost Tracking**
+- **Usage Monitoring**: Track all AI requests with token counts and costs (USD/GBP)
+- **Performance Analytics**: Success rates, duration tracking, and error monitoring
+- **User Analytics**: Per-user usage tracking and filtering
+- **Cost Management**: Real-time cost tracking with detailed breakdowns by prompt type
+- **Data Export**: Clear audit logs and statistics for compliance
 
-## 🚀 Production Deployment (Vercel + PostgreSQL)
+### **6. AI Prompts Library**
+- **Comprehensive Collection**: All AI prompts used across the platform
+- **Interactive Testing**: Test prompts directly with real-time responses
+- **Documentation**: Detailed descriptions, parameters, and usage examples
+- **Model Information**: Claude 4 Sonnet integration details and token limits
+- **Copy Functionality**: Easy copying of prompts for external use
 
-### **Prerequisites**
-- **Vercel Account**: For hosting the Next.js application
-- **PostgreSQL Database**: Neon, Supabase, or any PostgreSQL provider
-- **AWS Account**: For Bedrock AI services
+### **7. Document Intelligence System**
+- **Multi-Format Support**: PDF, DOCX, TXT, Markdown
+- **Automatic Processing**: Text extraction and embedding generation
+- **Batch Upload**: Process multiple files simultaneously
+- **Section Extraction**: Intelligent document parsing
 
-### **Step 1: PostgreSQL Database Setup**
-1. Create a PostgreSQL database (e.g., [Neon](https://neon.tech), [Supabase](https://supabase.com), or self-hosted)
-2. Copy your connection string (format: `postgresql://username:password@host:port/database?sslmode=require`)
+### **8. Enhanced Knowledge Search**
+- **Semantic Search**: Vector embeddings with AWS Titan
+- **Search History**: Persistent history with localStorage
+- **Dual Modes**: Simple semantic and advanced RAG analysis
+- **Cross-Entity Discovery**: Find relationships across all content types
 
-### **Step 2: Vercel Deployment**
-1. **Import from GitHub**: Connect your repository to Vercel
-2. **Framework Preset**: Select "Next.js"
-3. **Environment Variables**: Add these in Vercel project settings:
-   ```
-   DATABASE_URL=postgresql://your-neon-connection-string
-   AWS_ACCESS_KEY_ID=your-aws-access-key
-   AWS_SECRET_ACCESS_KEY=your-aws-secret-key
-   AWS_REGION=us-east-1
-   NEXTAUTH_SECRET=your-generated-secret-key
-   NEXTAUTH_URL=https://your-vercel-domain.vercel.app
-   JIRA_BASE_URL=https://your-company.atlassian.net
-   JIRA_EMAIL=your-email@company.com
-   JIRA_API_TOKEN=your-jira-token
-   JIRA_PROJECT_KEY=YOUR_PROJECT
-   ```
+### **9. Comprehensive API Documentation**
+- **Interactive Documentation**: Complete API reference with examples
+- **Real-Time Testing**: Test endpoints directly from the documentation
+- **Authentication Examples**: JWT token usage and session management
+- **Response Schemas**: Detailed request/response formats for all endpoints
+- **Code Examples**: Ready-to-use code snippets for integration
 
-### **Step 3: Database Migration**
-After deployment, initialize your production database:
-```bash
-# Generate Prisma client for PostgreSQL
-npx prisma generate
+### **10. Comprehensive RAG Configuration**
+- **Search Type Control**: Enable/disable defects, user stories, test cases, documents
+- **Performance Optimization**: Configurable result limits and timeouts
+- **Quality Thresholds**: Per-content-type similarity thresholds (0.0-1.0)
+- **Real-time Updates**: Configuration changes apply immediately
 
-# Deploy database schema
-npx prisma migrate deploy
+## 🚀 Production Deployment
 
-# Seed with demo accounts (required for initial login)
-npm run auth:setup
-```
+### **Vercel + PostgreSQL Setup**
 
-### **Step 4: Verification**
-1. **Visit your Vercel URL**: Confirm the application loads
-2. **Test Authentication**: Login with demo accounts
-3. **Check Database**: Verify connection in application logs
-4. **Test AI Features**: Ensure AWS Bedrock integration works
+1. **Database**: Create PostgreSQL instance (Neon, Supabase, etc.)
+2. **Vercel**: Import repository and configure environment variables
+3. **Migration**: Run `npx prisma migrate deploy` and `npm run auth:setup`
 
-### **Environment Variables Reference**
+### **Environment Variables**
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `DATABASE_URL` | PostgreSQL connection string | ✅ |
@@ -291,628 +212,219 @@ npm run auth:setup
 | `AWS_REGION` | AWS region (us-east-1) | ✅ |
 | `NEXTAUTH_SECRET` | NextAuth secret key | ✅ |
 | `NEXTAUTH_URL` | Your production URL | ✅ |
-| `JIRA_BASE_URL` | Jira instance URL | ❌ |
-| `JIRA_EMAIL` | Jira user email | ❌ |
-| `JIRA_API_TOKEN` | Jira API token | ❌ |
-| `JIRA_PROJECT_KEY` | Jira project key | ❌ |
+| `JIRA_*` | Jira integration settings | ❌ |
 
-## 📊 Complete Import Workflow
+## 📊 Import & Processing Workflow
 
-### **What Happens During Jira Import**
+### **Jira Data Import**
+1. **Data Extraction**: Fetch user stories, defects, epics from Jira API
+2. **Content Processing**: Extract text and normalize fields
+3. **Embedding Generation**: Create 1024-dimensional vectors via AWS Titan
+4. **Pattern Analysis**: Identify defect patterns and component risks
+5. **RAG Activation**: Enable semantic search and AI analysis
 
-#### **Phase 1: Data Extraction**
-```
-🔄 Connecting to Jira API
-📥 Fetching user stories, defects, epics
-📊 Processing custom fields and relationships
-✅ Storing raw data in database
-```
+### **Document Upload**
+1. **File Processing**: Support for PDF, DOCX, TXT, Markdown
+2. **Content Analysis**: Text extraction and metadata processing
+3. **Embedding Generation**: Automatic vector creation for search
+4. **Integration**: RAG system ready for cross-document search
 
-#### **Phase 2: Content Processing**
-```
-📝 Extracting text content for embeddings
-🔍 Combining title + description + acceptance criteria
-🏷️ Normalizing components, priorities, statuses
-📈 Calculating initial quality metrics
-```
-
-#### **Phase 3: Vector Embedding Generation**
-```
-🧠 Generating embeddings via AWS Titan
-📐 Creating 1024-dimensional vectors
-💾 Storing embeddings in vector database
-🔗 Linking embeddings to source entities
-```
-
-#### **Phase 4: Pattern Analysis**
-```
-🔍 Analyzing defect patterns and clustering
-📊 Identifying component risk factors
-🎯 Calculating quality scores for user stories
-📈 Building predictive models
-```
-
-#### **Phase 5: RAG System Activation**
-```
-✅ Semantic search capabilities enabled
-🤖 AI analysis with full context available
-📊 Dashboard metrics populated
-🔍 Cross-entity relationships established
-```
-
-### **Document Upload Workflow**
-
-#### **Phase 1: File Processing**
-```
-📁 Multi-file and folder upload support
-📄 Format detection (PDF, DOCX, TXT, MD)
-🔍 Text extraction and content parsing
-📊 Section identification and structuring
-```
-
-#### **Phase 2: Content Analysis**
-```
-📝 Content preprocessing and cleaning
-🏷️ Metadata extraction (title, size, type)
-📈 Quality assessment and validation
-🔗 Relationship identification with existing data
-```
-
-#### **Phase 3: Embedding Generation**
-```
-🧠 Automatic embedding generation
-📐 Vector creation for semantic search
-💾 Database storage with indexing
-✅ RAG system integration
-```
-
-### **Import Progress Tracking**
-
-The platform provides real-time progress tracking:
-
-- **Live Progress Bars**: Visual progress for each import phase
+### **Progress Tracking**
+- **Live Progress Bars**: Visual feedback for each phase
 - **Detailed Logging**: Step-by-step status updates
-- **Error Handling**: Continues processing with error reporting
-- **Statistics**: Items processed, success rates, timing
-- **Resumable**: Failed imports can be retried
-- **Embedding Counts**: Real-time embedding generation tracking
+- **Error Handling**: Graceful error reporting and recovery
+- **Statistics**: Real-time processing metrics
 
-### **Post-Import Capabilities**
+## 🎯 Usage Examples
 
-Once import completes, you can:
-
-1. **🔍 Ask Natural Questions**: "What are the worst components for defects?"
-2. **🧪 Generate Smart Tests**: Context-aware test cases with historical patterns
-3. **📋 Analyze Requirements**: AI-powered quality assessment
-4. **📊 Explore Dashboards**: Real-time metrics and insights
-5. **🔍 Semantic Search**: Find related content across all data
-6. **📚 Search Documents**: Find relevant documentation and guides
-7. **📈 Pattern Analysis**: AI-powered defect pattern recognition
-
-## 🎯 Usage Guide
-
-### **1. Authentication & Access**
-- **Secure Login**: Email/password authentication with modern UI
-- **Session Management**: Persistent login sessions with JWT tokens
-- **User Menu**: Access user info, settings, and logout from any page
-- **Route Protection**: All application routes protected by authentication
-- **Demo Accounts**: Pre-configured accounts for testing and demonstrations
-
-### **2. Dashboard Overview**
-- **System Health**: RAG capabilities and data status
-- **Key Metrics**: User stories, defects, test cases, embeddings
-- **Recent Activity**: Import jobs and system updates
-- **Quick Actions**: Access to main features
-- **Real-time Updates**: Live data refresh with timestamps
-
-### **3. Settings Configuration**
-```
-1. Navigate to "Settings" from the main menu
-2. Configure "Product Context" for industry-specific AI analysis
-3. Set "Quality Threshold" for test case generation (1-10 scale)
-4. Configure "RAG Settings" for semantic search and AI analysis
-5. Configure user types, key features, and security standards
-6. Save settings to apply across the platform
-```
-
-**Quality Threshold Settings**:
-- **Default Value**: 7/10 (recommended for most teams)
-- **Range**: 1-10 (1 = allow all, 10 = perfect requirements only)
-- **Behavior**: Shows warning dialog when generating tests for low-quality user stories
-- **Override**: Users can choose to "Generate Anyway" after seeing the warning
-
-**RAG Configuration Settings**:
-- **Search Types**: Enable/disable defects, user stories, test cases, documents
-- **Result Limits**: Maximum items per search type (0-10 range)
-- **Similarity Thresholds**: Quality control for semantic search (0.0-1.0)
-- **Content Limits**: Control context window size and content length
-- **Relevance Filtering**: Keyword-based filtering with boost terms
-- **Performance Settings**: Timeouts, parallel search, caching options
-
-### **4. Document Upload & Management**
-```
-1. Navigate to "Import Data"
-2. Choose "Upload Documents" tab
-3. Select files or drag & drop
-4. Enable "Generate Embeddings" for RAG
-5. Monitor upload progress
-6. View processing statistics
-7. Access documents via semantic search
-```
-
-**Features**:
-- **Multi-format Support**: PDF, DOCX, TXT, Markdown
-- **Batch Processing**: Multiple files simultaneously
-- **Automatic Embeddings**: RAG-ready vector generation
-- **Progress Tracking**: Real-time upload and processing status
-
-### **5. Enhanced Test Case Generation**
-```
-1. Navigate to "Generate Test Cases"
-2. Select a user story from the dropdown
-3. Configure test case counts per type (1-10 range)
-4. Review story details, quality score, and context
-5. Click "Generate Test Cases"
-6. Handle quality threshold warnings if score is below configured threshold
-7. View structured, color-coded results
-8. Switch between Formatted and Raw views
-9. Copy all tests or download as file
-```
-
-**Enhanced Features**:
-- **Configurable Test Counts**: Set custom counts for positive, negative, and edge test cases (1-10 per type)
-- **RAG-Powered Context**: Uses configurable semantic search to find relevant historical defects and test cases
-- **Quality Protection**: Configurable quality threshold (default: 7/10) with warning dialog for low-quality requirements
-- **Quality Score Display**: Shows existing quality scores in story selection and preview
-- **Structured Display**: Organized by test type with color coding
-- **Priority Indicators**: Visual priority badges (High, Medium, Low)
-- **Expandable Sections**: Click to expand test details
-- **Export Options**: Copy to clipboard or download as text file
-
-**RAG Configuration Impact**:
-- **Search Types**: Controls which content types (defects, test cases, user stories, documents) are used for context
-- **Result Limits**: Determines how many similar items are included in AI context
-- **Similarity Thresholds**: Ensures only high-quality, relevant content is used
-- **Performance Settings**: Optimizes search speed with configurable timeouts and parallel processing
-
-### **6. Advanced Requirements Analysis**
-```
-1. Go to "Analyze Requirements"
-2. Search and filter user stories
-3. Select story from enhanced dropdown
-4. Review current quality metrics
-5. Click "Analyze Requirements"
-6. Get structured quality assessment
-7. View strengths, improvements, and risk factors
-```
-
-**Enhanced Features**:
-- **Smart Search**: Real-time filtering of user stories
-- **Story Preview**: Detailed story information before analysis
-- **Structured Results**: Organized display of analysis results
-- **RAG Context**: Historical quality insights from similar stories
-
-### **7. AI-Powered Defect Pattern Analysis**
+### **Defect Pattern Analysis**
 ```
 1. Visit "Analytics" → "Defects"
-2. View AI-Powered Defect Pattern Analysis section
-3. Filter by severity (Critical, High, Medium, Low)
-4. Click on patterns to expand details
-5. Review business impact and prevention strategies
-6. Download comprehensive analysis reports
-7. Implement recommended actions
+2. Select timeframe (30d, 90d, 1y, all)
+3. Watch progressive analysis unfold in real-time
+4. Review 10 critical patterns with business impact
+5. Download comprehensive reports
 ```
 
-**Advanced Features**:
-- **Pattern Recognition**: AI identifies complex defect patterns
-- **Business Impact**: Clear impact assessment for each pattern
-- **Prevention Strategies**: Specific recommendations to prevent issues
-- **Testing Recommendations**: Targeted testing approaches
-- **Confidence Scoring**: AI confidence levels for each pattern
-- **Action Plans**: Immediate, short-term, and long-term recommendations
-
-### **8. AI-Powered Defect Search & Root Cause Analysis**
+### **AI Defect Root Cause Analysis**
 ```
 1. Visit "Analytics" → "Defects" → "Search"
-2. Use comprehensive search across all defects with server-side filtering
-3. Apply filters: severity, priority, component, status, assignee, date ranges
-4. Select defects from the enhanced list view
-5. Click "Analyze Root Cause with AI" for detailed RAG-enhanced analysis
-6. Review AI analysis including requirement gaps, related user stories, and prevention recommendations
-7. Access analysis history with persistent localStorage storage
-8. Export analysis results and maintain search history
+2. Use server-side filtering (severity, component, date range)
+3. Select a defect from the enhanced list view
+4. Click "Analyze Root Cause with AI"
+5. Review RAG-enhanced analysis with prevention recommendations
+6. Access analysis history and replay previous analyses
 ```
 
-**Advanced Features**:
-- **Server-Side Search**: Real-time search across title, description, Jira keys, components, and root causes
-- **Comprehensive Filtering**: Multiple filter types with debounced search (500ms) for optimal performance
-- **Enhanced UI**: Modern card-based layout with improved space utilization and readability
-- **AI Root Cause Analysis**: RAG-enhanced analysis using Claude 4 with historical context
-- **Analysis History**: Persistent storage of up to 50 analyses with replay functionality
-- **Statistics Dashboard**: Real-time metrics showing total defects, matching results, and AI analysis count
-- **Export Capabilities**: Download analysis results and search history
-
-### **9. Enhanced Knowledge Search**
+### **Test Case Generation**
 ```
-1. Use the search functionality
-2. Enter natural language queries
-3. Choose between Semantic and RAG modes
-4. View ranked results with similarity scores
-5. Access search history panel
-6. Replay previous searches
-7. Download search results and analysis
+1. Navigate to "Generate Test Cases"
+2. Select user story and configure test counts (1-10 per type)
+3. Review quality score and RAG context
+4. Generate structured, color-coded test cases
+5. Export as text file or copy to clipboard
 ```
 
-**Advanced Features**:
-- **Search History**: Persistent history with localStorage
-- **Dual Modes**: Simple semantic search and comprehensive RAG analysis
-- **Result Management**: Copy, download, and replay searches
-- **Confidence Scoring**: AI confidence and similarity percentages
-
-### **10. Interactive Defect Analytics**
+### **Batch Requirements Analysis**
 ```
-1. Visit "Analytics" → "Defects"
-2. Use the "Ask About Defect Patterns" interface
-3. Enter natural language questions or use examples
-4. Get AI-powered insights with data
-5. Explore component risk analysis
-6. Review actionable recommendations
+1. Visit "Analyze Requirements" → "Batch"
+2. Configure filters (priority, status, component, date range)
+3. Set batch name and start analysis
+4. Monitor real-time progress with live updates
+5. Review individual results with INVEST scoring
+6. Export batch results and analysis reports
 ```
 
-**Query Examples**:
-- "What's the worst functionality this year for defects?"
-- "Which components have the most critical defects?"
-- "What are the most common root causes?"
-- "Show me authentication-related issues"
+### **AI Audit & Cost Tracking**
+```
+1. Visit "AI Audit" page
+2. View real-time cost tracking (USD/GBP)
+3. Filter by user, prompt type, success status
+4. Monitor token usage and performance metrics
+5. Export audit logs for compliance
+```
 
-## 🔍 RAG Implementation Details
+### **Document Search**
+```
+1. Upload documents via "Import Data"
+2. Use semantic search across all content
+3. View similarity scores and confidence levels
+4. Access search history and replay queries
+```
+
+## 🔍 Technical Implementation
 
 ### **Vector Embeddings**
 - **Model**: AWS Titan Text Embeddings V2
-- **Dimensions**: 1024 (optimal balance of performance/accuracy)
-- **Content**: Title + Description + Acceptance Criteria + Document Content
-- **Storage**: JSON arrays in PostgreSQL with efficient indexing
-- **Generation**: Automatic for all uploaded documents and imported data
-
-### **Semantic Search**
-- **Algorithm**: Cosine similarity with configurable thresholds
-- **Performance**: Sub-second search across thousands of items
-- **Ranking**: Similarity scores from 0-100%
-- **Filtering**: By content type, date ranges, components
-- **History**: Persistent search history with replay functionality
+- **Dimensions**: 1024 (optimal performance/accuracy balance)
+- **Storage**: JSON arrays in PostgreSQL with indexing
+- **Content**: Title + Description + Acceptance Criteria
 
 ### **AI Context Injection**
-- **Comprehensive Context**: Database statistics + semantic results + entity details
+- **Comprehensive Context**: Database stats + semantic results + entity details
 - **Smart Prompting**: Role-based prompts for different analysis types
-- **Fallback Logic**: Rule-based analysis if AI fails
 - **Response Parsing**: Structured markdown and JSON output
-- **Pattern Analysis**: Advanced defect pattern recognition with business impact
+- **Streaming**: Progressive multi-phase response generation
 
-### **Cross-Entity Relationships**
-- **User Stories** ↔ **Test Cases**: Generated and related tests
-- **Defects** ↔ **Components**: Risk analysis and patterns
-- **Documents** ↔ **Requirements**: Documentation coverage and search
-- **Embeddings** ↔ **All Entities**: Semantic relationships across all content
-- **Patterns** ↔ **Defects**: AI-identified patterns with confidence scoring
-
-## 📊 Database Schema
-
-### **Core Entities**
+### **Database Schema**
 ```sql
-User          -- Authentication users with secure password hashing
-UserStory     -- Jira user stories with quality scores
-Defect        -- Bug reports with pattern analysis  
+User          -- Authentication with secure password hashing
+UserStory     -- Jira stories with quality scores
+Defect        -- Bug reports with pattern analysis
 TestCase      -- Generated and manual test cases
-Document      -- User guides and documentation with sections
+Document      -- Documentation with section parsing
 Embedding     -- Vector embeddings for semantic search
 ```
-
-### **Analytics & Intelligence**
-```sql
-QualityScore     -- AI-generated quality assessments
-DefectPattern    -- AI-identified patterns with business impact
-DefectCluster    -- Grouped defects by similarity
-ChangeImpact     -- Documentation change tracking
-ImportJob        -- Batch processing job tracking
-DocumentSection  -- Document sections for granular search
-```
-
-### **Enhanced Relationships**
-- **Polymorphic Embeddings**: One embedding model for all content types
-- **Quality Scoring**: Linked to user stories with historical tracking
-- **Pattern Analysis**: AI-powered defect patterns with confidence scoring
-- **Test Generation**: Test cases linked to source user stories with RAG context
-- **Document Sections**: Granular document processing for better search
-- **PostgreSQL Features**: Advanced indexing, JSON support, and scalable storage
 
 ## 🛠 Development Tools
 
 ### **Database Management**
 ```bash
-# Prisma Studio (Visual database editor for PostgreSQL)
+# Visual database editor
 npx prisma studio --port 5555
 
-# Database migrations
+# Database operations
 npx prisma migrate deploy
-
-# Generate Prisma client
 npx prisma generate
-
-# Setup authentication users
 npm run auth:setup
 ```
 
-### **Testing & Debugging**
+### **API Testing**
 ```bash
-# Test embeddings functionality
-curl http://localhost:3000/api/embeddings/generate
-
-# Test Claude 4 integration
+# Test AI integration
 curl http://localhost:3000/api/test/claude-simple
 
-# Check system health
-curl http://localhost:3000/api/health
+# Test embeddings
+curl http://localhost:3000/api/embeddings/generate
 
-# Test authentication endpoints
-curl -X POST http://localhost:3000/api/auth/signin
-
-# Test defect pattern analysis
-curl -X POST http://localhost:3000/api/analyze/defect-patterns-ai
-
-# Get quality threshold setting
-curl http://localhost:3000/api/settings/quality-threshold
-
-# Get product context settings
-curl http://localhost:3000/api/settings/product-context
-
-# Get RAG configuration settings
-curl http://localhost:3000/api/settings/rag-config
-
-# Update RAG configuration
-curl -X PUT http://localhost:3000/api/settings/rag-config \
+# Test progressive analysis
+curl -X POST http://localhost:3000/api/analytics/defects/query \
   -H "Content-Type: application/json" \
-  -d '{"searchTypes":{"defects":true,"testCases":true}}'
+  -d '{"query":"analyze patterns","timeframe":"1y","phase":"init"}'
 
-# Test RAG-enhanced test case generation with custom counts
-curl -X POST http://localhost:3000/api/generate/test-cases \
-  -H "Content-Type: application/json" \
-  -d '{"userStoryId":"your-story-id","testTypeCounts":{"positive":2,"negative":1,"edge":1}}'
-
-# Test defect search with server-side filtering
-curl "http://localhost:3000/api/defects?search=authentication&severity=High&limit=100"
-
-# Test AI defect root cause analysis
+# Test defect root cause analysis
 curl -X POST http://localhost:3000/api/analyze/defect-root-cause \
   -H "Content-Type: application/json" \
   -d '{"defect":{"id":"defect-123","title":"Login fails","component":"Authentication"}}'
+
+# Test batch requirements analysis
+curl -X POST http://localhost:3000/api/analyze/requirements-batch \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Quality Check","filters":{"priority":["High"]}}'
+
+# Test AI audit logs
+curl http://localhost:3000/api/ai-audit/logs?page=1&limit=20
+
+# Test RAG configuration
+curl http://localhost:3000/api/settings/rag-config
 ```
 
-### **Monitoring**
-- **Embedding Statistics**: `/api/embeddings/stats`
-- **Import Job Status**: Real-time progress tracking
-- **Error Logging**: Comprehensive error reporting
-- **Performance Metrics**: Response times and success rates
-- **Document Processing**: Upload and embedding generation tracking
+## ⚙️ Configuration Options
 
-## 🔧 Configuration Options
-
-### **RAG Configuration System**
-
-The platform includes a comprehensive RAG configuration system that allows fine-tuning of semantic search and AI analysis parameters. Configuration is managed via API endpoints and can be controlled through the settings interface.
-
-#### **Configuration API Endpoints**
+### **RAG Settings API**
 ```bash
-# Get current RAG configuration
+# Get configuration
 GET /api/settings/rag-config
 
-# Update RAG configuration
+# Update settings
 PUT /api/settings/rag-config
 ```
 
-#### **Search Type Configuration**
-Control which content types are included in semantic searches:
-- **🐛 Defects**: Enable/disable defect search (default: enabled)
-- **📖 User Stories**: Enable/disable user story search (default: disabled for performance)
-- **✅ Test Cases**: Enable/disable test case search (default: enabled)
-- **📄 Documents**: Enable/disable document search (default: disabled for performance)
+### **Key Configuration Options**
+- **Search Types**: Enable/disable content types (defects, stories, tests, docs)
+- **Result Limits**: 0-10 items per type (default: 2 each)
+- **Similarity Thresholds**: 0.0-1.0 quality control (default: 0.8 for defects)
+- **Performance**: Timeouts (15-60s), parallel search, caching
 
-#### **Result Limits & Performance**
-- **Max Results per Type**: 0-10 items (defaults: 2 each for enabled types)
-- **Search Timeout**: 15-60 seconds (default: 45 seconds)
-- **Parallel Search**: Enable/disable concurrent searches (default: enabled)
-- **Result Caching**: Enable/disable result caching (default: disabled)
+### **Quality Thresholds**
+- **Test Generation**: 1-10 scale (default: 7) with warning dialogs
+- **Search Quality**: Per-content-type similarity thresholds
+- **AI Confidence**: Pattern recognition confidence scoring
 
-#### **Similarity Thresholds**
-Quality control for semantic search results (0.0-1.0 range):
-- **Defects**: 0.8 (high quality, relevant defects only)
-- **User Stories**: 0.75 (moderate threshold for broader context)
-- **Test Cases**: 0.8 (high quality, similar test patterns)
-- **Documents**: 0.85 (very high quality, precise documentation)
-
-#### **Content Management**
-- **Max Item Length**: 50-500 characters per item (default: 200)
-- **Max Total RAG Length**: 200-2000 characters (default: 800)
-- **Smart Truncation**: Intelligent content trimming (default: enabled)
-
-#### **Relevance Filtering**
-Advanced keyword-based filtering to improve result quality:
-- **Enable Filtering**: Toggle relevance filtering (default: enabled)
-- **Min Keyword Matches**: Minimum keyword overlap (default: 1)
-- **Min Story Keyword Matches**: Minimum for user stories (default: 2)
-- **Keyword Boost Terms**: 16 predefined terms for relevance boosting
-
-#### **Performance-Optimized Defaults**
-The system ships with performance-optimized defaults:
-```json
-{
-  "searchTypes": {
-    "defects": true,
-    "userStories": false,
-    "testCases": true,
-    "documents": false
-  },
-  "maxResults": {
-    "defects": 2,
-    "userStories": 2,
-    "testCases": 2,
-    "documents": 2
-  },
-  "similarityThresholds": {
-    "defects": 0.8,
-    "userStories": 0.75,
-    "testCases": 0.8,
-    "documents": 0.85
-  },
-  "performance": {
-    "searchTimeout": 45,
-    "enableParallelSearch": true,
-    "cacheResults": false
-  }
-}
-```
-
-### **Legacy RAG Settings**
-- **Similarity Threshold**: 0.6-0.8 (now configurable per content type)
-- **Result Limits**: 5-20 items (now configurable per search type)
-- **Content Types**: Filter by user_story, defect, test_case, document
-- **Context Window**: Optimized for Claude 4's context limits
-- **Search History**: Configurable history size (default: 20 searches)
-
-### **AI Parameters**
-- **Temperature**: 0.2 (pattern analysis) to 1.0 (creative generation)
-- **Max Tokens**: 2000-4000 (based on analysis complexity)
-- **Model Selection**: Automatic fallback from Claude 4 to 3.5
-- **Prompt Engineering**: Role-based, context-aware prompts
-- **Confidence Scoring**: AI confidence levels for pattern recognition
-- **Quality Threshold**: 1-10 scale for test case generation protection (default: 7)
-- **RAG Context Integration**: Dynamic context injection based on configuration settings
-
-### **Import Settings**
-- **Batch Size**: 10-50 items (Jira API rate limiting)
-- **Retry Logic**: 3 attempts with exponential backoff
-- **Date Filtering**: Configurable time ranges
-- **Field Mapping**: Custom Jira field configurations
-- **Document Processing**: Automatic embedding generation toggle
-- **File Size Limits**: Configurable upload limits
-
-### **UI Enhancements**
-- **Dark Mode**: Full dark mode support across all components
-- **Responsive Design**: Mobile-friendly layouts
-- **Progress Tracking**: Real-time progress bars and status updates
-- **Error Handling**: Graceful error display with retry options
-- **Export Functions**: Download capabilities for all analysis results
-
-## 🚀 Advanced Features
+## 📈 Advanced Features
 
 ### **Predictive Analytics**
-- **Component Risk Scoring**: Based on historical defect patterns
-- **Quality Trend Analysis**: Track improvement over time
-- **Defect Prediction**: Assess risk for new user stories
-- **Pattern Recognition**: AI-powered clustering of similar issues
-- **Business Impact Assessment**: Clear impact analysis for each pattern
-
-### **Enhanced Search Capabilities**
-- **Multi-Modal Search**: Semantic search across all content types
-- **Search History**: Persistent search history with replay
-- **Context-Aware Results**: RAG-enhanced search with comprehensive context
-- **Export Functions**: Download search results and analysis
-- **Cross-Entity Discovery**: Find relationships between different content types
-
-### **Document Intelligence**
-- **Multi-Format Processing**: PDF, DOCX, TXT, Markdown support
-- **Section Extraction**: Intelligent document parsing
-- **Automatic Embeddings**: RAG-ready vector generation
-- **Batch Processing**: Handle multiple files efficiently
-- **Content Analysis**: Quality assessment and relationship identification
+- **Component Risk Scoring**: Historical defect pattern analysis
+- **Quality Trend Analysis**: Track improvements over time
+- **Defect Prediction**: Risk assessment for new user stories
 
 ### **Integration Capabilities**
-- **Jira Webhooks**: Real-time updates (future enhancement)
-- **API Endpoints**: RESTful APIs for external integrations
+- **RESTful APIs**: External system integration
 - **Export Functions**: CSV, JSON, TXT data export
-- **Reporting**: Automated quality reports with AI insights
+- **Webhook Support**: Real-time updates (future enhancement)
 
 ### **Scalability**
 - **Vector Database**: Efficient similarity search at scale
 - **Caching**: Embedding and analysis result caching
 - **Batch Processing**: Handle large datasets efficiently
 - **Performance Optimization**: Indexed searches and query optimization
-- **Storage Management**: Efficient file and embedding storage
-
-## 📈 Success Metrics
-
-### **Quality Improvements**
-- **Test Coverage**: Increased test case generation efficiency
-- **Defect Reduction**: Proactive identification of risk areas
-- **Requirements Quality**: Improved user story clarity and completeness
-- **Time Savings**: Automated analysis and generation tasks
-- **Pattern Recognition**: AI-identified defect patterns with prevention strategies
-
-### **Platform Adoption**
-- **User Engagement**: Dashboard usage and feature adoption
-- **Data Growth**: Imported content and generated insights
-- **Search Usage**: Semantic search query patterns and history
-- **AI Utilization**: Claude 4 analysis request volumes
-- **Document Processing**: Upload and embedding generation metrics
-
-### **Enhanced Analytics**
-- **Search History**: Track user search patterns and preferences
-- **Pattern Analysis**: Monitor AI-identified defect patterns over time
-- **Document Intelligence**: Measure document processing and search effectiveness
-- **Export Usage**: Track report downloads and data export patterns
 
 ## 🤝 Contributing
 
-### **Development Setup**
 1. Fork the repository
 2. Create feature branch
 3. Follow TypeScript and ESLint standards
 4. Add tests for new functionality
 5. Submit pull request with detailed description
 
-### **Code Standards**
-- **TypeScript**: Strict type checking enabled
-- **ESLint**: Airbnb configuration with custom rules
-- **Prettier**: Consistent code formatting
-- **Prisma**: Type-safe database operations
-- **Component Architecture**: Reusable, accessible components
-
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License - see LICENSE file for details.
 
 ## 🆘 Support
 
 ### **Common Issues**
-- **AWS Bedrock Access**: Ensure Claude 4 model access is enabled
-- **Jira Connection**: Verify API token and permissions
-- **Embedding Generation**: Check AWS credentials and region
-- **Performance**: Monitor batch sizes and rate limiting
-- **Document Upload**: Verify file formats and size limits
-- **Search Issues**: Check embedding generation and vector database
+- **AWS Bedrock**: Ensure Claude 4 model access is enabled
+- **Database**: Verify PostgreSQL connection and migrations
+- **Authentication**: Check NEXTAUTH_SECRET and URL configuration
+- **Performance**: Monitor batch sizes and API rate limiting
 
 ### **Getting Help**
 - **Documentation**: Comprehensive guides in `/docs`
-- **API Reference**: OpenAPI specs available
+- **API Reference**: OpenAPI specifications available
 - **Community**: GitHub Discussions for questions
 - **Issues**: Bug reports and feature requests
 
 ---
 
-**🎯 Ready to revolutionize your testing and requirements process with AI-powered insights!** 
-
-**New in this version:**
-- 🔐 **Complete Authentication System** with NextAuth, JWT tokens, and secure user management
-- 🧠 **AI-Powered Defect Pattern Analysis** with business impact assessment
-- 📚 **Document Intelligence System** with multi-format support
-- 🔍 **Enhanced Search** with persistent history and RAG integration
-- 🎨 **Improved UI/UX** with structured displays and export capabilities
-- 📊 **Advanced Analytics** with confidence scoring and actionable recommendations
-- 👤 **User Menu Integration** with settings access and session management
-- 🛡️ **Route Protection** with middleware-based authentication
-- 🔑 **Demo Accounts** for testing and demonstration purposes
-- ⚙️ **RAG Configuration System** with comprehensive API for tuning semantic search and AI analysis parameters
-- 🔧 **Configurable Test Case Counts** with UI controls for 1-10 test cases per type (positive, negative, edge)
-- 🔍 **AI-Powered Defect Search Page** with server-side filtering, root cause analysis, and enhanced UI
-- 📈 **Server-Side Search Performance** with debounced search, comprehensive filtering, and statistics dashboard
-- 💾 **Analysis History Management** with persistent localStorage storage of up to 50 AI analyses
-- 🎯 **Enhanced Statistics** with real-time metrics and improved data visualization 
+**🎯 Ready to revolutionize your testing and requirements process with AI-powered insights and progressive streaming analytics!**

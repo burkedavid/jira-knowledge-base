@@ -1335,8 +1335,8 @@ const API_ENDPOINTS: APIEndpoint[] = [
   {
     method: 'POST',
     path: '/api/analytics/defects/query',
-    summary: 'RAG-Enhanced Defect Query',
-    description: 'Natural language queries for defect analytics with AI-powered insights using RAG context',
+    summary: 'RAG-Enhanced Defect Query with Progressive Loading',
+    description: 'Natural language queries for defect analytics with AI-powered insights using RAG context. Supports progressive loading with 4-phase processing to avoid timeout issues.',
     requestBody: {
       required: true,
       contentType: 'application/json',
@@ -1345,35 +1345,57 @@ const API_ENDPOINTS: APIEndpoint[] = [
         required: ['query'],
         properties: {
           query: { type: 'string', description: 'Natural language query about defects' },
-          timeframe: { type: 'string', description: 'Time period for analysis', example: '30d' }
+          timeframe: { type: 'string', description: 'Time period for analysis', example: '30d' },
+          phase: { 
+            type: 'string', 
+            enum: ['init', 'semantic', 'enrich', 'analyze'], 
+            description: 'Processing phase for progressive loading (optional - defaults to complete analysis)',
+            example: 'init'
+          },
+          context: {
+            type: 'object',
+            description: 'Context from previous phases (required for enrich and analyze phases)',
+            properties: {
+              statistics: { type: 'object', description: 'Statistics from init phase' },
+              semanticResults: { type: 'array', description: 'Results from semantic phase' },
+              enrichedContext: { type: 'array', description: 'Enriched context from enrich phase' }
+            }
+          }
         }
       },
       example: {
         query: "What are the worst performing components?",
-        timeframe: "90d"
+        timeframe: "90d",
+        phase: "init"
       }
     },
     responses: [
       {
         status: 200,
-        description: 'AI-powered defect analysis',
+        description: 'AI-powered defect analysis with progressive loading support',
         example: {
+          phase: "init",
           query: "What are the worst performing components?",
           timeframe: "90d",
-          analysis: "## Worst Functionality Analysis\n\n**Authentication** is the worst performing component with **45 defects** (32% of all defects)...",
-          ragContext: {
-            semanticResultsCount: 15,
-            relevantDefectsFound: 8,
-            relatedUserStoriesFound: 5,
+          statistics: {
             totalDefects: 142,
-            topComponents: [
-              { component: "Authentication", count: 45 }
+            defectsBySeverity: [
+              { severity: "Critical", _count: { id: 5 } },
+              { severity: "High", _count: { id: 15 } }
+            ],
+            defectsByComponent: [
+              { component: "Authentication", _count: { id: 45 } }
+            ],
+            defectPatterns: [
+              { rootCause: "Input validation", _count: { id: 8 } }
             ]
-          }
+          },
+          nextPhase: "semantic",
+          progress: 25
         }
       }
     ],
-    tags: ['Analytics', 'AI', 'RAG']
+    tags: ['Analytics', 'AI', 'RAG', 'Progressive Loading']
   },
 
   {
@@ -2018,7 +2040,8 @@ const API_TAGS = [
   { name: 'Root Cause', description: 'Root cause analysis and investigation' },
   { name: 'Preprocessing', description: 'Data preprocessing and preparation' },
   { name: 'Statistics', description: 'Statistical analysis and metrics' },
-  { name: 'Management', description: 'System management and administration' }
+  { name: 'Management', description: 'System management and administration' },
+  { name: 'Progressive Loading', description: 'Progressive loading and chunked processing for large operations' }
 ]
 
 export default function APIDocsPage() {
